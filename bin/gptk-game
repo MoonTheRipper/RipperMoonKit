@@ -1,0 +1,182 @@
+#!/bin/zsh
+
+set -e
+SCRIPT_DIR="${0:A:h}"
+COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
+[[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
+source "${COMMON}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  gptk-game create NAME EXE [options] [-- game-args...]
+  gptk-game run NAME [args...]
+  gptk-game list
+
+Options for create:
+  --prefix NAME       Prefix name under GPTK_PREFIX_ROOT. Defaults to NAME.
+  --workdir PATH      Working directory. Defaults to the EXE directory.
+  --init              Initialize the prefix immediately.
+  --winver VERSION    Windows version used with --init. Defaults to win10.
+  --hud               Enable Metal HUD in this launcher.
+  --no-esync          Disable WINEESYNC in this launcher.
+  --dxvk              Prefer user-installed DXVK for D3D9/10/11.
+
+Examples:
+  gptk-game create "Game Name" "$GPTK_EXTERNAL_ROOT/Games/Game/Game.exe" --init
+  gptk-game run "Game Name"
+USAGE
+}
+
+slugify() {
+  local name="$1"
+  local slug
+  slug="$(print -r -- "${name}" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]._- ' '-' | sed -e 's/^-//' -e 's/-$//' -e 's/--*/-/g')"
+  [[ -n "${slug}" ]] || slug="game"
+  print -r -- "${slug}"
+}
+
+quote_zsh() {
+  printf '%q' "$1"
+}
+
+write_launcher() {
+  local game_dir="$1"
+  local name="$2"
+  local prefix="$3"
+  local exe="$4"
+  local workdir="$5"
+  local hud="$6"
+  local esync="$7"
+  local dxvk="$8"
+  shift 8
+  local args=("$@")
+  local script="${game_dir}/launch.zsh"
+  local arg
+
+  {
+    print -r -- "#!/bin/zsh"
+    print -r -- "set -e"
+    print -r -- "export GPTK_PREFIX=$(quote_zsh "${prefix}")"
+    print -r -- "export GPTK_MTL_HUD_ENABLED=$(quote_zsh "${hud}")"
+    print -r -- "export GPTK_WINEESYNC=$(quote_zsh "${esync}")"
+    print -r -- "export GPTK_USE_DXVK=$(quote_zsh "${dxvk}")"
+    print -r -- "game_exe=$(quote_zsh "${exe}")"
+    print -r -- "game_workdir=$(quote_zsh "${workdir}")"
+    print -r -- "default_args=("
+    for arg in "${args[@]}"; do
+      print -r -- "  $(quote_zsh "${arg}")"
+    done
+    print -r -- ")"
+    print -r -- "cd \"\${game_workdir}\""
+    print -r -- "exec \"\${HOME}/bin/gptk-launch\" --prefix \"\${GPTK_PREFIX}\" -- \"\${game_exe}\" \"\${default_args[@]}\" \"\$@\""
+  } > "${script}"
+
+  chmod 755 "${script}"
+  print -r -- "${script}"
+}
+
+cmd="${1:-}"
+case "${cmd}" in
+  -h|--help|"")
+    usage
+    exit 0
+    ;;
+esac
+
+if [[ "${cmd}" != "create" && "${cmd}" != "run" && "${cmd}" != "list" ]]; then
+  cmd="create"
+else
+  shift
+fi
+
+case "${cmd}" in
+  list)
+    [[ -d "${GPTK_GAMES_ROOT}" ]] || exit 0
+    find "${GPTK_GAMES_ROOT}" -maxdepth 2 -name launch.zsh -print | sort
+    ;;
+
+  run)
+    name="${1:-}"
+    [[ -n "${name}" ]] || gptk_die "usage: gptk-game run NAME [args...]"
+    shift
+    slug="$(slugify "${name}")"
+    script="${GPTK_GAMES_ROOT}/${slug}/launch.zsh"
+    [[ -x "${script}" ]] || gptk_die "launcher not found: ${script}"
+    exec "${script}" "$@"
+    ;;
+
+  create)
+    name="${1:-}"
+    exe="${2:-}"
+    [[ -n "${name}" && -n "${exe}" ]] || gptk_die "usage: gptk-game create NAME EXE [options] [-- game-args...]"
+    shift 2
+
+    slug="$(slugify "${name}")"
+    prefix="${name}"
+    workdir="${exe:h}"
+    init=0
+    winver="${GPTK_DEFAULT_WINVER}"
+    hud=0
+    esync=1
+    dxvk=0
+    game_args=()
+
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --prefix)
+          [[ $# -ge 2 ]] || gptk_die "--prefix requires a value"
+          prefix="$2"
+          shift 2
+          ;;
+        --workdir)
+          [[ $# -ge 2 ]] || gptk_die "--workdir requires a value"
+          workdir="$2"
+          shift 2
+          ;;
+        --init)
+          init=1
+          shift
+          ;;
+        --winver)
+          [[ $# -ge 2 ]] || gptk_die "--winver requires a value"
+          winver="$2"
+          shift 2
+          ;;
+        --hud)
+          hud=1
+          shift
+          ;;
+        --no-esync)
+          esync=0
+          shift
+          ;;
+        --dxvk)
+          dxvk=1
+          shift
+          ;;
+        --)
+          shift
+          game_args=("$@")
+          break
+          ;;
+        *)
+          game_args+=("$1")
+          shift
+          ;;
+      esac
+    done
+
+    game_dir="${GPTK_GAMES_ROOT}/${slug}"
+    mkdir -p "${game_dir}" "${GPTK_PREFIX_ROOT}/${prefix}"
+
+    script="$(write_launcher "${game_dir}" "${name}" "${prefix}" "${exe}" "${workdir}" "${hud}" "${esync}" "${dxvk}" "${game_args[@]}")"
+    print -r -- "created ${script}"
+    print -r -- "prefix ${GPTK_PREFIX_ROOT}/${prefix}"
+
+    if [[ "${init}" == "1" ]]; then
+      "${HOME}/bin/gptk-launch" --prefix "${prefix}" --init --set-winver "${winver}"
+    fi
+    ;;
+esac
+

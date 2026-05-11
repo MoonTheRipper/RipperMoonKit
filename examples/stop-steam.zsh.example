@@ -1,0 +1,8 @@
+#!/bin/zsh
+
+set -e
+
+[[ -r "${HOME}/.rippermoon-gptk.env" ]] && source "${HOME}/.rippermoon-gptk.env"
+
+exec gptk-steam --kill
+

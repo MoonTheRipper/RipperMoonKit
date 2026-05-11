@@ -1,0 +1,166 @@
+#!/bin/zsh
+
+set -e
+SCRIPT_DIR="${0:A:h}"
+COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
+[[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
+source "${COMMON}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  gptk-steam [options] [steam args...]
+
+Launches Windows Steam from the Steam prefix.
+Host folders are exposed inside Wine through GPTK_DRIVE_MAPS.
+
+Options:
+  --install [SteamSetup.exe]       Install or repair Windows Steam
+  --kill                           Stop the Steam Wine prefix
+  --repair-compat                  Reapply Steam CEF compatibility registry entries
+  --no-legacy-cef                  Do not force Steam onto the legacy Win7 CEF path
+  --reset-webhelper-cache          Move Steam CEF/htmlcache aside before launch
+  --no-reset-webhelper-cache       Do not touch Steam webhelper cache
+  --log / --no-log                 Toggle wrapper logging
+
+Examples:
+  gptk-steam --log
+  gptk-steam --log -applaunch 480
+  gptk-steam --kill
+USAGE
+}
+
+prefix="${GPTK_STEAM_PREFIX:-Steam}"
+installer=""
+install=0
+kill_only=0
+repair_compat_only=0
+legacy_cef="${GPTK_STEAM_LEGACY_CEF:-1}"
+reset_webhelper_cache="${GPTK_STEAM_RESET_WEBHELPER_CACHE:-0}"
+log_mode="${GPTK_LOG_ENABLED:-1}"
+steam_args=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --install)
+      install=1
+      shift
+      if [[ $# -gt 0 && "$1" != -* ]]; then
+        installer="$1"
+        shift
+      fi
+      ;;
+    --kill)
+      kill_only=1
+      shift
+      ;;
+    --repair-compat)
+      repair_compat_only=1
+      shift
+      ;;
+    --no-legacy-cef)
+      legacy_cef=0
+      shift
+      ;;
+    --reset-webhelper-cache)
+      reset_webhelper_cache=1
+      shift
+      ;;
+    --no-reset-webhelper-cache)
+      reset_webhelper_cache=0
+      shift
+      ;;
+    --log)
+      log_mode=1
+      shift
+      ;;
+    --no-log)
+      log_mode=0
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      steam_args=("$@")
+      break
+      ;;
+    *)
+      steam_args=("$@")
+      break
+      ;;
+  esac
+done
+
+prefix_path="$(gptk_resolve_prefix "${prefix}")"
+steam_exe="${prefix_path}/drive_c/Program Files (x86)/Steam/steam.exe"
+launcher="${HOME}/bin/gptk-launch"
+[[ -x "${launcher}" ]] || launcher="${SCRIPT_DIR}/gptk-launch"
+
+set_app_winver() {
+  local exe="$1"
+  local version="$2"
+  "${launcher}" --prefix "${prefix}" --no-log -- reg add \
+    "HKCU\\Software\\Wine\\AppDefaults\\${exe}" \
+    /v Version /t REG_SZ /d "${version}" /f >/dev/null
+}
+
+apply_steam_compat() {
+  # Current Steam CEF can time out under some Wine/GPTK stacks.
+  # Limit the workaround to Steam executables so games still see the global Win10 setting.
+  set_app_winver steam.exe win7
+  set_app_winver steamwebhelper.exe win7
+  set_app_winver steamservice.exe win7
+}
+
+if [[ "${kill_only}" == "1" ]]; then
+  exec "${launcher}" --prefix "${prefix}" --no-log -- wineserver -k
+fi
+
+if [[ "${install}" == "1" ]]; then
+  [[ -n "${installer}" ]] || installer="${GPTK_EXTERNAL_ROOT}/Installers/SteamSetup.exe"
+  [[ -f "${installer}" ]] || gptk_die "Steam installer not found: ${installer}"
+  "${launcher}" --prefix "${prefix}" --init --set-winver "${GPTK_DEFAULT_WINVER}" -- "${installer}" /S
+fi
+
+[[ -f "${steam_exe}" ]] || gptk_die "Steam is not installed in ${prefix_path}; run: gptk-steam --install ${GPTK_EXTERNAL_ROOT}/Installers/SteamSetup.exe"
+
+if [[ "${legacy_cef}" == "1" ]]; then
+  apply_steam_compat
+fi
+
+if [[ "${repair_compat_only}" == "1" ]]; then
+  exit 0
+fi
+
+if [[ "${reset_webhelper_cache}" == "1" ]]; then
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  backup_dir="${prefix_path}/drive_c/users/crossover/AppData/Local/Steam/cache-backups/${stamp}"
+  for cache_dir in \
+    "${prefix_path}/drive_c/users/crossover/AppData/Local/Steam/htmlcache" \
+    "${prefix_path}/drive_c/users/crossover/AppData/Local/CEF"; do
+    if [[ -e "${cache_dir}" ]]; then
+      mkdir -p "${backup_dir}"
+      mv "${cache_dir}" "${backup_dir}/${cache_dir:t}"
+    fi
+  done
+fi
+
+launcher_args=(--prefix "${prefix}")
+if [[ "${log_mode}" == "1" ]]; then
+  launcher_args+=(--log)
+else
+  launcher_args+=(--no-log)
+fi
+
+exec "${launcher}" "${launcher_args[@]}" -- "${steam_exe}" \
+  -tcp \
+  -no-cef-sandbox \
+  -cef-disable-sandbox \
+  -cef-disable-seccomp-sandbox \
+  -cef-disable-gpu-sandbox \
+  -cef-disable-gpu \
+  -cef-disable-gpu-compositing \
+  "${steam_args[@]}"

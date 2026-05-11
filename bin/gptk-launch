@@ -1,0 +1,184 @@
+#!/bin/zsh
+
+set -e
+SCRIPT_DIR="${0:A:h}"
+COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
+[[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
+source "${COMMON}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  gptk-launch [options] -- <windows-exe-or-wine-tool> [args...]
+
+Options:
+  -p, --prefix NAME|PATH     Wine prefix name under GPTK_PREFIX_ROOT, or full path
+      --init                 Create/update the prefix with wineboot
+      --winecfg              Run winecfg in the selected prefix
+      --set-winver VERSION   Set Wine Windows version, for example win10 or win11
+      --hud / --no-hud       Toggle Metal HUD for this launch
+      --esync / --no-esync   Toggle WINEESYNC for this launch
+      --dxvk / --no-dxvk     Prefer user-installed DXVK DLLs instead of GPTK D3DMetal for D3D9/10/11
+      --metalfx              Enable GPTK MetalFX integration where available
+      --dxr / --no-dxr       Toggle D3DMetal DirectX Raytracing advertisement
+      --avx / --no-avx       Toggle Rosetta AVX advertisement
+      --log / --no-log       Toggle terminal log capture
+      --log-file PATH        Write log to an explicit path
+
+Examples:
+  gptk-launch --prefix Steam --winecfg
+  gptk-launch --prefix Steam -- "C:\\Program Files (x86)\\Steam\\steam.exe"
+  gptk-launch --prefix GameName -- "$GPTK_EXTERNAL_ROOT/Installers/setup.exe"
+USAGE
+}
+
+prefix="${GPTK_PREFIX:-Default}"
+do_init=0
+run_winecfg=0
+set_winver=""
+log_enabled="${GPTK_LOG_ENABLED:-1}"
+log_file=""
+cmd=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--prefix)
+      [[ $# -ge 2 ]] || gptk_die "--prefix requires a value"
+      prefix="$2"
+      shift 2
+      ;;
+    --prefix=*)
+      prefix="${1#--prefix=}"
+      shift
+      ;;
+    --init|--init-prefix)
+      do_init=1
+      shift
+      ;;
+    --winecfg)
+      run_winecfg=1
+      shift
+      ;;
+    --set-winver)
+      [[ $# -ge 2 ]] || gptk_die "--set-winver requires a value"
+      set_winver="$2"
+      shift 2
+      ;;
+    --hud)
+      export GPTK_MTL_HUD_ENABLED=1
+      shift
+      ;;
+    --no-hud)
+      export GPTK_MTL_HUD_ENABLED=0
+      shift
+      ;;
+    --esync)
+      export GPTK_WINEESYNC=1
+      shift
+      ;;
+    --no-esync)
+      export GPTK_WINEESYNC=0
+      shift
+      ;;
+    --dxvk)
+      export GPTK_USE_DXVK=1
+      shift
+      ;;
+    --no-dxvk)
+      export GPTK_USE_DXVK=0
+      shift
+      ;;
+    --metalfx)
+      export GPTK_METALFX=1
+      shift
+      ;;
+    --no-metalfx)
+      export GPTK_METALFX=0
+      shift
+      ;;
+    --dxr)
+      export GPTK_DXR=1
+      shift
+      ;;
+    --no-dxr)
+      export GPTK_DXR=0
+      shift
+      ;;
+    --avx)
+      export GPTK_ADVERTISE_AVX=1
+      shift
+      ;;
+    --no-avx)
+      export GPTK_ADVERTISE_AVX=0
+      shift
+      ;;
+    --log)
+      log_enabled=1
+      shift
+      ;;
+    --no-log)
+      log_enabled=0
+      shift
+      ;;
+    --log-file)
+      [[ $# -ge 2 ]] || gptk_die "--log-file requires a value"
+      log_file="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      cmd=("$@")
+      break
+      ;;
+    -*)
+      gptk_die "unknown option: $1"
+      ;;
+    *)
+      cmd=("$@")
+      break
+      ;;
+  esac
+done
+
+prefix_path="$(gptk_resolve_prefix "${prefix}")"
+prefix_name="${prefix_path:t}"
+gptk_prepare_prefix_dirs "${prefix_path}"
+gptk_configure_environment "${prefix_path}"
+[[ -n "${log_file}" ]] || log_file="$(gptk_log_file "${prefix_name}")"
+
+if [[ "${do_init}" == "1" ]]; then
+  gptk_note "initializing prefix ${prefix_path}"
+  gptk_run_logged "${log_enabled}" "${log_file}" gptk_run_tool wineboot -u
+  gptk_link_configured_drives "${prefix_path}"
+fi
+
+if [[ -n "${set_winver}" ]]; then
+  gptk_note "setting Windows version to ${set_winver}"
+  gptk_run_logged "${log_enabled}" "${log_file}" gptk_run_tool winecfg -v "${set_winver}"
+fi
+
+if [[ "${run_winecfg}" == "1" ]]; then
+  gptk_run_logged "${log_enabled}" "${log_file}" gptk_run_tool winecfg
+fi
+
+if [[ "${#cmd[@]}" -eq 0 ]]; then
+  [[ "${do_init}" == "1" || -n "${set_winver}" || "${run_winecfg}" == "1" ]] && exit 0
+  usage
+  exit 2
+fi
+
+case "${cmd[1]}" in
+  wineboot|winecfg|regedit|reg|wineconsole|cmd|wineserver)
+    tool="${cmd[1]}"
+    cmd=("${cmd[@]:1}")
+    gptk_run_logged "${log_enabled}" "${log_file}" gptk_run_tool "${tool}" "${cmd[@]}"
+    ;;
+  *)
+    wine64="$(gptk_tool_path wine64)"
+    gptk_run_logged "${log_enabled}" "${log_file}" gptk_run_native "${wine64}" "${cmd[@]}"
+    ;;
+esac

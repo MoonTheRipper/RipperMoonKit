@@ -1,0 +1,35 @@
+#!/bin/zsh
+
+set -e
+
+[[ -r "${HOME}/.rippermoon-gptk.env" ]] && source "${HOME}/.rippermoon-gptk.env"
+
+ER_GAME_DIR="${ER_GAME_DIR:-${GPTK_EXTERNAL_ROOT}/Games/EldenRing/Game}"
+
+required=(
+  "eldenring.exe"
+  "ersc_launcher.exe"
+  "SeamlessCoop/ersc.dll"
+  "SeamlessCoop/ersc_settings.ini"
+)
+
+missing=0
+
+print -r -- "Checking ERSC layout:"
+print -r -- "${ER_GAME_DIR}"
+
+for item in "${required[@]}"; do
+  if [[ -e "${ER_GAME_DIR}/${item}" ]]; then
+    print -r -- "ok: ${item}"
+  else
+    print -r -- "missing: ${item}"
+    missing=1
+  fi
+done
+
+if [[ "${missing}" == "1" ]]; then
+  print -u2 -- "The folder does not look like the copied installed Game folder."
+  exit 1
+fi
+
+print -r -- "ERSC layout looks usable."

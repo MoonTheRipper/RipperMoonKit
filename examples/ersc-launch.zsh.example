@@ -1,0 +1,14 @@
+#!/bin/zsh
+
+set -e
+
+[[ -r "${HOME}/.rippermoon-gptk.env" ]] && source "${HOME}/.rippermoon-gptk.env"
+
+ER_GAME_DIR="${ER_GAME_DIR:-${GPTK_EXTERNAL_ROOT}/Games/EldenRing/Game}"
+ER_LOG="${ER_LOG:-${GPTK_HOME}/logs/ERSC-steam-prefix.log}"
+
+cd "${ER_GAME_DIR}"
+
+WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
+  gptk-launch --prefix Steam --set-winver win10 --no-dxr --log-file "${ER_LOG}" -- ./ersc_launcher.exe
+

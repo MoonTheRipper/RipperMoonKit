@@ -1,0 +1,19 @@
+.DS_Store
+._*
+
+# Local installs and generated state
+/runtime/
+/logs/
+/WinePrefixes/
+/Prefixes/
+/Games/
+/SteamLibrary/
+/Installers/
+/saves/
+/saves_backup/
+
+# User-local config copied into repo by accident
+.rippermoon-gptk.env
+*.log
+*.dmp
+
