@@ -130,6 +130,38 @@ Launch Spacewar/AppID 480:
 gptk-steam --log -applaunch 480
 ```
 
+## Elden Ring ERSC With Golden Pot Fix
+
+Start Steam with the DirectSound no-capture runner:
+
+```zsh
+env GPTK_WINE_HOME="$HOME/GPTK/runners/gptk-dsound-nocap-20260513" \
+  gptk-steam --no-log
+```
+
+Launch ERSC from the copied game folder:
+
+```zsh
+cd "$GPTK_EXTERNAL_ROOT/Games/EldenRing/Game"
+env GPTK_WINE_HOME="$HOME/GPTK/runners/gptk-dsound-nocap-20260513" \
+  WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
+  gptk-launch --prefix Steam --set-winver win10 --no-dxr --log-file "$GPTK_HOME/logs/ERSC-dsound-nocap.log" -- ./ersc_launcher.exe
+```
+
+Fully expanded placeholder form:
+
+```zsh
+cd "EXE PATH"
+env GPTK_WINE_HOME="/Users/USERNAME/GPTK/runners/gptk-dsound-nocap-20260513" \
+  WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
+  /Users/USERNAME/bin/gptk-launch \
+    --prefix Steam \
+    --set-winver win10 \
+    --no-dxr \
+    --log-file "/Users/USERNAME/GPTK/logs/ERSC-dsound-nocap.log" \
+    -- ./ersc_launcher.exe
+```
+
 ## gptk-game
 
 Create a per-game launcher:
@@ -155,4 +187,3 @@ List generated launchers:
 ```zsh
 gptk-game list
 ```
-

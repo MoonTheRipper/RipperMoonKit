@@ -27,9 +27,10 @@ Read in this order:
 ## Support
 
 - [troubleshooting.md](troubleshooting.md): failure modes and checks.
+- [steam-voice-capture-fix-2026-05-13.md](steam-voice-capture-fix-2026-05-13.md): Golden Pot freeze bug report and DirectSound capture workaround.
 - [faq.md](faq.md): common questions.
 
 ## Maintainers
 
 - [release-checklist.md](release-checklist.md): checks before publishing a GitHub release.
-
+- [roadmap.md](roadmap.md): planned SwiftUI launcher and future compatibility profile support.

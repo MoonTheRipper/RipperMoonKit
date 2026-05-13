@@ -55,6 +55,43 @@ For ERSC, also check:
 ls -lt "$ER_GAME_DIR/SeamlessCoop/crashdumps/reports" | head
 ```
 
+## Elden Ring ERSC Golden Pot Freezes The Frame
+
+Symptom:
+
+```text
+The frame freezes when opening the world to wanderers with the Golden Pot, but audio may continue.
+```
+
+Observed Steam logs:
+
+```text
+StartVoiceRecording() (was recording: 0)
+Created OPUS PLC voice encoder
+DirectSoundCaptureDevice.lock wait timed out
+CSteamEngine::BMainLoop appears to have stalled
+fatal stalled cross-thread pipe
+```
+
+Cause: ERSC opening the lobby triggers Steam Voice. On the tested GPTK/Wine build, Steam's DirectSound microphone capture path can lock the Steam process and stall the game.
+
+Fix: run Steam and ERSC with a GPTK runner where DirectSound capture returns `DSERR_NODRIVER`. Playback remains enabled; microphone capture is disabled for this runner.
+
+```zsh
+export GPTK_WINE_HOME="$HOME/GPTK/runners/gptk-dsound-nocap-20260513"
+gptk-steam --no-log
+```
+
+Then:
+
+```zsh
+cd "$ER_GAME_DIR"
+WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
+  gptk-launch --prefix Steam --set-winver win10 --no-dxr --log-file "$GPTK_HOME/logs/ERSC-dsound-nocap.log" -- ./ersc_launcher.exe
+```
+
+See [steam-voice-capture-fix-2026-05-13.md](steam-voice-capture-fix-2026-05-13.md) for the full report.
+
 ## Missing NTLM Support
 
 Wine may warn:
@@ -80,4 +117,3 @@ No matching mode found WIDTHxHEIGHTx32 @REFRESH
 ```
 
 This is not always fatal. If the game is running, treat it as a display mode negotiation warning first. Try borderless/windowed settings or a common refresh rate if it blocks startup.
-

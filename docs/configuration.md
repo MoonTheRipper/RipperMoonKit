@@ -51,6 +51,14 @@ export GPTK_WINE_HOME="$GPTK_APP_PATH/Contents/Resources/wine"
 
 The installer copies the mounted Apple GPTK app/runtime into these paths.
 
+Patched or experimental runners should live outside git, for example:
+
+```zsh
+export GPTK_WINE_HOME="$GPTK_HOME/runners/gptk-dsound-nocap-20260513"
+```
+
+Use that form only for launches that need the patched runner. The runner directory can be large and must not be committed.
+
 ## Drive Maps
 
 ```zsh
@@ -98,4 +106,3 @@ To install a smaller dependency set:
 ```zsh
 RIPPERMOON_BREW_FORMULAE="samba cabextract p7zip" ./install.zsh
 ```
-

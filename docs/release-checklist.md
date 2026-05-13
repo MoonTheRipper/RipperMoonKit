@@ -10,13 +10,19 @@ Confirm no local state is included:
 find . -maxdepth 3 \( -iname '*WinePrefixes*' -o -iname '*SteamLibrary*' -o -iname '*saves*' -o -iname '*.dmp' -o -iname '*.log' \) -print
 ```
 
+Confirm patched runners and Apple runtime copies are not included:
+
+```zsh
+find . -maxdepth 3 \( -iname 'runners' -o -iname 'runtime' -o -iname '*.app' -o -iname 'dsound.dll' \) -print
+```
+
 Confirm no machine-specific paths:
 
 ```zsh
-rg -n '/Users/|765611[0-9]+|/Volumes/.*/Games/EldenRing' .
+rg --pcre2 -n '/Users/(?!USERNAME)|765611[0-9]+|/Volumes/.*/Games/EldenRing' . -g '!docs/release-checklist.md'
 ```
 
-Expected result: no project files should contain personal paths or SteamIDs. Examples may contain generic `/Volumes/...` paths only when clearly illustrative.
+Expected result: no project files should contain personal paths or SteamIDs. Examples may contain generic `/Volumes/...` paths and `/Users/USERNAME` placeholders only when clearly illustrative.
 
 ## Syntax
 
@@ -96,4 +102,3 @@ Confirm the documentation map includes every major workflow:
 - Elden Ring ERSC.
 - Save transfer.
 - Troubleshooting.
-

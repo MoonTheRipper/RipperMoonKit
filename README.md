@@ -14,6 +14,7 @@ Tested workflow:
 - Windows Steam running through a dedicated `Steam` prefix.
 - Elden Ring ERSC from a copied pre-installed offline/non-Steam Windows `Game` folder.
 - Save transfer into the real Wine prefix save directory after confirming the game-created save path.
+- Elden Ring Seamless Coop Golden Pot lobby opening with a GPTK DirectSound capture workaround.
 
 ## What This Provides
 
@@ -121,6 +122,7 @@ Important tested constraint:
 - Start Steam first.
 - Launch ERSC from the same `Steam` prefix.
 - Keep esync enabled when Steam is already running with esync.
+- If Golden Pot lobby opening freezes the frame while audio continues, use the no-capture GPTK runner documented in [docs/steam-voice-capture-fix-2026-05-13.md](docs/steam-voice-capture-fix-2026-05-13.md).
 
 ## Repository Safety
 
@@ -151,7 +153,9 @@ Start here:
 - [docs/steam.md](docs/steam.md): Windows Steam install and launch flow.
 - [docs/game-folder-workflow.md](docs/game-folder-workflow.md): copying pre-installed game folders instead of running fragile installers.
 - [docs/elden-ring-ersc.md](docs/elden-ring-ersc.md): ERSC launch sequence.
+- [docs/steam-voice-capture-fix-2026-05-13.md](docs/steam-voice-capture-fix-2026-05-13.md): Golden Pot freeze bug report and workaround.
 - [docs/save-transfer.md](docs/save-transfer.md): save discovery and restore workflow.
 - [docs/troubleshooting.md](docs/troubleshooting.md): common failure modes.
 - [docs/faq.md](docs/faq.md): common questions.
 - [docs/release-checklist.md](docs/release-checklist.md): maintainer checklist before publishing.
+- [docs/roadmap.md](docs/roadmap.md): planned SwiftUI launcher and compatibility profile work.

@@ -3,6 +3,7 @@
 
 # Local installs and generated state
 /runtime/
+/runners/
 /logs/
 /WinePrefixes/
 /Prefixes/
@@ -16,4 +17,3 @@
 .rippermoon-gptk.env
 *.log
 *.dmp
-
