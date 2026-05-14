@@ -12,6 +12,13 @@ install_steam="${RIPPERMOON_INSTALL_STEAM:-0}"
 install_gptk=1
 reinstall_gptk=0
 update_zshrc=1
+create_update_backup=1
+backup_only=0
+list_backups=0
+rollback_target=""
+gptk_wait=1
+gptk_wait_seconds="${RIPPERMOON_GPTK_WAIT_SECONDS:-900}"
+gptk_open_page="${RIPPERMOON_OPEN_GPTK_PAGE:-ask}"
 
 usage() {
   cat <<'USAGE'
@@ -27,6 +34,13 @@ Options:
   --reinstall-gptk         Replace existing local GPTK app/runtime with mounted GPTK media
   --gptk-source PATH       Search a specific mounted GPTK folder or volume first
   --no-zshrc               Do not update ~/.zshrc
+  --no-backup              Do not create an update backup before installing
+  --backup-only            Create a rollback backup and exit without installing
+  --list-backups           List available rollback backups and exit
+  --rollback NAME|PATH     Restore toolkit scripts/config from a rollback backup
+  --no-gptk-wait           Do not wait for GPTK media when GPTK is missing
+  --gptk-wait-seconds N    Seconds to wait for mounted/downloaded GPTK media
+  --open-gptk-page         Open Apple's GPTK download page when GPTK is missing
   -h, --help               Show this help
 
 Environment:
@@ -34,6 +48,11 @@ Environment:
   STEAM_SETUP_URL           Override the SteamSetup.exe download URL
   STEAM_SETUP_PATH          Override where SteamSetup.exe is stored
   GPTK_SOURCE               Mounted GPTK folder or volume to search first
+  RIPPERMOON_BACKUP_EXTRA_PATHS
+                            Semicolon-separated extra files/folders to snapshot
+  RIPPERMOON_GPTK_WAIT_SECONDS
+                            Seconds to watch /Volumes and ~/Downloads for GPTK
+  RIPPERMOON_OPEN_GPTK_PAGE  ask, 1, or 0
 USAGE
 }
 
@@ -75,6 +94,42 @@ while [[ $# -gt 0 ]]; do
       update_zshrc=0
       shift
       ;;
+    --no-backup)
+      create_update_backup=0
+      shift
+      ;;
+    --backup-only)
+      backup_only=1
+      shift
+      ;;
+    --list-backups)
+      list_backups=1
+      shift
+      ;;
+    --rollback)
+      [[ $# -ge 2 ]] || {
+        print -u2 -- "--rollback requires a backup name or path"
+        exit 2
+      }
+      rollback_target="$2"
+      shift 2
+      ;;
+    --no-gptk-wait)
+      gptk_wait=0
+      shift
+      ;;
+    --gptk-wait-seconds)
+      [[ $# -ge 2 ]] || {
+        print -u2 -- "--gptk-wait-seconds requires a number"
+        exit 2
+      }
+      gptk_wait_seconds="$2"
+      shift 2
+      ;;
+    --open-gptk-page)
+      gptk_open_page=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -101,6 +156,8 @@ GPTK_APP_PATH="${GPTK_APP_PATH:-${GPTK_HOME}/apps/Game Porting Toolkit.app}"
 GPTK_RUNTIME="${GPTK_RUNTIME:-${GPTK_HOME}/runtime}"
 GPTK_WINE_HOME="${GPTK_WINE_HOME:-${GPTK_APP_PATH}/Contents/Resources/wine}"
 GPTK_REQUIRED_VERSION="${GPTK_REQUIRED_VERSION:-3}"
+GPTK_DOWNLOAD_PAGE="${GPTK_DOWNLOAD_PAGE:-https://developer.apple.com/games/game-porting-toolkit/}"
+GPTK_DOWNLOAD_DIR="${GPTK_DOWNLOAD_DIR:-${HOME}/Downloads}"
 STEAM_SETUP_URL="${STEAM_SETUP_URL:-https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe}"
 STEAM_SETUP_PATH="${STEAM_SETUP_PATH:-${GPTK_EXTERNAL_ROOT}/Installers/SteamSetup.exe}"
 RIPPERMOON_BREW_FORMULAE="${RIPPERMOON_BREW_FORMULAE-cabextract p7zip samba gnutls molten-vk vulkan-loader vulkan-headers}"
@@ -108,6 +165,8 @@ RIPPERMOON_BREW_FORMULAE="${RIPPERMOON_BREW_FORMULAE-cabextract p7zip samba gnut
 install_bin="${HOME}/bin"
 install_libexec="${GPTK_HOME}/libexec"
 stamp="$(date +%Y%m%d-%H%M%S)"
+backup_root="${GPTK_HOME}/backups"
+backup_dir="${backup_root}/rippermoon-update-${stamp}"
 
 mkdir -p "${GPTK_LOG_DIR}"
 log_file="${GPTK_LOG_DIR}/rippermoon-install-${stamp}.log"
@@ -128,6 +187,221 @@ run_logged() {
 
 command_exists() {
   command -v "$1" >/dev/null 2>&1
+}
+
+copy_path_preserve() {
+  local source="$1"
+  local target="$2"
+
+  mkdir -p "${target:h}"
+  if [[ -d "${source}" ]]; then
+    ditto "${source}" "${target}"
+  else
+    cp -p "${source}" "${target}"
+  fi
+}
+
+backup_restore_path() {
+  local source="$1"
+  local relative="$2"
+  local label="$3"
+  local target="${backup_dir}/${relative}"
+
+  if [[ ! -e "${source}" ]]; then
+    log "ℹ️" "No existing ${label} to back up: ${source}"
+    printf '%s\n' "${source}" >> "${backup_dir}/absent.tsv"
+    return 0
+  fi
+
+  copy_path_preserve "${source}" "${target}"
+  printf '%s\t%s\n' "${relative}" "${source}" >> "${backup_dir}/restore.tsv"
+  log "🛟" "Backed up ${label}: ${source}"
+}
+
+record_protected_path() {
+  local label="$1"
+  local path="$2"
+  local state="missing"
+
+  [[ -n "${path}" ]] || return 0
+  [[ -e "${path}" ]] && state="exists"
+  printf '%s\t%s\t%s\n' "${state}" "${label}" "${path}" >> "${backup_dir}/protected-paths.tsv"
+}
+
+backup_extra_paths() {
+  local extra_paths
+  local path
+  local safe_name
+  local target
+
+  [[ -n "${RIPPERMOON_BACKUP_EXTRA_PATHS:-}" ]] || return 0
+
+  extra_paths=(${(s:;:)RIPPERMOON_BACKUP_EXTRA_PATHS})
+  mkdir -p "${backup_dir}/extra"
+
+  for path in "${extra_paths[@]}"; do
+    [[ -n "${path}" ]] || continue
+    if [[ ! -e "${path}" ]]; then
+      log "⚠️" "Extra backup path is missing: ${path}"
+      continue
+    fi
+
+    safe_name="${path#/}"
+    safe_name="${safe_name//\//__}"
+    target="${backup_dir}/extra/${safe_name}"
+    copy_path_preserve "${path}" "${target}"
+    printf '%s\t%s\n' "extra/${safe_name}" "${path}" >> "${backup_dir}/extra-paths.tsv"
+    log "🛟" "Snapshotted extra protected path: ${path}"
+  done
+}
+
+write_backup_readme() {
+  {
+    print -r -- "RipperMoonToolKit update backup"
+    print -r -- ""
+    print -r -- "Created: $(date '+%Y-%m-%d %H:%M:%S')"
+    print -r -- "Repository: ${repo_dir}"
+    print -r -- "Config: ${config}"
+    print -r -- "GPTK_HOME: ${GPTK_HOME}"
+    print -r -- ""
+    print -r -- "This backup restores small toolkit files only:"
+    print -r -- "- ${config}"
+    print -r -- "- ${HOME}/.zshrc"
+    print -r -- "- ${install_bin}/gptk-launch"
+    print -r -- "- ${install_bin}/gptk-steam"
+    print -r -- "- ${install_bin}/gptk-game"
+    print -r -- "- ${install_libexec}/gptk-common.zsh"
+    print -r -- ""
+    print -r -- "Files listed in absent.tsv did not exist before the update and are removed during rollback if the update created them."
+    print -r -- ""
+    print -r -- "Wine prefixes, Steam data, games, saves, GPTK runtimes, and patched runners are not modified by rollback."
+    print -r -- "Protected paths are recorded in protected-paths.tsv for audit."
+    print -r -- ""
+    print -r -- "Rollback command:"
+    print -r -- "./install.zsh --rollback ${backup_dir:t}"
+  } > "${backup_dir}/README.txt"
+}
+
+create_backup() {
+  [[ "${create_update_backup}" == "1" ]] || {
+    log "ℹ️" "Update backup disabled."
+    return 0
+  }
+
+  mkdir -p "${backup_dir}"
+  : > "${backup_dir}/restore.tsv"
+  : > "${backup_dir}/absent.tsv"
+  : > "${backup_dir}/protected-paths.tsv"
+  : > "${backup_dir}/extra-paths.tsv"
+
+  log "🛟" "Creating update backup: ${backup_dir}"
+  backup_restore_path "${config}" "home/.rippermoon-gptk.env" "config"
+  backup_restore_path "${HOME}/.zshrc" "home/.zshrc" "shell config"
+  backup_restore_path "${install_bin}/gptk-launch" "home/bin/gptk-launch" "launcher"
+  backup_restore_path "${install_bin}/gptk-steam" "home/bin/gptk-steam" "Steam launcher"
+  backup_restore_path "${install_bin}/gptk-game" "home/bin/gptk-game" "game helper"
+  backup_restore_path "${install_libexec}/gptk-common.zsh" "gptk/libexec/gptk-common.zsh" "shared helper library"
+
+  record_protected_path "Wine prefix root" "${GPTK_PREFIX_ROOT}"
+  record_protected_path "Game script root" "${GPTK_GAMES_ROOT}"
+  record_protected_path "External storage root" "${GPTK_EXTERNAL_ROOT}"
+  record_protected_path "External games root" "${GPTK_EXTERNAL_ROOT}/Games"
+  record_protected_path "Steam library" "${GPTK_STEAM_LIBRARY}"
+  record_protected_path "GPTK app" "${GPTK_APP_PATH}"
+  record_protected_path "GPTK runtime" "${GPTK_RUNTIME}"
+
+  backup_extra_paths
+  write_backup_readme
+
+  log "✅" "Rollback backup ready: ${backup_dir}"
+}
+
+list_update_backups() {
+  local dir
+
+  if [[ ! -d "${backup_root}" ]]; then
+    print -r -- "No backups found: ${backup_root}"
+    return 0
+  fi
+
+  for dir in "${backup_root}"/rippermoon-update-*(N/om); do
+    print -r -- "${dir:t}	${dir}"
+  done
+}
+
+resolve_backup_path() {
+  local target="$1"
+
+  if [[ -d "${target}" ]]; then
+    print -r -- "${target:A}"
+    return 0
+  fi
+
+  if [[ -d "${backup_root}/${target}" ]]; then
+    print -r -- "${backup_root}/${target}"
+    return 0
+  fi
+
+  return 1
+}
+
+rollback_backup() {
+  local requested="$1"
+  local selected
+  local relative
+  local destination
+  local source
+  local current_backup
+
+  selected="$(resolve_backup_path "${requested}" || true)"
+  if [[ -z "${selected}" || ! -f "${selected}/restore.tsv" ]]; then
+    log "❌" "Rollback backup not found or invalid: ${requested}"
+    log "ℹ️" "Run ./install.zsh --list-backups to see available backups."
+    return 1
+  fi
+
+  log "↩️" "Rolling back toolkit files from ${selected}"
+
+  while IFS=$'\t' read -r relative destination; do
+    [[ -n "${relative}" && -n "${destination}" ]] || continue
+    source="${selected}/${relative}"
+    [[ -e "${source}" ]] || {
+      log "⚠️" "Backup entry is missing, skipping: ${source}"
+      continue
+    }
+
+    if [[ -e "${destination}" ]]; then
+      current_backup="${destination}.pre-rollback-${stamp}"
+      copy_path_preserve "${destination}" "${current_backup}"
+      log "📦" "Preserved current file before rollback: ${current_backup}"
+    fi
+
+    copy_path_preserve "${source}" "${destination}"
+    log "✅" "Restored ${destination}"
+  done < "${selected}/restore.tsv"
+
+  if [[ -f "${selected}/absent.tsv" ]]; then
+    while IFS= read -r destination; do
+      [[ -n "${destination}" && -e "${destination}" ]] || continue
+      case "${destination:A}" in
+        "${HOME:A}/.rippermoon-gptk.env"|\
+        "${HOME:A}/bin/gptk-launch"|\
+        "${HOME:A}/bin/gptk-steam"|\
+        "${HOME:A}/bin/gptk-game"|\
+        "${HOME:A}/.zshrc"|\
+        "${GPTK_HOME:A}/libexec/gptk-common.zsh")
+          rm -rf "${destination}"
+          log "✅" "Removed file that did not exist before backup: ${destination}"
+          ;;
+        *)
+          log "⚠️" "Refusing to remove unrecognized absent-path entry: ${destination}"
+          ;;
+      esac
+    done < "${selected}/absent.tsv"
+  fi
+
+  log "✅" "Rollback complete."
+  log "ℹ️" "Wine prefixes, games, saves, Steam data, GPTK runtimes, and runners were not changed."
 }
 
 refresh_brew_path() {
@@ -311,6 +585,100 @@ find_gptk_runtime_source() {
   fi
 }
 
+find_downloaded_gptk_dmg() {
+  local roots=()
+  local found=""
+
+  [[ -n "${GPTK_SOURCE:-}" ]] && roots+=("${GPTK_SOURCE}")
+  roots+=("${GPTK_DOWNLOAD_DIR}")
+  roots+=("${HOME}/Desktop")
+
+  found="$(find "${roots[@]}" -maxdepth 4 -type f \( \
+    -iname "*Game Porting Toolkit*.dmg" -o \
+    -iname "*game*porting*toolkit*.dmg" -o \
+    -iname "*Evaluation environment for Windows games*.dmg" -o \
+    -iname "*evaluation*windows*games*.dmg" \
+  \) -print 2>/dev/null | sort -r | head -n 1 || true)"
+
+  [[ -n "${found}" ]] && print -r -- "${found}"
+}
+
+attach_gptk_dmg() {
+  local dmg="$1"
+
+  [[ -f "${dmg}" ]] || return 1
+
+  log "💿" "Attaching GPTK disk image: ${dmg}"
+  if hdiutil attach "${dmg}" -quiet >> "${log_file}" 2>&1; then
+    log "✅" "Attached GPTK disk image."
+    return 0
+  fi
+
+  log "⚠️" "Could not attach GPTK disk image yet: ${dmg}"
+  return 1
+}
+
+maybe_open_gptk_download_page() {
+  log "🔗" "Apple GPTK ${GPTK_REQUIRED_VERSION} download page: ${GPTK_DOWNLOAD_PAGE}"
+
+  if [[ "${gptk_open_page}" == "1" ]]; then
+    command_exists open && open "${GPTK_DOWNLOAD_PAGE}" >> "${log_file}" 2>&1 || true
+    return 0
+  fi
+
+  [[ "${gptk_open_page}" == "0" ]] && return 0
+
+  if [[ -t 0 ]]; then
+    local reply
+    print -rn -- "Open Apple's Game Porting Toolkit ${GPTK_REQUIRED_VERSION} download page now? [Y/n] "
+    read -r reply
+    if [[ -z "${reply}" || "${reply:l}" == "y" || "${reply:l}" == "yes" ]]; then
+      command_exists open && open "${GPTK_DOWNLOAD_PAGE}" >> "${log_file}" 2>&1 || true
+    fi
+  else
+    log "ℹ️" "Non-interactive install: set RIPPERMOON_OPEN_GPTK_PAGE=1 to open the download page automatically."
+  fi
+}
+
+wait_for_gptk_media() {
+  local waited=0
+  local interval=5
+  local dmg=""
+  local last_dmg=""
+  local app_source=""
+  local runtime_source=""
+
+  [[ "${gptk_wait}" == "1" ]] || return 1
+
+  maybe_open_gptk_download_page
+
+  log "⏳" "Waiting up to ${gptk_wait_seconds}s for GPTK media in /Volumes or ${GPTK_DOWNLOAD_DIR}."
+  log "ℹ️" "Download Game Porting Toolkit ${GPTK_REQUIRED_VERSION} from Apple, then mount the DMG or leave it in Downloads."
+
+  while (( waited <= gptk_wait_seconds )); do
+    app_source="$(find_gptk_app_source || true)"
+    runtime_source="$(find_gptk_runtime_source || true)"
+
+    if [[ -n "${app_source}" || -n "${runtime_source}" ]]; then
+      log "✅" "Found mounted GPTK media."
+      return 0
+    fi
+
+    dmg="$(find_downloaded_gptk_dmg || true)"
+    if [[ -n "${dmg}" && "${dmg}" != "${last_dmg}" ]]; then
+      attach_gptk_dmg "${dmg}" || true
+      attach_nested_gptk_runtime_image || true
+      last_dmg="${dmg}"
+    fi
+
+    sleep "${interval}"
+    waited=$(( waited + interval ))
+  done
+
+  log "❌" "Timed out waiting for GPTK ${GPTK_REQUIRED_VERSION} media."
+  return 1
+}
+
 attach_nested_gptk_runtime_image() {
   local roots=()
   local dmg=""
@@ -346,6 +714,13 @@ install_mounted_gptk() {
 
   log "🎮" "Looking for mounted Apple Game Porting Toolkit ${GPTK_REQUIRED_VERSION} media."
 
+  if [[ "${reinstall_gptk}" != "1" && -x "${GPTK_APP_PATH}/Contents/Resources/wine/bin/wine64" && -f "${GPTK_RUNTIME}/lib/wine/x86_64-windows/d3d12.dll" ]]; then
+    log "✅" "Local GPTK app/runtime already installed."
+    export GPTK_WINE_HOME="${GPTK_APP_PATH}/Contents/Resources/wine"
+    export GPTK_RUNTIME
+    return 0
+  fi
+
   local app_source
   local runtime_source
 
@@ -359,8 +734,18 @@ install_mounted_gptk() {
 
   if [[ -z "${app_source}" && -z "${runtime_source}" ]]; then
     log "⚠️" "No mounted GPTK media found."
-    log "⚠️" "Download Game Porting Toolkit ${GPTK_REQUIRED_VERSION} from Apple Developer, mount the DMG, then rerun ./install.zsh."
-    return 0
+    wait_for_gptk_media || {
+      log "❌" "Download Game Porting Toolkit ${GPTK_REQUIRED_VERSION} from Apple Developer, mount the DMG, then rerun ./install.zsh."
+      return 1
+    }
+
+    app_source="$(find_gptk_app_source || true)"
+    runtime_source="$(find_gptk_runtime_source || true)"
+
+    if [[ -z "${runtime_source}" ]]; then
+      attach_nested_gptk_runtime_image
+      runtime_source="$(find_gptk_runtime_source || true)"
+    fi
   fi
 
   if [[ -n "${app_source}" ]]; then
@@ -483,10 +868,27 @@ install_windows_steam() {
   log "✅" "Windows Steam install command completed."
 }
 
+if [[ "${list_backups}" == "1" ]]; then
+  list_update_backups
+  exit 0
+fi
+
 log "🚀" "Starting RipperMoonToolKit install."
 log "🪵" "Install log: ${log_file}"
 
+if [[ -n "${rollback_target}" ]]; then
+  rollback_backup "${rollback_target}"
+  exit 0
+fi
+
 ensure_directories
+create_backup
+
+if [[ "${backup_only}" == "1" ]]; then
+  log "✅" "Backup-only mode complete."
+  exit 0
+fi
+
 install_toolkit_files
 ensure_gptk_config
 update_shell_config

@@ -24,6 +24,8 @@ Tested workflow:
 - Dynamic path configuration through `~/.rippermoon-gptk.env`.
 - Configurable Wine drive mappings with any letters except `C:`.
 - Installer bootstrap with timestamped emoji logs.
+- Update backups and rollback for existing local installs.
+- A SwiftUI launcher target for ERSC launch, validation, logs, and rollback.
 - Documentation for GPTK 3, Steam, ERSC, copied game folders, saves, and troubleshooting.
 
 ## Quick Start
@@ -59,6 +61,14 @@ The installer writes logs to:
 $GPTK_HOME/logs/rippermoon-install-YYYYmmdd-HHMMSS.log
 ```
 
+Before updating an existing install, the installer also writes a rollback backup to:
+
+```text
+$GPTK_HOME/backups/rippermoon-update-YYYYmmdd-HHMMSS
+```
+
+See [docs/update-safety.md](docs/update-safety.md).
+
 ## Common Commands
 
 Start Steam:
@@ -86,6 +96,28 @@ Install Windows Steam during bootstrap:
 ```
 
 See [docs/commands.md](docs/commands.md) for the full command reference.
+
+Run the SwiftUI launcher:
+
+```zsh
+swift run RipperMoonKitLauncher
+```
+
+Install a local `.app` bundle:
+
+```zsh
+zsh scripts/install-gui-app.zsh
+```
+
+See [docs/gui.md](docs/gui.md).
+
+Uninstall without deleting configs or saves:
+
+```zsh
+zsh scripts/uninstall.zsh
+```
+
+See [docs/uninstall.md](docs/uninstall.md).
 
 ## Configuration
 
@@ -146,6 +178,9 @@ Start here:
 - [docs/quickstart.md](docs/quickstart.md): shortest working install path.
 - [docs/setup.md](docs/setup.md): first-time setup and path model.
 - [docs/dependencies.md](docs/dependencies.md): dependency download, unpack, install, and logs.
+- [docs/update-safety.md](docs/update-safety.md): update backups, protected paths, and rollback.
+- [docs/gui.md](docs/gui.md): SwiftUI launcher build/run notes.
+- [docs/uninstall.md](docs/uninstall.md): uninstall options that keep or remove configs/saves by choice.
 - [docs/gptk.md](docs/gptk.md): downloading GPTK 3 from Apple, mounting it, and letting the installer copy it locally.
 - [docs/configuration.md](docs/configuration.md): environment variables and path configuration.
 - [docs/drives.md](docs/drives.md): custom Wine drive mappings.

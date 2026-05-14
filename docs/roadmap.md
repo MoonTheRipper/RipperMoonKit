@@ -1,6 +1,6 @@
 # Roadmap
 
-This repository currently favors transparent shell scripts and documentation. The next major usability step is a native launcher so non-technical users do not need to remember command lines.
+This repository keeps transparent shell scripts as the source of truth and now includes an initial native SwiftUI launcher so non-technical users do not need to remember command lines.
 
 ## SwiftUI Launcher Plan
 
@@ -10,7 +10,7 @@ Planned app name:
 RipperMoonKit Launcher
 ```
 
-Initial goals:
+Initial shipped goals:
 
 - Detect `~/.rippermoon-gptk.env` and show the active GPTK, prefix, games, Steam library, and runner paths.
 - Let users choose a game folder with a file picker.
@@ -18,8 +18,15 @@ Initial goals:
 - Start Steam, launch AppID 480 when needed, launch ERSC, and stop Steam through buttons.
 - Write readable logs to `$GPTK_HOME/logs`.
 - Show last-run status and links to the current log files.
-- Warn when Steam and the game are about to use different Wine prefixes.
 - Expose safe toggles for `--no-dxr`, `--hud`, `--set-winver`, and selected compatibility profile.
+- Create and apply installer rollback backups.
+
+Next app goals:
+
+- Package and sign a `.app` build.
+- Add first-run setup for GPTK media, external drives, Steam, and game folders.
+- Add launch status checks for long-running Steam/game processes.
+- Warn when Steam and the game are about to use different Wine prefixes.
 
 ## Compatibility Profiles
 
@@ -61,4 +68,3 @@ steam_appid: 480
 - Store only scripts, docs, templates, and profile definitions in the repository.
 - Treat patched runners as local artifacts under `$GPTK_HOME/runners`.
 - Require explicit user action before deleting prefixes, saves, or installed games.
-

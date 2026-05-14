@@ -32,6 +32,30 @@ Copy scripts only:
 ./install.zsh --skip-deps
 ```
 
+Create a rollback backup without installing:
+
+```zsh
+./install.zsh --skip-deps --backup-only
+```
+
+List rollback backups:
+
+```zsh
+./install.zsh --list-backups
+```
+
+Rollback toolkit scripts/config:
+
+```zsh
+./install.zsh --rollback rippermoon-update-YYYYmmdd-HHMMSS
+```
+
+Install without a rollback backup:
+
+```zsh
+./install.zsh --no-backup
+```
+
 Skip GPTK copy:
 
 ```zsh
@@ -186,4 +210,30 @@ List generated launchers:
 
 ```zsh
 gptk-game list
+```
+
+## SwiftUI Launcher
+
+Build:
+
+```zsh
+swift build
+```
+
+Run:
+
+```zsh
+swift run RipperMoonKitLauncher
+```
+
+Install local `.app` bundle:
+
+```zsh
+zsh scripts/install-gui-app.zsh
+```
+
+Uninstall toolkit scripts and local app while keeping configs/saves:
+
+```zsh
+zsh scripts/uninstall.zsh
 ```

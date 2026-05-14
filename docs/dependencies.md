@@ -19,7 +19,7 @@ The default install does this:
 5. Installs Rosetta on Apple Silicon if needed.
 6. Installs Homebrew if it is missing.
 7. Installs Homebrew formulae used by the toolkit and common Wine/GPTK troubleshooting.
-8. Installs/copies Game Porting Toolkit 3 from the user's mounted Apple GPTK media.
+8. Installs/copies Game Porting Toolkit 3 from the user's mounted Apple GPTK media, or prompts/waits for the user to download and mount it.
 9. Downloads `SteamSetup.exe` to the configured installer path.
 10. Checks whether Apple Game Porting Toolkit or another `wine64` is available.
 
@@ -98,6 +98,24 @@ $GPTK_HOME/runtime
 ```
 
 Use `./install.zsh --gptk-source "/Volumes/Game Porting Toolkit"` if the mounted volume is not detected automatically.
+
+If GPTK is not mounted, the installer can open Apple's official page, watch `/Volumes` and `~/Downloads`, attach a matching GPTK `.dmg`, and continue when the media appears:
+
+```zsh
+./install.zsh --open-gptk-page
+```
+
+The default wait is 900 seconds. To wait longer:
+
+```zsh
+./install.zsh --gptk-wait-seconds 1800
+```
+
+To disable the wait:
+
+```zsh
+./install.zsh --no-gptk-wait
+```
 
 See [gptk.md](gptk.md).
 

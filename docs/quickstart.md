@@ -26,6 +26,7 @@ cd RipperMoonToolKit
 The installer will:
 
 - create the toolkit folders;
+- create a rollback backup for any existing toolkit config/scripts;
 - install the launcher scripts;
 - create `~/.rippermoon-gptk.env` if missing;
 - install Rosetta when needed;
@@ -34,6 +35,12 @@ The installer will:
 - copy GPTK 3 from the mounted Apple media;
 - download `SteamSetup.exe`;
 - write a timestamped install log.
+
+Update backups are stored under:
+
+```zsh
+ls -lt "$GPTK_HOME/backups"
+```
 
 ## 3. Reload Shell
 
@@ -84,6 +91,12 @@ For a game that depends on the Steam client, launch it from the same prefix as S
 gptk-launch --prefix Steam -- ./GameLauncher.exe
 ```
 
+## 6. Optional SwiftUI Launcher
+
+```zsh
+swift run RipperMoonKitLauncher
+```
+
 ## Logs
 
 Installer logs:
@@ -97,4 +110,3 @@ Launcher logs:
 ```zsh
 ls -lt "$GPTK_HOME/logs" | head
 ```
-

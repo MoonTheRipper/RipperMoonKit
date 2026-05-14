@@ -106,3 +106,19 @@ To install a smaller dependency set:
 ```zsh
 RIPPERMOON_BREW_FORMULAE="samba cabextract p7zip" ./install.zsh
 ```
+
+## Update Backups
+
+The installer creates rollback backups under:
+
+```zsh
+$GPTK_HOME/backups
+```
+
+To snapshot extra files or folders during a backup:
+
+```zsh
+export RIPPERMOON_BACKUP_EXTRA_PATHS="/absolute/path/one;/absolute/path/two"
+```
+
+Extra snapshots are stored for manual recovery and are not restored automatically.

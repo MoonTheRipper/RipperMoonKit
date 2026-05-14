@@ -19,7 +19,7 @@ https://developer.apple.com/games/game-porting-toolkit/
 ```
 
 2. Download **Game Porting Toolkit 3**.
-3. Open the downloaded `.dmg` so it mounts under `/Volumes`.
+3. Open the downloaded `.dmg` so it mounts under `/Volumes`, or leave the downloaded DMG in `~/Downloads`.
 4. If the DMG contains a nested **Evaluation environment for Windows games 3.0** image, leave the main DMG mounted; `install.zsh` will try to attach the nested image automatically.
 5. Run:
 
@@ -40,6 +40,8 @@ It installs local copies into:
 $GPTK_HOME/apps/Game Porting Toolkit.app
 $GPTK_HOME/runtime
 ```
+
+If GPTK is not mounted during a full install, the installer can open Apple's GPTK page, watch `/Volumes` and `~/Downloads`, attach the downloaded disk image, and continue after the media appears.
 
 The launchers then use:
 
@@ -66,6 +68,24 @@ Skip GPTK copy/install:
 
 ```zsh
 ./install.zsh --skip-gptk
+```
+
+Open Apple's GPTK page if GPTK media is missing:
+
+```zsh
+./install.zsh --open-gptk-page
+```
+
+Wait longer for the download/mount:
+
+```zsh
+./install.zsh --gptk-wait-seconds 1800
+```
+
+Disable GPTK waiting:
+
+```zsh
+./install.zsh --no-gptk-wait
 ```
 
 ## Why The User Must Download GPTK

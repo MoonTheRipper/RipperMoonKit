@@ -1,5 +1,8 @@
 .DS_Store
 ._*
+.build/
+.swiftpm/
+DerivedData/
 
 # Local installs and generated state
 /runtime/
