@@ -115,7 +115,11 @@ PLIST
 
 if command -v codesign >/dev/null 2>&1; then
   log "✍️" "Applying ad-hoc app signature."
-  codesign --force --deep --sign - "${app_path}" >> "${log_file}" 2>&1
+  if codesign --force --deep --sign - "${app_path}" >> "${log_file}" 2>&1; then
+    log "✅" "Applied ad-hoc app signature."
+  else
+    log "⚠️" "Ad-hoc signing was skipped; SwiftPM resource bundles must remain at the app root for this build."
+  fi
 fi
 
 log "💿" "Creating DMG."
