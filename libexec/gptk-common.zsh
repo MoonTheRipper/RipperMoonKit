@@ -34,7 +34,45 @@ gptk_trim() {
 }
 
 gptk_init_defaults() {
+  local key value
+  local override_keys=(
+    GPTK_HOME
+    GPTK_PREFIX_ROOT
+    GPTK_GAMES_ROOT
+    GPTK_EXTERNAL_ROOT
+    GPTK_STEAM_LIBRARY
+    GPTK_DRIVE_MAPS
+    GPTK_LOG_DIR
+    GPTK_APP_PATH
+    GPTK_RUNTIME
+    GPTK_WINE_HOME
+    GPTK_DEFAULT_WINVER
+    GPTK_MTL_HUD_ENABLED
+    GPTK_WINEESYNC
+    GPTK_USE_DXVK
+    GPTK_DXR
+    GPTK_METALFX
+    GPTK_ADVERTISE_AVX
+    GPTK_LOG_ENABLED
+    GPTK_STEAM_PREFIX
+    GPTK_STEAM_LEGACY_CEF
+    GPTK_STEAM_RESET_WEBHELPER_CACHE
+  )
+  typeset -A env_overrides=()
+
+  for key in "${override_keys[@]}"; do
+    if (( ${+parameters[$key]} )); then
+      env_overrides[$key]="${(P)key}"
+    fi
+  done
+
   [[ -r "${HOME}/.rippermoon-gptk.env" ]] && source "${HOME}/.rippermoon-gptk.env"
+
+  # Explicit per-command environment values must win over the persisted config.
+  # The GUI uses this for game-specific runners such as the ERSC Golden Pot fix.
+  for key value in "${(@kv)env_overrides}"; do
+    export "${key}=${value}"
+  done
 
   export GPTK_HOME="${GPTK_HOME:-${HOME}/GPTK}"
   export GPTK_PREFIX_ROOT="${GPTK_PREFIX_ROOT:-${HOME}/WinePrefixes}"

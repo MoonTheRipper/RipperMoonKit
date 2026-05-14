@@ -92,6 +92,17 @@ WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
 
 See [steam-voice-capture-fix-2026-05-13.md](steam-voice-capture-fix-2026-05-13.md) for the full report.
 
+If the freeze returns after updating the toolkit, verify that the explicit runner override survives config loading:
+
+```zsh
+env GPTK_WINE_HOME="$HOME/GPTK/runners/gptk-dsound-nocap-20260513" \
+  zsh -c 'source "$HOME/GPTK/libexec/gptk-common.zsh"; print -r -- "$GPTK_WINE_HOME"'
+```
+
+The output must be the patched runner path, not `/Applications/Game Porting Toolkit.app/...`.
+
+See [golden-pot-runner-precedence-fix-2026-05-14.md](golden-pot-runner-precedence-fix-2026-05-14.md) for the update regression report.
+
 ## Missing NTLM Support
 
 Wine may warn:

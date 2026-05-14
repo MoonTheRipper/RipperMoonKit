@@ -83,6 +83,8 @@ dll overrides: winmm=n,b;steam_api64=n,b
 game folder: $GPTK_EXTERNAL_ROOT/Games/EldenRing/Game
 ```
 
+The launcher repairs this profile on load and immediately before starting Steam or ERSC. If the profile is empty, missing its required ERSC options, or points back to stock GPTK while the patched runner exists, the GUI restores the Golden Pot-safe defaults.
+
 The launcher emits the same command line that can be run manually:
 
 ```zsh

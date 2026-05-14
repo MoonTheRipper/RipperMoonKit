@@ -31,6 +31,7 @@ Read in this order:
 
 - [troubleshooting.md](troubleshooting.md): failure modes and checks.
 - [steam-voice-capture-fix-2026-05-13.md](steam-voice-capture-fix-2026-05-13.md): Golden Pot freeze bug report and DirectSound capture workaround.
+- [golden-pot-runner-precedence-fix-2026-05-14.md](golden-pot-runner-precedence-fix-2026-05-14.md): update regression fix for profile-specific GPTK runners.
 - [faq.md](faq.md): common questions.
 
 ## Maintainers

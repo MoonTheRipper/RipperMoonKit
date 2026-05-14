@@ -728,12 +728,15 @@ private final class LauncherModel: ObservableObject {
         toolkitSourceFolder = defaults.string(forKey: "toolkitSourceFolder") ?? "\(loaded.home)/Desktop/RipperMoonToolKit"
         refreshBackups()
         showSetupGuide = !defaults.bool(forKey: "setupGuideSeen.v2") || !loaded.hasLocalGPTK
+        persistProfiles()
     }
 
     func reload() {
         persistProfiles()
         defaults.set(toolkitSourceFolder, forKey: "toolkitSourceFolder")
         config = ToolkitConfig.load()
+        profiles = Self.repairProfiles(profiles, config: config)
+        persistProfiles()
         pathSettings = PathSettings(config: config)
         driveMaps = DriveMap.parse(config.values["GPTK_DRIVE_MAPS"] ?? "")
         refreshBackups()
@@ -806,6 +809,7 @@ private final class LauncherModel: ObservableObject {
     }
 
     func startSteam(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
         runShell(
             title: "Start Steam",
             command: previewStartSteamCommand(for: profile, detached: true),
@@ -818,6 +822,7 @@ private final class LauncherModel: ObservableObject {
     }
 
     func launch(_ profile: GameProfile) {
+        let profile = repairedProfile(profile)
         runShell(
             title: "Launch \(profile.name)",
             command: previewLaunchCommand(for: profile, detached: true),
@@ -860,7 +865,7 @@ private final class LauncherModel: ObservableObject {
         runShell(
             title: "Update From GitHub",
             command: command,
-            completion: { [weak self] in self?.refreshBackups() }
+            completion: { [weak self] in self?.reload() }
         )
     }
 
@@ -1082,9 +1087,24 @@ private final class LauncherModel: ObservableObject {
         if let data = defaults.data(forKey: "gameProfiles.v1"),
            let profiles = try? JSONDecoder().decode([GameProfile].self, from: data),
            !profiles.isEmpty {
-            return profiles
+            return repairProfiles(profiles, config: config)
         }
-        return [GameProfile.eldenRing(config: config, defaults: defaults)]
+        return repairProfiles([GameProfile.eldenRing(config: config, defaults: defaults)], config: config)
+    }
+
+    private static func repairProfiles(_ profiles: [GameProfile], config: ToolkitConfig) -> [GameProfile] {
+        profiles.map { $0.repairedForCurrentToolkit(config: config) }
+    }
+
+    private func repairedProfile(_ profile: GameProfile) -> GameProfile {
+        let repaired = profile.repairedForCurrentToolkit(config: config)
+        guard repaired != profile else { return profile }
+
+        if let index = profiles.firstIndex(where: { $0.id == profile.id }) {
+            profiles[index] = repaired
+            persistProfiles()
+        }
+        return repaired
     }
 }
 
@@ -1120,6 +1140,8 @@ private struct ShellResult: Sendable {
 }
 
 private struct GameProfile: Codable, Identifiable, Hashable {
+    private static let eldenRingERSCID = UUID(uuidString: "00000000-0000-0000-0000-000000000480") ?? UUID()
+
     var id: UUID
     var name: String
     var prefix: String
@@ -1141,9 +1163,51 @@ private struct GameProfile: Codable, Identifiable, Hashable {
         name.replacingOccurrences(of: "[^A-Za-z0-9._-]+", with: "-", options: .regularExpression)
     }
 
+    var isEldenRingERSC: Bool {
+        id == Self.eldenRingERSCID ||
+            executable.localizedCaseInsensitiveContains("ersc_launcher.exe") ||
+            name.localizedCaseInsensitiveContains("elden ring ersc")
+    }
+
+    func repairedForCurrentToolkit(config: ToolkitConfig) -> GameProfile {
+        guard isEldenRingERSC else { return self }
+
+        var repaired = self
+        let patchedRunner = "\(config.gptkHome)/runners/gptk-dsound-nocap-20260513"
+        let patchedRunnerExists = FileManager.default.isExecutableFile(atPath: "\(patchedRunner)/bin/wine64")
+        let stockRunnerPaths = [
+            config.gptkWineHome,
+            "\(config.gptkHome)/apps/Game Porting Toolkit.app/Contents/Resources/wine",
+            "/Applications/Game Porting Toolkit.app/Contents/Resources/wine"
+        ]
+
+        repaired.prefix = repaired.prefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Steam" : repaired.prefix
+        repaired.executable = "ersc_launcher.exe"
+        repaired.winver = repaired.winver.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "win10" : repaired.winver
+        repaired.requiresSteam = true
+        repaired.noDXR = true
+        repaired.noEsync = false
+        repaired.nativeWinmm = true
+        repaired.nativeSteamAPI = true
+        repaired.systemImage = "gamecontroller.fill"
+
+        for required in ["eldenring.exe", "SeamlessCoop"] where !repaired.requiredFiles.contains(required) {
+            repaired.requiredFiles.append(required)
+        }
+
+        let runner = repaired.runnerPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let runnerMissing = runner.isEmpty || !FileManager.default.isExecutableFile(atPath: "\(runner)/bin/wine64")
+        let runnerIsStock = stockRunnerPaths.contains(runner)
+        if patchedRunnerExists, runnerMissing || runnerIsStock {
+            repaired.runnerPath = patchedRunner
+        }
+
+        return repaired
+    }
+
     static func eldenRing(config: ToolkitConfig, defaults: UserDefaults) -> GameProfile {
         GameProfile(
-            id: UUID(uuidString: "00000000-0000-0000-0000-000000000480") ?? UUID(),
+            id: eldenRingERSCID,
             name: "Elden Ring ERSC",
             prefix: defaults.string(forKey: "prefix") ?? "Steam",
             gameFolder: defaults.string(forKey: "gameFolder") ?? "\(config.externalRoot)/Games/EldenRing/Game",
