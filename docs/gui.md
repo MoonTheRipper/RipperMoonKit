@@ -46,8 +46,10 @@ zsh scripts/install-gui-app.zsh "$HOME/Desktop/RipperMoonKit Launcher.app"
 If a previous app exists, the script backs it up under:
 
 ```text
-$GPTK_HOME/backups/gui-app-YYYYmmdd-HHMMSS
+$GPTK_HOME/backups/gui-app-YYYYmmdd-HHMMSS.noindex
 ```
+
+The backup copy is stored as `.app.backup` so Spotlight does not show old launcher backups as separate installed apps.
 
 ## Apps And Games
 

@@ -16,6 +16,8 @@ Confirm patched runners and Apple runtime copies are not included:
 find . -maxdepth 3 \( -iname 'runners' -o -iname 'runtime' -o -iname '*.app' -o -iname 'dsound.dll' \) -print
 ```
 
+Release packaging writes local artifacts under `dist.noindex/` so Spotlight does not surface generated app bundles as installed apps.
+
 Confirm no machine-specific paths:
 
 ```zsh

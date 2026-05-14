@@ -4,6 +4,7 @@
 .swiftpm/
 DerivedData/
 dist/
+dist.noindex/
 
 # Local installs and generated state
 /runtime/

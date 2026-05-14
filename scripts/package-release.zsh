@@ -5,8 +5,8 @@ setopt pipe_fail
 
 repo_dir="${0:A:h:h}"
 version="${1:-$(cd "${repo_dir}" && git describe --tags --abbrev=0 2>/dev/null || print -r -- v0.1.0)}"
-dist_dir="${repo_dir}/dist"
-work_dir="${dist_dir}/work-${version}"
+dist_dir="${repo_dir}/dist.noindex"
+work_dir="${dist_dir}/work-${version}.noindex"
 app_name="RipperMoonKit Launcher.app"
 app_path="${work_dir}/${app_name}"
 dmg_path="${dist_dir}/RipperMoonKit-Launcher.dmg"

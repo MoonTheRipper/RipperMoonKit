@@ -128,7 +128,7 @@ cat > "${tmp_app}/Contents/Info.plist" <<PLIST
 PLIST
 
 if [[ -d "${app_path}" ]]; then
-  backup="${GPTK_HOME}/backups/gui-app-${stamp}/RipperMoonKit Launcher.app"
+  backup="${GPTK_HOME}/backups/gui-app-${stamp}.noindex/RipperMoonKit Launcher.app.backup"
   mkdir -p "${backup:h}"
   ditto "${app_path}" "${backup}"
   log "🛟" "Backed up existing GUI app: ${backup}"
