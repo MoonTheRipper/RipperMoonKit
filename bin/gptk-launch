@@ -172,7 +172,7 @@ if [[ "${#cmd[@]}" -eq 0 ]]; then
 fi
 
 case "${cmd[1]}" in
-  wineboot|winecfg|regedit|reg|wineconsole|cmd|wineserver)
+  wineboot|winecfg|regedit|reg|wineconsole|cmd|taskkill|tasklist|wineserver)
     tool="${cmd[1]}"
     cmd=("${cmd[@]:1}")
     gptk_run_logged "${log_enabled}" "${log_file}" gptk_run_tool "${tool}" "${cmd[@]}"

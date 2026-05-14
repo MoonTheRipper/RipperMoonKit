@@ -25,7 +25,7 @@ Tested workflow:
 - Configurable Wine drive mappings with any letters except `C:`.
 - Installer bootstrap with timestamped emoji logs.
 - Update backups and rollback for existing local installs.
-- A SwiftUI launcher target with per-app profiles, ERSC defaults, validation, logs, path editing, drive mapping, and rollback.
+- A SwiftUI launcher target with per-app profiles, ERSC defaults, validation, logs, path editing, drive mapping, close-game control, VC++ runtime install actions, and rollback.
 - Documentation for GPTK 3, Steam, ERSC, copied game folders, saves, and troubleshooting.
 
 ## Quick Start
@@ -185,6 +185,7 @@ Start here:
 - [docs/configuration.md](docs/configuration.md): environment variables and path configuration.
 - [docs/drives.md](docs/drives.md): custom Wine drive mappings.
 - [docs/commands.md](docs/commands.md): command reference.
+- [docs/visual-c-runtime.md](docs/visual-c-runtime.md): Microsoft Visual C++ runtime installation for Wine prefixes.
 - [docs/steam.md](docs/steam.md): Windows Steam install and launch flow.
 - [docs/game-folder-workflow.md](docs/game-folder-workflow.md): copying pre-installed game folders instead of running fragile installers.
 - [docs/elden-ring-ersc.md](docs/elden-ring-ersc.md): ERSC launch sequence.

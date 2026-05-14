@@ -288,44 +288,62 @@ private struct ProfileDetailView: View {
             }
 
             Panel("Actions", systemImage: "play.circle.fill") {
-                HStack(spacing: 12) {
-                    Button {
-                        model.startSteam(for: profile)
-                    } label: {
-                        Label("Start Steam", systemImage: "play.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!profile.requiresSteam)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        Button {
+                            model.startSteam(for: profile)
+                        } label: {
+                            Label("Start Steam", systemImage: "play.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!profile.requiresSteam)
 
-                    Button {
-                        model.launch(profile)
-                    } label: {
-                        Label("Launch", systemImage: "gamecontroller.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
+                        Button {
+                            model.launch(profile)
+                        } label: {
+                            Label("Launch", systemImage: "gamecontroller.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
 
-                    Button(role: .destructive) {
-                        model.stopSteam()
-                    } label: {
-                        Label("Stop Steam", systemImage: "power")
-                    }
-                    .buttonStyle(.bordered)
+                        Button {
+                            model.closeGame(profile)
+                        } label: {
+                            Label("Close Game", systemImage: "xmark.circle.fill")
+                        }
+                        .buttonStyle(.bordered)
 
-                    Button {
-                        model.openLogsFolder()
-                    } label: {
-                        Label("Logs", systemImage: "doc.text.magnifyingglass")
+                        Button(role: .destructive) {
+                            model.stopSteam()
+                        } label: {
+                            Label("Stop Steam", systemImage: "power")
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
 
-                    Spacer()
+                    HStack(spacing: 12) {
+                        Button {
+                            model.installVCRuntime(for: profile)
+                        } label: {
+                            Label("Install VC++ Runtime", systemImage: "shippingbox.fill")
+                        }
+                        .buttonStyle(.bordered)
 
-                    Button(role: .destructive) {
-                        confirmDelete = true
-                    } label: {
-                        Label("Delete", systemImage: "trash")
+                        Button {
+                            model.openLogsFolder()
+                        } label: {
+                            Label("Logs", systemImage: "doc.text.magnifyingglass")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer()
+
+                        Button(role: .destructive) {
+                            confirmDelete = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
                 }
             }
 
@@ -345,6 +363,7 @@ private struct ProfileDetailView: View {
                         CommandPreview(title: "Start Steam", command: model.previewStartSteamCommand(for: profile))
                     }
                     CommandPreview(title: "Launch", command: model.previewLaunchCommand(for: profile))
+                    CommandPreview(title: "Close Game", command: model.previewCloseGameCommand(for: profile))
                     if profile.requiresSteam {
                         CommandPreview(title: "Stop Steam", command: model.previewStopSteamCommand())
                     }
@@ -536,6 +555,13 @@ private struct SettingsView: View {
                             model.updateFromGitHub()
                         } label: {
                             Label("Update From GitHub", systemImage: "arrow.down.circle.fill")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            model.installVCRuntimeGlobally()
+                        } label: {
+                            Label("Install VC++ Runtime", systemImage: "shippingbox.fill")
                         }
                         .buttonStyle(.bordered)
                     }
@@ -927,12 +953,32 @@ private final class LauncherModel: ObservableObject {
         runShell(title: "Stop Steam", command: previewStopSteamCommand())
     }
 
+    func closeGame(_ profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(title: "Close \(profile.name)", command: previewCloseGameCommand(for: profile))
+    }
+
     func launch(_ profile: GameProfile) {
         let profile = repairedProfile(profile)
         runShell(
             title: "Launch \(profile.name)",
             command: previewLaunchCommand(for: profile, detached: true),
             detached: true
+        )
+    }
+
+    func installVCRuntime(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(
+            title: "Install VC++ Runtime",
+            command: "\(sourceConfig); \(config.gptkVCRunPath.shellQuoted) --prefix \(profile.prefix.shellQuoted)"
+        )
+    }
+
+    func installVCRuntimeGlobally() {
+        runShell(
+            title: "Install VC++ Runtime",
+            command: "\(sourceConfig); \(config.gptkVCRunPath.shellQuoted) --all"
         )
     }
 
@@ -1080,6 +1126,13 @@ private final class LauncherModel: ObservableObject {
         "\(sourceConfig); \(config.gptkSteamPath.shellQuoted) --kill"
     }
 
+    func previewCloseGameCommand(for profile: GameProfile) -> String {
+        let commands = closeTargets(for: profile).map { target in
+            "env \(runnerEnvAssignment(for: profile)) \(config.gptkLaunchPath.shellQuoted) --prefix \(profile.prefix.shellQuoted) --no-log -- taskkill /IM \(target.shellQuoted) /F >/dev/null 2>&1 || true"
+        }
+        return "\(sourceConfig); \(commands.joined(separator: "; "))"
+    }
+
     func previewLaunchCommand(for profile: GameProfile, detached: Bool = false) -> String {
         let logPath = "\(config.logsPath)/\(profile.safeName).log"
         var args: [String] = ["--prefix", profile.prefix, "--set-winver", profile.winver]
@@ -1098,6 +1151,19 @@ private final class LauncherModel: ObservableObject {
             return "\(sourceConfig); \(launch)"
         }
         return "\(sourceConfig); cd \(profile.gameFolder.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart)"
+    }
+
+    private func closeTargets(for profile: GameProfile) -> [String] {
+        var targets: [String] = []
+        let executable = (profile.executable as NSString).lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !executable.isEmpty {
+            targets.append(executable)
+        }
+        if profile.isEldenRingERSC {
+            targets.append("eldenring.exe")
+        }
+        var seen = Set<String>()
+        return targets.filter { seen.insert($0.localizedLowercase).inserted }
     }
 
     private var sourceConfig: String {
@@ -1430,6 +1496,7 @@ private struct ToolkitConfig {
     var gptkDownloadPage: String { expand(values["GPTK_DOWNLOAD_PAGE"] ?? "https://developer.apple.com/games/game-porting-toolkit/") }
     var gptkLaunchPath: String { "\(home)/bin/gptk-launch" }
     var gptkSteamPath: String { "\(home)/bin/gptk-steam" }
+    var gptkVCRunPath: String { "\(home)/bin/gptk-vcrun" }
     var hasLocalGPTK: Bool {
         FileManager.default.isExecutableFile(atPath: "\(gptkWineHome)/bin/wine64")
             && FileManager.default.fileExists(atPath: "\(gptkRuntime)/lib/wine/x86_64-windows/d3d12.dll")

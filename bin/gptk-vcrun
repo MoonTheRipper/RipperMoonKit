@@ -1,0 +1,200 @@
+#!/bin/zsh
+
+set -e
+SCRIPT_DIR="${0:A:h}"
+COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
+[[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
+source "${COMMON}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  gptk-vcrun [options]
+
+Options:
+  -p, --prefix NAME|PATH     Install VC++ runtime into one Wine prefix
+      --all                  Install into every existing prefix under GPTK_PREFIX_ROOT
+      --x64-only             Install only the x64 redistributable
+      --x86-only             Install only the x86 redistributable
+      --download-only        Download redistributables and exit
+      --force-download       Re-download redistributables even if cached
+  -h, --help                 Show this help
+
+Default:
+  If neither --prefix nor --all is provided, gptk-vcrun installs into GPTK_PREFIX or Default.
+
+Environment:
+  RIPPERMOON_VCREDIST_X64_URL  Override the Microsoft x64 redistributable URL
+  RIPPERMOON_VCREDIST_X86_URL  Override the Microsoft x86 redistributable URL
+  RIPPERMOON_VCREDIST_DIR      Override the local redistributable cache folder
+USAGE
+}
+
+prefix="${GPTK_PREFIX:-Default}"
+install_all=0
+download_only=0
+force_download=0
+install_x64=1
+install_x86=1
+explicit_prefix=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--prefix)
+      [[ $# -ge 2 ]] || gptk_die "--prefix requires a value"
+      prefix="$2"
+      explicit_prefix=1
+      shift 2
+      ;;
+    --prefix=*)
+      prefix="${1#--prefix=}"
+      explicit_prefix=1
+      shift
+      ;;
+    --all)
+      install_all=1
+      shift
+      ;;
+    --x64-only)
+      install_x64=1
+      install_x86=0
+      shift
+      ;;
+    --x86-only)
+      install_x64=0
+      install_x86=1
+      shift
+      ;;
+    --download-only)
+      download_only=1
+      shift
+      ;;
+    --force-download)
+      force_download=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      gptk_die "unknown option: $1"
+      ;;
+  esac
+done
+
+if [[ "${install_all}" == "1" && "${explicit_prefix}" == "1" ]]; then
+  gptk_die "use either --all or --prefix, not both"
+fi
+
+vcredist_dir="${RIPPERMOON_VCREDIST_DIR:-${GPTK_HOME}/downloads/vcredist}"
+vcredist_x64_url="${RIPPERMOON_VCREDIST_X64_URL:-https://aka.ms/vc14/vc_redist.x64.exe}"
+vcredist_x86_url="${RIPPERMOON_VCREDIST_X86_URL:-https://aka.ms/vc14/vc_redist.x86.exe}"
+vcredist_x64="${vcredist_dir}/vc_redist.x64.exe"
+vcredist_x86="${vcredist_dir}/vc_redist.x86.exe"
+log_file="${GPTK_LOG_DIR}/vcredist-$(date +%Y%m%d-%H%M%S).log"
+
+download_one() {
+  local url="$1"
+  local target="$2"
+  local tmp="${target}.download"
+
+  mkdir -p "${target:h}" "${GPTK_LOG_DIR}"
+  if [[ -s "${target}" && "${force_download}" != "1" ]]; then
+    gptk_note "using cached ${target}"
+    return 0
+  fi
+
+  command -v curl >/dev/null 2>&1 || gptk_die "curl is required to download ${url}"
+  gptk_note "downloading ${url}"
+  curl -fL --retry 3 --connect-timeout 30 -o "${tmp}" "${url}" >> "${log_file}" 2>&1
+  mv "${tmp}" "${target}"
+  gptk_note "downloaded ${target}"
+}
+
+collect_prefixes() {
+  local dir
+  local name
+  for dir in "${GPTK_PREFIX_ROOT}"/*(N/); do
+    name="${dir:t}"
+    case "${name}" in
+      *.backup|*.backup-*|*.broken|*.broken-*|*.disabled|*.disabled-*|*.old|*.old-*)
+        gptk_note "skipping archived prefix ${dir}"
+        continue
+        ;;
+    esac
+    if [[ -d "${dir}/drive_c/windows" || -f "${dir}/system.reg" ]]; then
+      print -r -- "${dir}"
+    fi
+  done
+}
+
+install_one_runtime() {
+  local installer="$1"
+  local arch_name="$2"
+  local exit_status=0
+
+  [[ -s "${installer}" ]] || gptk_die "missing ${installer}; run gptk-vcrun --download-only first"
+  gptk_note "installing VC++ ${arch_name} runtime into ${WINEPREFIX}"
+  set +e
+  gptk_run_native "$(gptk_tool_path wine64)" "${installer}" /install /quiet /norestart >> "${log_file}" 2>&1
+  exit_status=$?
+  set -e
+
+  case "${exit_status}" in
+    0)
+      gptk_note "VC++ ${arch_name} runtime install completed"
+      ;;
+    194|3010)
+      gptk_note "VC++ ${arch_name} runtime install completed; reboot requested by installer"
+      ;;
+    102|1638)
+      gptk_note "VC++ ${arch_name} runtime already installed or newer version present"
+      ;;
+    *)
+      gptk_note "VC++ ${arch_name} installer exited with status ${exit_status}; see ${log_file}"
+      return "${exit_status}"
+      ;;
+  esac
+}
+
+install_into_prefix() {
+  local prefix_value="$1"
+  local prefix_path
+
+  prefix_path="$(gptk_resolve_prefix "${prefix_value}")"
+  gptk_prepare_prefix_dirs "${prefix_path}"
+  gptk_configure_environment "${prefix_path}"
+  gptk_link_configured_drives "${prefix_path}"
+
+  if [[ "${install_x64}" == "1" ]]; then
+    install_one_runtime "${vcredist_x64}" "x64"
+  fi
+  if [[ "${install_x86}" == "1" ]]; then
+    install_one_runtime "${vcredist_x86}" "x86"
+  fi
+}
+
+gptk_note "VC++ runtime log: ${log_file}"
+if [[ "${install_x64}" == "1" ]]; then
+  download_one "${vcredist_x64_url}" "${vcredist_x64}"
+fi
+if [[ "${install_x86}" == "1" ]]; then
+  download_one "${vcredist_x86_url}" "${vcredist_x86}"
+fi
+
+[[ "${download_only}" == "1" ]] && exit 0
+
+if [[ "${install_all}" == "1" ]]; then
+  prefixes=("${(@f)$(collect_prefixes)}")
+  if [[ "${#prefixes[@]}" -eq 0 ]]; then
+    gptk_die "no existing prefixes found under ${GPTK_PREFIX_ROOT}"
+  fi
+  for existing_prefix in "${prefixes[@]}"; do
+    install_into_prefix "${existing_prefix}"
+  done
+else
+  install_into_prefix "${prefix}"
+fi
+
+gptk_note "VC++ runtime install finished"

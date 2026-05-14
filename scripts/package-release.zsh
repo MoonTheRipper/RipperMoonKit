@@ -4,7 +4,7 @@ set -e
 setopt pipe_fail
 
 repo_dir="${0:A:h:h}"
-version="${1:-$(cd "${repo_dir}" && git describe --tags --abbrev=0 2>/dev/null || print -r -- v0.1.0)}"
+version="${1:-v$(<"${repo_dir}/VERSION")}"
 dist_dir="${repo_dir}/dist.noindex"
 work_dir="${dist_dir}/work-${version}.noindex"
 app_name="RipperMoonKit Launcher.app"

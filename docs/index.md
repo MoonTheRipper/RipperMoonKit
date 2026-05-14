@@ -17,6 +17,7 @@ Read in this order:
 - [configuration.md](configuration.md): all supported environment variables.
 - [drives.md](drives.md): custom Wine drive mappings.
 - [dependencies.md](dependencies.md): installer bootstrap behavior and logs.
+- [visual-c-runtime.md](visual-c-runtime.md): Microsoft Visual C++ runtime installation for Wine prefixes.
 - [update-safety.md](update-safety.md): backups, protected paths, and rollback.
 - [gui.md](gui.md): SwiftUI launcher build/run workflow.
 - [uninstall.md](uninstall.md): conservative uninstall behavior and optional config/save removal.

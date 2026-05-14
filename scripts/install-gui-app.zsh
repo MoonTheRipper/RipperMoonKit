@@ -7,6 +7,7 @@ repo_dir="${0:A:h:h}"
 config="${HOME}/.rippermoon-gptk.env"
 stamp="$(date +%Y%m%d-%H%M%S)"
 app_path="${1:-${HOME}/Applications/RipperMoonKit Launcher.app}"
+app_version="${RIPPERMOON_APP_VERSION:-$(<"${repo_dir}/VERSION")}"
 
 if [[ -r "${config}" ]]; then
   source "${config}"
@@ -116,7 +117,7 @@ cat > "${tmp_app}/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>${app_version#v}</string>
   <key>CFBundleVersion</key>
   <string>${stamp}</string>
   <key>LSMinimumSystemVersion</key>

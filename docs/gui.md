@@ -6,7 +6,7 @@ RipperMoonKit now includes a native SwiftUI launcher target:
 RipperMoonKitLauncher
 ```
 
-The launcher reads `~/.rippermoon-gptk.env`, shows a list of configured apps/games, opens each app into its own launch settings, validates that app's folder layout, starts and stops Windows Steam when the profile requires it, and exposes install, update, uninstall, backup, and rollback actions.
+The launcher reads `~/.rippermoon-gptk.env`, shows a list of configured apps/games, opens each app into its own launch settings, validates that app's folder layout, starts and stops Windows Steam when the profile requires it, closes the selected game without stopping Steam, installs Microsoft Visual C++ runtime packages per prefix, and exposes install, update, uninstall, backup, and rollback actions.
 
 ## Build
 
@@ -75,6 +75,10 @@ Use **Add App** to create another app/game profile. The profile command preview 
 Each profile can point at its own icon image. The sidebar row, the app settings preview, and the large square icon in the page header use that profile icon when configured. This is intentionally a user-selected image path, because the best icon is not always embedded in the Windows `.exe`.
 
 The MetalFX/DLSS toggle is for games that expose DLSS in their own graphics menu. It adds `--metalfx` and prefers GPTK's built-in `nvapi64` and `nvngx` bridge DLLs for that launch.
+
+The **Close Game** action uses Wine `taskkill` against the selected profile's executable name. For the default ERSC profile, it also targets `eldenring.exe`. It does not stop the Steam prefix or run `wineserver -k`.
+
+The per-profile **Install VC++ Runtime** action runs `gptk-vcrun --prefix PROFILE_PREFIX`. Settings > Maintenance also has a global install action that runs `gptk-vcrun --all`.
 
 ## Default ERSC Profile
 

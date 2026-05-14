@@ -154,6 +154,28 @@ Launch Spacewar/AppID 480:
 gptk-steam --log -applaunch 480
 ```
 
+## gptk-vcrun
+
+Download and install the latest Microsoft Visual C++ v14 runtime into one prefix:
+
+```zsh
+gptk-vcrun --prefix Dispatch
+```
+
+Install into every existing Wine prefix under `GPTK_PREFIX_ROOT`:
+
+```zsh
+gptk-vcrun --all
+```
+
+Archived prefixes ending in `.broken-*`, `.backup-*`, `.old-*`, or `.disabled-*` are skipped.
+
+Download without installing:
+
+```zsh
+gptk-vcrun --download-only
+```
+
 ## Elden Ring ERSC With Golden Pot Fix
 
 Start Steam with the DirectSound no-capture runner:

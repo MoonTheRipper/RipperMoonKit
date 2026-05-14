@@ -47,6 +47,10 @@ Environment:
   RIPPERMOON_BREW_FORMULAE  Space-separated Homebrew formulae to install
   STEAM_SETUP_URL           Override the SteamSetup.exe download URL
   STEAM_SETUP_PATH          Override where SteamSetup.exe is stored
+  RIPPERMOON_VCREDIST_X64_URL
+                            Override the Microsoft VC++ x64 runtime URL
+  RIPPERMOON_VCREDIST_X86_URL
+                            Override the Microsoft VC++ x86 runtime URL
   GPTK_SOURCE               Mounted GPTK folder or volume to search first
   RIPPERMOON_BACKUP_EXTRA_PATHS
                             Semicolon-separated extra files/folders to snapshot
@@ -160,6 +164,8 @@ GPTK_DOWNLOAD_PAGE="${GPTK_DOWNLOAD_PAGE:-https://developer.apple.com/games/game
 GPTK_DOWNLOAD_DIR="${GPTK_DOWNLOAD_DIR:-${HOME}/Downloads}"
 STEAM_SETUP_URL="${STEAM_SETUP_URL:-https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe}"
 STEAM_SETUP_PATH="${STEAM_SETUP_PATH:-${GPTK_EXTERNAL_ROOT}/Installers/SteamSetup.exe}"
+RIPPERMOON_VCREDIST_X64_URL="${RIPPERMOON_VCREDIST_X64_URL:-https://aka.ms/vc14/vc_redist.x64.exe}"
+RIPPERMOON_VCREDIST_X86_URL="${RIPPERMOON_VCREDIST_X86_URL:-https://aka.ms/vc14/vc_redist.x86.exe}"
 RIPPERMOON_BREW_FORMULAE="${RIPPERMOON_BREW_FORMULAE-cabextract p7zip samba gnutls molten-vk vulkan-loader vulkan-headers}"
 
 install_bin="${HOME}/bin"
@@ -270,6 +276,7 @@ write_backup_readme() {
     print -r -- "- ${install_bin}/gptk-launch"
     print -r -- "- ${install_bin}/gptk-steam"
     print -r -- "- ${install_bin}/gptk-game"
+    print -r -- "- ${install_bin}/gptk-vcrun"
     print -r -- "- ${install_libexec}/gptk-common.zsh"
     print -r -- ""
     print -r -- "Files listed in absent.tsv did not exist before the update and are removed during rollback if the update created them."
@@ -300,6 +307,7 @@ create_backup() {
   backup_restore_path "${install_bin}/gptk-launch" "home/bin/gptk-launch" "launcher"
   backup_restore_path "${install_bin}/gptk-steam" "home/bin/gptk-steam" "Steam launcher"
   backup_restore_path "${install_bin}/gptk-game" "home/bin/gptk-game" "game helper"
+  backup_restore_path "${install_bin}/gptk-vcrun" "home/bin/gptk-vcrun" "VC++ runtime helper"
   backup_restore_path "${install_libexec}/gptk-common.zsh" "gptk/libexec/gptk-common.zsh" "shared helper library"
 
   record_protected_path "Wine prefix root" "${GPTK_PREFIX_ROOT}"
@@ -388,6 +396,7 @@ rollback_backup() {
         "${HOME:A}/bin/gptk-launch"|\
         "${HOME:A}/bin/gptk-steam"|\
         "${HOME:A}/bin/gptk-game"|\
+        "${HOME:A}/bin/gptk-vcrun"|\
         "${HOME:A}/.zshrc"|\
         "${GPTK_HOME:A}/libexec/gptk-common.zsh")
           rm -rf "${destination}"
@@ -493,6 +502,7 @@ install_toolkit_files() {
   install -m 755 "${repo_dir}/bin/gptk-launch" "${install_bin}/gptk-launch"
   install -m 755 "${repo_dir}/bin/gptk-steam" "${install_bin}/gptk-steam"
   install -m 755 "${repo_dir}/bin/gptk-game" "${install_bin}/gptk-game"
+  install -m 755 "${repo_dir}/bin/gptk-vcrun" "${install_bin}/gptk-vcrun"
   install -m 644 "${repo_dir}/libexec/gptk-common.zsh" "${install_libexec}/gptk-common.zsh"
 
   if [[ ! -e "${config}" ]]; then
