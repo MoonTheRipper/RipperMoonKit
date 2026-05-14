@@ -23,6 +23,53 @@ log() {
   printf '%s [%s] %s\n' "${icon}" "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "${log_file}"
 }
 
+create_app_icon() {
+  local resources_dir="$1"
+  local source="${repo_dir}/Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg"
+  local work
+  local iconset
+  local base
+  local name
+  local size
+
+  if [[ ! -f "${source}" ]]; then
+    log "⚠️" "App icon source was not found: ${source}"
+    return 0
+  fi
+
+  if ! command -v sips >/dev/null 2>&1 || ! command -v iconutil >/dev/null 2>&1; then
+    log "⚠️" "sips or iconutil is missing; app icon generation skipped."
+    return 0
+  fi
+
+  work="$(mktemp -d "${TMPDIR:-/tmp}/rippermoon-icon.XXXXXX")"
+  iconset="${work}/RipperMoonKitLogo.iconset"
+  base="${work}/RipperMoonKitLogo-square.png"
+  mkdir -p "${iconset}"
+
+  sips -s format png -c 1080 1080 "${source}" --out "${base}" >> "${log_file}" 2>&1
+
+  for name size in \
+    icon_16x16.png 16 \
+    icon_16x16@2x.png 32 \
+    icon_32x32.png 32 \
+    icon_32x32@2x.png 64 \
+    icon_128x128.png 128 \
+    icon_128x128@2x.png 256 \
+    icon_256x256.png 256 \
+    icon_256x256@2x.png 512 \
+    icon_512x512.png 512 \
+    icon_512x512@2x.png 1024
+  do
+    sips -s format png -z "${size}" "${size}" "${base}" --out "${iconset}/${name}" >> "${log_file}" 2>&1
+  done
+
+  iconutil -c icns "${iconset}" -o "${resources_dir}/RipperMoonKitLogo.icns" >> "${log_file}" 2>&1
+  cp -p "${source}" "${resources_dir}/RipperMoonKitLogo.jpg"
+  rm -rf "${work}"
+  log "🎨" "Created app icon from RipperMoonKitLogo."
+}
+
 log "🚀" "Building RipperMoonKitLauncher."
 log "🪵" "GUI install log: ${log_file}"
 
@@ -49,6 +96,7 @@ mkdir -p "${tmp_app}/Contents/MacOS" "${tmp_app}/Contents/Resources"
 install -m 755 "${executable}" "${tmp_app}/Contents/MacOS/RipperMoonKitLauncher"
 ditto "${resource_bundle}" "${tmp_app}/RipperMoonKit_RipperMoonKitLauncher.bundle"
 ditto "${resource_bundle}" "${tmp_app}/Contents/Resources/RipperMoonKit_RipperMoonKitLauncher.bundle"
+create_app_icon "${tmp_app}/Contents/Resources"
 
 cat > "${tmp_app}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -63,6 +111,8 @@ cat > "${tmp_app}/Contents/Info.plist" <<PLIST
   <string>RipperMoonKit Launcher</string>
   <key>CFBundleDisplayName</key>
   <string>RipperMoonKit</string>
+  <key>CFBundleIconFile</key>
+  <string>RipperMoonKitLogo</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>

@@ -91,6 +91,14 @@ The logo resource is:
 Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg
 ```
 
+When `scripts/install-gui-app.zsh` packages the local app, it also crops this image into a square macOS icon set and writes:
+
+```text
+~/Applications/RipperMoonKit Launcher.app/Contents/Resources/RipperMoonKitLogo.icns
+```
+
+The app bundle points `CFBundleIconFile` at that icon so Finder, Dock, and app switcher use the same artwork as the in-app logo.
+
 It was copied from the local image:
 
 ```text
