@@ -60,6 +60,7 @@ name
 prefix
 game folder
 executable
+icon path
 runner path
 Windows version
 Steam requirement
@@ -70,6 +71,8 @@ launch command preview
 ```
 
 Use **Add App** to create another app/game profile. The profile command preview lives inside that app's page, not in global Settings.
+
+Each profile can point at its own icon image. The sidebar row, the app settings preview, and the large square icon in the page header use that profile icon when configured. This is intentionally a user-selected image path, because the best icon is not always embedded in the Windows `.exe`.
 
 The MetalFX/DLSS toggle is for games that expose DLSS in their own graphics menu. It adds `--metalfx` and prefers GPTK's built-in `nvapi64` and `nvngx` bridge DLLs for that launch.
 

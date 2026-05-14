@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct RipperMoonKitLauncherApp: App {
@@ -31,7 +32,7 @@ private struct ContentView: View {
                 List(selection: $selection) {
                     Section("Apps & Games") {
                         ForEach(model.profiles) { profile in
-                            Label(profile.name, systemImage: profile.systemImage)
+                            ProfileSidebarRow(profile: profile)
                                 .tag(SidebarSelection.profile(profile.id))
                         }
                     }
@@ -60,7 +61,7 @@ private struct ContentView: View {
         } detail: {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    HeaderView()
+                    HeaderView(profile: headerProfile)
 
                     switch selection ?? model.defaultSelection {
                     case .profile(let id):
@@ -90,25 +91,23 @@ private struct ContentView: View {
                 .frame(width: 620)
         }
     }
+
+    private var headerProfile: GameProfile? {
+        guard case .profile(let id) = selection ?? model.defaultSelection else { return nil }
+        return model.profiles.first { $0.id == id }
+    }
 }
 
 private struct HeaderView: View {
     @EnvironmentObject private var model: LauncherModel
+    let profile: GameProfile?
 
     var body: some View {
         HStack(spacing: 16) {
-            Image("RipperMoonKitLogo", bundle: .module)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 72, height: 72)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(.white.opacity(0.18))
-                }
+            ProfileIconView(profile: profile, size: 72, appFallback: true)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("RipperMoonKit")
+                Text(profile?.name ?? "RipperMoonKit")
                     .font(.largeTitle.weight(.semibold))
                 Text(model.statusLine)
                     .font(.callout)
@@ -127,6 +126,59 @@ private struct HeaderView: View {
     }
 }
 
+private struct ProfileSidebarRow: View {
+    let profile: GameProfile
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ProfileIconView(profile: profile, size: 24, appFallback: false)
+            Text(profile.name)
+                .lineLimit(1)
+        }
+    }
+}
+
+private struct ProfileIconView: View {
+    let profile: GameProfile?
+    let size: CGFloat
+    let appFallback: Bool
+
+    var body: some View {
+        Group {
+            if let image = profileImage {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else if appFallback {
+                Image("RipperMoonKitLogo", bundle: .module)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Image(systemName: profile?.systemImage ?? "app.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(size * 0.22)
+                    .foregroundStyle(.secondary)
+                    .background(.quaternary)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: max(4, size * 0.12), style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: max(4, size * 0.12), style: .continuous)
+                .strokeBorder(.primary.opacity(0.08))
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var profileImage: NSImage? {
+        guard let path = profile?.iconPath?.trimmingCharacters(in: .whitespacesAndNewlines), !path.isEmpty else {
+            return nil
+        }
+        return NSImage(contentsOfFile: path)
+    }
+}
+
 private struct ProfileDetailView: View {
     @EnvironmentObject private var model: LauncherModel
     @Binding var profile: GameProfile
@@ -140,6 +192,30 @@ private struct ProfileDetailView: View {
                         FieldLabel("Name")
                         TextField("Name", text: $profile.name)
                             .textFieldStyle(.roundedBorder)
+                    }
+
+                    GridRow {
+                        FieldLabel("Icon")
+                        HStack(spacing: 10) {
+                            ProfileIconView(profile: profile, size: 36, appFallback: false)
+                            TextField("Icon image path", text: iconPathBinding)
+                                .textFieldStyle(.roundedBorder)
+                            Button {
+                                model.chooseIcon(for: &profile)
+                            } label: {
+                                Image(systemName: "photo")
+                            }
+                            .buttonStyle(.bordered)
+                            .help("Choose icon image")
+                            Button {
+                                profile.iconPath = nil
+                            } label: {
+                                Image(systemName: "xmark.circle")
+                            }
+                            .buttonStyle(.bordered)
+                            .help("Clear icon")
+                            .disabled((profile.iconPath ?? "").isEmpty)
+                        }
                     }
 
                     GridRow {
@@ -286,6 +362,13 @@ private struct ProfileDetailView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+    }
+
+    private var iconPathBinding: Binding<String> {
+        Binding(
+            get: { profile.iconPath ?? "" },
+            set: { profile.iconPath = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+        )
     }
 }
 
@@ -806,6 +889,25 @@ private final class LauncherModel: ObservableObject {
         }
     }
 
+    func chooseIcon(for profile: inout GameProfile) {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Game Icon"
+        panel.prompt = "Use Icon"
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.icns, .png, .jpeg, .tiff, .heic]
+        if let iconPath = profile.iconPath, !iconPath.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: iconPath).deletingLastPathComponent()
+        } else {
+            panel.directoryURL = URL(fileURLWithPath: profile.gameFolder)
+        }
+        if panel.runModal() == .OK, let url = panel.url {
+            profile.iconPath = url.path
+            persistProfiles()
+        }
+    }
+
     func fileExists(_ relativePath: String, in profile: GameProfile) -> Bool {
         guard !relativePath.isEmpty else { return false }
         let path = URL(fileURLWithPath: profile.gameFolder).appendingPathComponent(relativePath).path
@@ -1156,6 +1258,7 @@ private struct GameProfile: Codable, Identifiable, Hashable {
     var prefix: String
     var gameFolder: String
     var executable: String
+    var iconPath: String?
     var runnerPath: String
     var winver: String
     var requiresSteam: Bool
@@ -1222,6 +1325,7 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             prefix: defaults.string(forKey: "prefix") ?? "Steam",
             gameFolder: defaults.string(forKey: "gameFolder") ?? "\(config.externalRoot)/Games/EldenRing/Game",
             executable: "ersc_launcher.exe",
+            iconPath: defaults.string(forKey: "iconPath"),
             runnerPath: defaults.string(forKey: "runnerPath") ?? "\(config.gptkHome)/runners/gptk-dsound-nocap-20260513",
             winver: defaults.string(forKey: "winver") ?? "win10",
             requiresSteam: true,
@@ -1244,6 +1348,7 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             prefix: "MyGame",
             gameFolder: "\(config.externalRoot)/Games",
             executable: "Game.exe",
+            iconPath: nil,
             runnerPath: "",
             winver: "win10",
             requiresSteam: false,
