@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RipperMoonKit</title>
+  <meta name="description" content="A minimal Apple Game Porting Toolkit launcher for Steam, ERSC, and profile-based Windows game launches on macOS.">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f7f7f4;
+      --fg: #171714;
+      --muted: #66645d;
+      --line: #d9d7cf;
+      --accent: #8c1d2c;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #141412;
+        --fg: #f4f1ea;
+        --muted: #aba79e;
+        --line: #36342f;
+        --accent: #ff6b7f;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    }
+
+    header,
+    main,
+    footer {
+      width: min(900px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    header {
+      padding: 64px 0 36px;
+      display: grid;
+      gap: 22px;
+      grid-template-columns: 92px 1fr;
+      align-items: center;
+    }
+
+    img {
+      width: 92px;
+      height: 92px;
+      object-fit: cover;
+      border-radius: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.4rem, 8vw, 5.6rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      max-width: 720px;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    nav {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 28px 0 44px;
+    }
+
+    .download {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 48px;
+      padding: 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 650;
+      background: color-mix(in srgb, var(--bg), var(--fg) 4%);
+    }
+
+    .download:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    svg {
+      width: 21px;
+      height: 21px;
+      flex: 0 0 auto;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 1.2em;
+      color: var(--muted);
+    }
+
+    li + li {
+      margin-top: 8px;
+    }
+
+    code {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 0.92em;
+    }
+
+    footer {
+      margin-top: 56px;
+      padding: 22px 0 44px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt="">
+    <h1>RipperMoonKit</h1>
+  </header>
+
+  <main>
+    <p>
+      A focused macOS launcher kit for Apple Game Porting Toolkit workflows:
+      profile-based Windows game launches, Steam support, external drive mappings,
+      rollback-safe updates, and the tested Elden Ring ERSC setup.
+    </p>
+
+    <nav aria-label="Downloads">
+      <a class="download" href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M5 3h10l4 4v14H5V3Zm9 1.8V8h3.2L14 4.8ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z"/>
+        </svg>
+        Download DMG
+      </a>
+      <a class="download" href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-source.zip">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M4 4h16v4h-2V6H6v12h12v-2h2v4H4V4Zm8 4h2v3h3v2h-3v3h-2v-3H9v-2h3V8Z"/>
+        </svg>
+        Source ZIP
+      </a>
+    </nav>
+
+    <ul>
+      <li>Use your own Apple Game Porting Toolkit 3 download from Apple.</li>
+      <li>Keep Wine prefixes, saves, Steam data, installed games, and GPTK runtimes outside git.</li>
+      <li>Start with the built-in Elden Ring ERSC profile or add individual profiles for other apps and games.</li>
+    </ul>
+  </main>
+
+  <footer>
+    <span>Documentation and source: </span>
+    <a href="https://github.com/MoonTheRipper/RipperMoonKit">github.com/MoonTheRipper/RipperMoonKit</a>
+  </footer>
+</body>
+</html>

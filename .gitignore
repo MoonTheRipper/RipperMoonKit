@@ -3,6 +3,7 @@
 .build/
 .swiftpm/
 DerivedData/
+dist/
 
 # Local installs and generated state
 /runtime/

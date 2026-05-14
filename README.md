@@ -194,3 +194,7 @@ Start here:
 - [docs/faq.md](docs/faq.md): common questions.
 - [docs/release-checklist.md](docs/release-checklist.md): maintainer checklist before publishing.
 - [docs/roadmap.md](docs/roadmap.md): planned SwiftUI launcher and compatibility profile work.
+
+## Project Page
+
+The minimalist download page is [index.html](index.html). If GitHub Pages is enabled from the `main` branch root, it provides direct links to the latest DMG and source ZIP release assets.
