@@ -10,27 +10,28 @@ Planned app name:
 RipperMoonKit Launcher
 ```
 
-Initial shipped goals:
+Shipped goals:
 
-- Detect `~/.rippermoon-gptk.env` and show the active GPTK, prefix, games, Steam library, and runner paths.
-- Let users choose a game folder with a file picker.
-- Validate common layouts, including `ersc_launcher.exe`, `eldenring.exe`, `SeamlessCoop/`, and expected DLL overrides.
-- Start Steam, launch AppID 480 when needed, launch ERSC, and stop Steam through buttons.
+- Detect `~/.rippermoon-gptk.env` and show editable paths and drive mappings.
+- Let users create individual app/game profiles.
+- Let each profile own its game folder, executable, prefix, runner, validation files, launch options, and command previews.
+- Validate common layouts, including `ersc_launcher.exe`, `eldenring.exe`, `SeamlessCoop/`, and expected DLL overrides for the default ERSC profile.
+- Start Steam when needed, launch ERSC or other configured executables, and stop Steam through buttons.
 - Write readable logs to `$GPTK_HOME/logs`.
 - Show last-run status and links to the current log files.
 - Expose safe toggles for `--no-dxr`, `--hud`, `--set-winver`, and selected compatibility profile.
 - Create and apply installer rollback backups.
+- Prompt first-run setup when GPTK or the toolkit install is missing.
 
 Next app goals:
 
-- Package and sign a `.app` build.
-- Add first-run setup for GPTK media, external drives, Steam, and game folders.
 - Add launch status checks for long-running Steam/game processes.
 - Warn when Steam and the game are about to use different Wine prefixes.
+- Add import/export for app profile presets.
 
 ## Compatibility Profiles
 
-Future game support should be profile-based instead of hard-coded.
+Game support is now profile-based instead of hard-coded.
 
 Proposed profile fields:
 

@@ -6,7 +6,7 @@ RipperMoonKit now includes a native SwiftUI launcher target:
 RipperMoonKitLauncher
 ```
 
-The launcher reads `~/.rippermoon-gptk.env`, shows the active GPTK paths, validates the Elden Ring ERSC folder layout, starts and stops Windows Steam, launches ERSC with the tested DLL overrides, and exposes install, update, uninstall, backup, and rollback actions.
+The launcher reads `~/.rippermoon-gptk.env`, shows a list of configured apps/games, opens each app into its own launch settings, validates that app's folder layout, starts and stops Windows Steam when the profile requires it, and exposes install, update, uninstall, backup, and rollback actions.
 
 ## Build
 
@@ -49,6 +49,26 @@ If a previous app exists, the script backs it up under:
 $GPTK_HOME/backups/gui-app-YYYYmmdd-HHMMSS
 ```
 
+## Apps And Games
+
+The sidebar is centered on user-owned app/game profiles. Each profile stores its own:
+
+```text
+name
+prefix
+game folder
+executable
+runner path
+Windows version
+Steam requirement
+DLL overrides
+DXR/esync/HUD toggles
+validation files
+launch command preview
+```
+
+Use **Add App** to create another app/game profile. The profile command preview lives inside that app's page, not in global Settings.
+
 ## Default ERSC Profile
 
 The first profile is the tested Elden Ring ERSC path:
@@ -85,6 +105,8 @@ The interface follows current Apple platform conventions:
 - Compact dashboard panels with validation, command previews, and rollback state.
 - A compatibility-profile model so other games can be added without hard-coding one-off launchers.
 
+The Roadmap section is intentionally not part of the app UI. Roadmap details remain in GitHub documentation.
+
 The logo resource is:
 
 ```text
@@ -105,15 +127,41 @@ It was copied from the local image:
 ~/Pictures/Wallpaper Screen/wallpaperflare.com_wallpaper (31).jpg
 ```
 
+## First Run Setup
+
+On first launch, or when GPTK is missing, the app shows a setup guide with actions for:
+
+```text
+Install Toolkit
+Install GPTK
+Open Apple GPTK Page
+```
+
+The GPTK action runs the installer with `RIPPERMOON_OPEN_GPTK_PAGE=1`, so if GPTK is not present it opens Apple's page, watches `/Volumes` and `~/Downloads`, and continues when the user mounts or downloads GPTK media.
+
+## Path And Drive Settings
+
+The Settings page contains editable paths:
+
+```text
+GPTK Home
+Prefix Root
+Games Root
+External Root
+Steam Library
+Toolkit Source
+```
+
+It also includes a Drive Mappings editor. Users can add any drive letter except `C`, choose a host folder, and save the result back to `GPTK_DRIVE_MAPS` in `~/.rippermoon-gptk.env`.
+
 ## Next GUI Work
 
-Planned app packaging work:
+Planned app work:
 
 - Sign and notarize release `.app` builds.
-- Add first-run guided setup for GPTK media, external drives, Steam, and game folders.
-- Add saved compatibility profiles for other games.
 - Add launch status checks for long-running Steam/game processes.
 - Add safer restore flows for optional user-selected save snapshots.
+- Add import/export for app profile presets.
 
 ## Maintenance Buttons
 
@@ -122,7 +170,6 @@ The Settings view includes:
 - **Install Toolkit**: runs `./install.zsh --skip-deps` and creates a rollback backup first.
 - **Install GPTK**: runs the full installer with `RIPPERMOON_OPEN_GPTK_PAGE=1`; if GPTK is missing, Apple's GPTK page opens and the installer waits for the DMG.
 - **Update From GitHub**: fetches `origin/main`, fast-forwards the repo, reinstalls toolkit scripts, and rebuilds the local `.app`.
-- **Install .app**: rebuilds and installs `~/Applications/RipperMoonKit Launcher.app`.
 - **Uninstall Toolkit**: removes toolkit scripts and the app. Configs and Wine prefixes/saves are kept unless their checkboxes are enabled.
 
 The uninstall defaults are intentionally conservative:

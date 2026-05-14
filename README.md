@@ -25,7 +25,7 @@ Tested workflow:
 - Configurable Wine drive mappings with any letters except `C:`.
 - Installer bootstrap with timestamped emoji logs.
 - Update backups and rollback for existing local installs.
-- A SwiftUI launcher target for ERSC launch, validation, logs, and rollback.
+- A SwiftUI launcher target with per-app profiles, ERSC defaults, validation, logs, path editing, drive mapping, and rollback.
 - Documentation for GPTK 3, Steam, ERSC, copied game folders, saves, and troubleshooting.
 
 ## Quick Start

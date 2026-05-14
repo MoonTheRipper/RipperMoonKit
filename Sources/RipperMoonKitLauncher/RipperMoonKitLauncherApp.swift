@@ -9,48 +9,52 @@ struct RipperMoonKitLauncherApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(model)
-                .frame(minWidth: 980, minHeight: 640)
+                .frame(minWidth: 1040, minHeight: 680)
         }
         .windowStyle(.titleBar)
     }
 }
 
-private enum LauncherSection: String, CaseIterable, Identifiable {
-    case launch
+private enum SidebarSelection: Hashable {
+    case profile(UUID)
     case backups
     case settings
-    case roadmap
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .launch: "Launch"
-        case .backups: "Backups"
-        case .settings: "Settings"
-        case .roadmap: "Roadmap"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .launch: "gamecontroller.fill"
-        case .backups: "clock.arrow.circlepath"
-        case .settings: "gearshape.fill"
-        case .roadmap: "square.stack.3d.up.fill"
-        }
-    }
 }
 
 private struct ContentView: View {
     @EnvironmentObject private var model: LauncherModel
-    @State private var selection: LauncherSection? = .launch
+    @State private var selection: SidebarSelection?
 
     var body: some View {
         NavigationSplitView {
-            List(LauncherSection.allCases, selection: $selection) { section in
-                Label(section.title, systemImage: section.symbol)
-                    .tag(section)
+            VStack(spacing: 0) {
+                List(selection: $selection) {
+                    Section("Apps & Games") {
+                        ForEach(model.profiles) { profile in
+                            Label(profile.name, systemImage: profile.systemImage)
+                                .tag(SidebarSelection.profile(profile.id))
+                        }
+                    }
+
+                    Section("Toolkit") {
+                        Label("Backups", systemImage: "clock.arrow.circlepath")
+                            .tag(SidebarSelection.backups)
+                        Label("Settings", systemImage: "gearshape.fill")
+                            .tag(SidebarSelection.settings)
+                    }
+                }
+
+                Divider()
+
+                Button {
+                    let profile = model.addProfile()
+                    selection = .profile(profile.id)
+                } label: {
+                    Label("Add App", systemImage: "plus")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .padding(12)
             }
             .navigationTitle("RipperMoonKit")
         } detail: {
@@ -58,15 +62,17 @@ private struct ContentView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     HeaderView()
 
-                    switch selection ?? .launch {
-                    case .launch:
-                        LaunchView()
+                    switch selection ?? model.defaultSelection {
+                    case .profile(let id):
+                        if let profile = model.profileBinding(id: id) {
+                            ProfileDetailView(profile: profile)
+                        } else {
+                            EmptyStateView(title: "Profile Missing", detail: "Choose another app or add a new one.")
+                        }
                     case .backups:
                         BackupsView()
                     case .settings:
                         SettingsView()
-                    case .roadmap:
-                        RoadmapView()
                     }
                 }
                 .padding(24)
@@ -76,6 +82,12 @@ private struct ContentView: View {
         }
         .onAppear {
             model.reload()
+            selection = selection ?? model.defaultSelection
+        }
+        .sheet(isPresented: $model.showSetupGuide) {
+            SetupGuideView()
+                .environmentObject(model)
+                .frame(width: 620)
         }
     }
 }
@@ -115,33 +127,31 @@ private struct HeaderView: View {
     }
 }
 
-private struct LaunchView: View {
+private struct ProfileDetailView: View {
     @EnvironmentObject private var model: LauncherModel
+    @Binding var profile: GameProfile
+    @State private var confirmDelete = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Panel("Profile", systemImage: "slider.horizontal.3") {
+            Panel("App Settings", systemImage: profile.systemImage) {
                 Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
                     GridRow {
-                        FieldLabel("Game")
-                        Picker("Game", selection: $model.profile) {
-                            Text("Elden Ring ERSC").tag(CompatibilityProfile.eldenRingERSC)
-                            Text("Custom").tag(CompatibilityProfile.custom)
-                        }
-                        .labelsHidden()
-                        .frame(width: 220)
+                        FieldLabel("Name")
+                        TextField("Name", text: $profile.name)
+                            .textFieldStyle(.roundedBorder)
                     }
 
                     GridRow {
                         FieldLabel("Prefix")
-                        TextField("Prefix", text: $model.prefix)
+                        TextField("Prefix", text: $profile.prefix)
                             .textFieldStyle(.roundedBorder)
                             .frame(maxWidth: 260)
                     }
 
                     GridRow {
                         FieldLabel("Winver")
-                        Picker("Winver", selection: $model.winver) {
+                        Picker("Winver", selection: $profile.winver) {
                             Text("win10").tag("win10")
                             Text("win11").tag("win11")
                             Text("win7").tag("win7")
@@ -153,41 +163,64 @@ private struct LaunchView: View {
             }
 
             Panel("Paths", systemImage: "folder.fill") {
-                PathEditor(title: "Game Folder", path: $model.gameFolder) {
-                    model.chooseGameFolder()
+                PathEditor(title: "Folder", path: $profile.gameFolder) {
+                    model.chooseFolder(current: profile.gameFolder) { profile.gameFolder = $0 }
                 }
-                PathEditor(title: "Runner", path: $model.runnerPath) {
-                    model.chooseRunnerFolder()
+
+                HStack(spacing: 10) {
+                    FieldLabel("Executable")
+                    TextField("Executable", text: $profile.executable)
+                        .textFieldStyle(.roundedBorder)
+                    Button {
+                        model.chooseExecutable(for: &profile)
+                    } label: {
+                        Image(systemName: "doc.badge.gearshape")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Choose executable")
                 }
-                PathEditor(title: "Toolkit Source", path: $model.toolkitSourceFolder) {
-                    model.chooseToolkitFolder()
+
+                PathEditor(title: "Runner", path: $profile.runnerPath) {
+                    model.chooseFolder(current: profile.runnerPath) { profile.runnerPath = $0 }
                 }
             }
 
-            Panel("Options", systemImage: "switch.2") {
+            Panel("Launch Options", systemImage: "switch.2") {
                 HStack(spacing: 18) {
-                    Toggle("No DXR", isOn: $model.noDXR)
-                    Toggle("HUD", isOn: $model.hud)
-                    Toggle("No esync", isOn: $model.noEsync)
-                    Toggle("Native winmm", isOn: $model.nativeWinmm)
-                    Toggle("Native steam_api64", isOn: $model.nativeSteamAPI)
+                    Toggle("Steam required", isOn: $profile.requiresSteam)
+                    Toggle("No DXR", isOn: $profile.noDXR)
+                    Toggle("HUD", isOn: $profile.hud)
+                    Toggle("No esync", isOn: $profile.noEsync)
                 }
                 .toggleStyle(.checkbox)
+
+                HStack(spacing: 18) {
+                    Toggle("Native winmm", isOn: $profile.nativeWinmm)
+                    Toggle("Native steam_api64", isOn: $profile.nativeSteamAPI)
+                }
+                .toggleStyle(.checkbox)
+
+                HStack(spacing: 10) {
+                    FieldLabel("Arguments")
+                    TextField("Extra arguments", text: $profile.extraArguments)
+                        .textFieldStyle(.roundedBorder)
+                }
             }
 
             Panel("Actions", systemImage: "play.circle.fill") {
                 HStack(spacing: 12) {
                     Button {
-                        model.startSteam()
+                        model.startSteam(for: profile)
                     } label: {
                         Label("Start Steam", systemImage: "play.fill")
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(!profile.requiresSteam)
 
                     Button {
-                        model.launchGame()
+                        model.launch(profile)
                     } label: {
-                        Label("Launch ERSC", systemImage: "gamecontroller.fill")
+                        Label("Launch", systemImage: "gamecontroller.fill")
                     }
                     .buttonStyle(.borderedProminent)
 
@@ -204,19 +237,50 @@ private struct LaunchView: View {
                         Label("Logs", systemImage: "doc.text.magnifyingglass")
                     }
                     .buttonStyle(.bordered)
+
+                    Spacer()
+
+                    Button(role: .destructive) {
+                        confirmDelete = true
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
 
             Panel("Validation", systemImage: "checkmark.seal.fill") {
                 VStack(alignment: .leading, spacing: 10) {
-                    ValidationRow(title: "ersc_launcher.exe", isOK: model.fileExists(inGameFolder: "ersc_launcher.exe"))
-                    ValidationRow(title: "eldenring.exe", isOK: model.fileExists(inGameFolder: "eldenring.exe"))
-                    ValidationRow(title: "SeamlessCoop", isOK: model.fileExists(inGameFolder: "SeamlessCoop"))
-                    ValidationRow(title: "Runner folder", isOK: FileManager.default.fileExists(atPath: model.runnerPath))
+                    ValidationRow(title: profile.executable, isOK: model.fileExists(profile.executable, in: profile))
+                    ForEach(profile.requiredFiles, id: \.self) { item in
+                        ValidationRow(title: item, isOK: model.fileExists(item, in: profile))
+                    }
+                    ValidationRow(title: "Runner folder", isOK: profile.runnerPath.isEmpty || FileManager.default.fileExists(atPath: profile.runnerPath))
+                }
+            }
+
+            Panel("Commands", systemImage: "chevron.left.forwardslash.chevron.right") {
+                VStack(alignment: .leading, spacing: 12) {
+                    if profile.requiresSteam {
+                        CommandPreview(title: "Start Steam", command: model.previewStartSteamCommand(for: profile))
+                    }
+                    CommandPreview(title: "Launch", command: model.previewLaunchCommand(for: profile))
+                    if profile.requiresSteam {
+                        CommandPreview(title: "Stop Steam", command: model.previewStopSteamCommand())
+                    }
                 }
             }
 
             CommandOutputView()
+        }
+        .onChange(of: profile) { _, _ in
+            model.persistProfiles()
+        }
+        .confirmationDialog("Delete this app profile?", isPresented: $confirmDelete) {
+            Button("Delete", role: .destructive) {
+                model.deleteProfile(id: profile.id)
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 }
@@ -289,22 +353,78 @@ private struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Panel("Detected Paths", systemImage: "terminal.fill") {
-                VStack(alignment: .leading, spacing: 10) {
-                    InfoRow("Config", model.config.configPath)
-                    InfoRow("GPTK Home", model.config.gptkHome)
-                    InfoRow("Prefix Root", model.config.prefixRoot)
-                    InfoRow("External Root", model.config.externalRoot)
-                    InfoRow("Steam Library", model.config.steamLibrary)
-                    InfoRow("Logs", model.config.logsPath)
+            Panel("Paths", systemImage: "folder.fill") {
+                PathEditor(title: "GPTK Home", path: $model.pathSettings.gptkHome) {
+                    model.chooseFolder(current: model.pathSettings.gptkHome) { model.pathSettings.gptkHome = $0 }
+                }
+                PathEditor(title: "Prefix Root", path: $model.pathSettings.prefixRoot) {
+                    model.chooseFolder(current: model.pathSettings.prefixRoot) { model.pathSettings.prefixRoot = $0 }
+                }
+                PathEditor(title: "Games Root", path: $model.pathSettings.gamesRoot) {
+                    model.chooseFolder(current: model.pathSettings.gamesRoot) { model.pathSettings.gamesRoot = $0 }
+                }
+                PathEditor(title: "External Root", path: $model.pathSettings.externalRoot) {
+                    model.chooseFolder(current: model.pathSettings.externalRoot) { model.pathSettings.externalRoot = $0 }
+                }
+                PathEditor(title: "Steam Library", path: $model.pathSettings.steamLibrary) {
+                    model.chooseFolder(current: model.pathSettings.steamLibrary) { model.pathSettings.steamLibrary = $0 }
+                }
+                PathEditor(title: "Toolkit Source", path: $model.toolkitSourceFolder) {
+                    model.chooseFolder(current: model.toolkitSourceFolder) { model.toolkitSourceFolder = $0 }
+                }
+
+                HStack {
+                    Spacer()
+                    Button {
+                        model.savePathSettings()
+                    } label: {
+                        Label("Save Paths", systemImage: "square.and.arrow.down.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
             }
 
-            Panel("Commands", systemImage: "chevron.left.forwardslash.chevron.right") {
-                VStack(alignment: .leading, spacing: 12) {
-                    CommandPreview(title: "Start Steam", command: model.previewStartSteamCommand())
-                    CommandPreview(title: "Launch ERSC", command: model.previewLaunchCommand())
-                    CommandPreview(title: "Stop Steam", command: model.previewStopSteamCommand())
+            Panel("Drive Mappings", systemImage: "externaldrive.connected.to.line.below.fill") {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach($model.driveMaps) { $drive in
+                        HStack(spacing: 10) {
+                            TextField("Letter", text: $drive.letter)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: 64)
+                            TextField("Path", text: $drive.path)
+                                .textFieldStyle(.roundedBorder)
+                            Button {
+                                model.chooseFolder(current: drive.path) { drive.path = $0 }
+                            } label: {
+                                Image(systemName: "folder")
+                            }
+                            .buttonStyle(.bordered)
+                            Button(role: .destructive) {
+                                model.removeDriveMap(id: drive.id)
+                            } label: {
+                                Image(systemName: "minus.circle")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+
+                    HStack {
+                        Button {
+                            model.addDriveMap()
+                        } label: {
+                            Label("Add Drive", systemImage: "plus.circle.fill")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer()
+
+                        Button {
+                            model.saveDriveMaps()
+                        } label: {
+                            Label("Save Drives", systemImage: "square.and.arrow.down.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
             }
 
@@ -331,13 +451,6 @@ private struct SettingsView: View {
                             Label("Update From GitHub", systemImage: "arrow.down.circle.fill")
                         }
                         .buttonStyle(.bordered)
-
-                        Button {
-                            model.installGUIApp()
-                        } label: {
-                            Label("Install .app", systemImage: "macwindow.badge.plus")
-                        }
-                        .buttonStyle(.bordered)
                     }
 
                     Divider()
@@ -356,30 +469,87 @@ private struct SettingsView: View {
                     .buttonStyle(.bordered)
                 }
             }
+
+            CommandOutputView()
         }
     }
 }
 
-private struct RoadmapView: View {
+private struct SetupGuideView: View {
+    @EnvironmentObject private var model: LauncherModel
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Panel("Compatibility Profiles", systemImage: "square.stack.3d.up.fill") {
-                VStack(alignment: .leading, spacing: 12) {
-                    RoadmapRow("Profile-based launch settings")
-                    RoadmapRow("Per-game validation rules")
-                    RoadmapRow("Saved command presets")
-                    RoadmapRow("Future game compatibility modules")
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 14) {
+                Image("RipperMoonKitLogo", bundle: .module)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("First Run Setup")
+                        .font(.title2.weight(.semibold))
+                    Text("Initialize the toolkit paths and Apple Game Porting Toolkit before launching games.")
+                        .foregroundStyle(.secondary)
                 }
             }
 
-            Panel("Native App Plan", systemImage: "macwindow") {
-                VStack(alignment: .leading, spacing: 12) {
-                    RoadmapRow("Signed app bundle packaging")
-                    RoadmapRow("Menu bar launch status")
-                    RoadmapRow("Guided first-run setup")
-                    RoadmapRow("Safe update and rollback UI")
-                }
+            VStack(alignment: .leading, spacing: 10) {
+                SetupRow(title: "Toolkit scripts", isOK: FileManager.default.fileExists(atPath: model.config.gptkLaunchPath))
+                SetupRow(title: "GPTK runtime", isOK: model.config.hasLocalGPTK)
+                SetupRow(title: "Config file", isOK: model.config.exists)
             }
+
+            HStack(spacing: 12) {
+                Button {
+                    model.installToolkit()
+                } label: {
+                    Label("Install Toolkit", systemImage: "square.and.arrow.down.fill")
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button {
+                    model.installDependencies()
+                } label: {
+                    Label("Install GPTK", systemImage: "externaldrive.fill.badge.plus")
+                }
+                .buttonStyle(.bordered)
+
+                Button {
+                    model.openGPTKPage()
+                } label: {
+                    Label("Apple GPTK Page", systemImage: "safari.fill")
+                }
+                .buttonStyle(.bordered)
+            }
+
+            HStack {
+                Spacer()
+                Button {
+                    model.dismissSetupGuide()
+                } label: {
+                    Text("Done")
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(24)
+    }
+}
+
+private struct SetupRow: View {
+    let title: String
+    let isOK: Bool
+
+    var body: some View {
+        HStack {
+            Image(systemName: isOK ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .foregroundStyle(isOK ? .green : .orange)
+            Text(title)
+            Spacer()
+            Text(isOK ? "Ready" : "Needs setup")
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -413,6 +583,18 @@ private struct Panel<Content: View>: View {
     }
 }
 
+private struct EmptyStateView: View {
+    let title: String
+    let detail: String
+
+    var body: some View {
+        Panel(title, systemImage: "questionmark.folder.fill") {
+            Text(detail)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
 private struct FieldLabel: View {
     let text: String
 
@@ -424,7 +606,7 @@ private struct FieldLabel: View {
         Text(text)
             .font(.callout.weight(.medium))
             .foregroundStyle(.secondary)
-            .frame(width: 110, alignment: .leading)
+            .frame(width: 112, alignment: .leading)
     }
 }
 
@@ -461,28 +643,6 @@ private struct ValidationRow: View {
             Spacer()
             Text(isOK ? "Found" : "Missing")
                 .foregroundStyle(.secondary)
-        }
-    }
-}
-
-private struct InfoRow: View {
-    private let title: String
-    private let value: String
-
-    init(_ title: String, _ value: String) {
-        self.title = title
-        self.value = value
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.callout.weight(.medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 120, alignment: .leading)
-            Text(value)
-                .font(.system(.callout, design: .monospaced))
-                .textSelection(.enabled)
         }
     }
 }
@@ -531,45 +691,29 @@ private struct CommandOutputView: View {
     }
 }
 
-private struct RoadmapRow: View {
-    let title: String
-
-    init(_ title: String) {
-        self.title = title
-    }
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "circle.grid.cross.fill")
-                .foregroundStyle(.secondary)
-            Text(title)
-            Spacer()
-        }
-    }
-}
-
 @MainActor
 private final class LauncherModel: ObservableObject {
     @Published var config = ToolkitConfig.load()
-    @Published var profile: CompatibilityProfile = .eldenRingERSC
-    @Published var gameFolder: String
-    @Published var runnerPath: String
+    @Published var profiles: [GameProfile]
+    @Published var pathSettings: PathSettings
+    @Published var driveMaps: [DriveMap]
     @Published var toolkitSourceFolder: String
-    @Published var prefix: String
-    @Published var winver: String
-    @Published var noDXR: Bool
-    @Published var hud: Bool
-    @Published var noEsync: Bool
-    @Published var nativeWinmm: Bool
-    @Published var nativeSteamAPI: Bool
     @Published var isRunning = false
     @Published var commandOutput = ""
     @Published var lastResult = "Ready"
     @Published var backups: [BackupItem] = []
     @Published var removeConfigOnUninstall = false
     @Published var removePrefixesOnUninstall = false
+    @Published var showSetupGuide = false
 
     private let defaults = UserDefaults.standard
+
+    var defaultSelection: SidebarSelection {
+        if let id = profiles.first?.id {
+            return .profile(id)
+        }
+        return .settings
+    }
 
     var statusLine: String {
         config.exists ? "Config loaded from \(config.configPath)" : "Config not found at \(config.configPath)"
@@ -578,67 +722,110 @@ private final class LauncherModel: ObservableObject {
     init() {
         let loaded = ToolkitConfig.load()
         config = loaded
-        gameFolder = defaults.string(forKey: "gameFolder") ?? "\(loaded.externalRoot)/Games/EldenRing/Game"
-        runnerPath = defaults.string(forKey: "runnerPath") ?? "\(loaded.gptkHome)/runners/gptk-dsound-nocap-20260513"
+        profiles = Self.loadProfiles(config: loaded, defaults: defaults)
+        pathSettings = PathSettings(config: loaded)
+        driveMaps = DriveMap.parse(loaded.values["GPTK_DRIVE_MAPS"] ?? "")
         toolkitSourceFolder = defaults.string(forKey: "toolkitSourceFolder") ?? "\(loaded.home)/Desktop/RipperMoonToolKit"
-        prefix = defaults.string(forKey: "prefix") ?? "Steam"
-        winver = defaults.string(forKey: "winver") ?? "win10"
-        noDXR = defaults.object(forKey: "noDXR") as? Bool ?? true
-        hud = defaults.object(forKey: "hud") as? Bool ?? false
-        noEsync = defaults.object(forKey: "noEsync") as? Bool ?? false
-        nativeWinmm = defaults.object(forKey: "nativeWinmm") as? Bool ?? true
-        nativeSteamAPI = defaults.object(forKey: "nativeSteamAPI") as? Bool ?? true
         refreshBackups()
+        showSetupGuide = !defaults.bool(forKey: "setupGuideSeen.v2") || !loaded.hasLocalGPTK
     }
 
     func reload() {
-        persist()
+        persistProfiles()
+        defaults.set(toolkitSourceFolder, forKey: "toolkitSourceFolder")
         config = ToolkitConfig.load()
+        pathSettings = PathSettings(config: config)
+        driveMaps = DriveMap.parse(config.values["GPTK_DRIVE_MAPS"] ?? "")
         refreshBackups()
         lastResult = "Refreshed"
     }
 
-    func chooseGameFolder() {
-        chooseFolder(current: gameFolder) { gameFolder = $0 }
+    func profileBinding(id: UUID) -> Binding<GameProfile>? {
+        guard profiles.contains(where: { $0.id == id }) else { return nil }
+        return Binding(
+            get: { self.profiles.first(where: { $0.id == id }) ?? GameProfile.empty(config: self.config) },
+            set: { newValue in
+                if let index = self.profiles.firstIndex(where: { $0.id == id }) {
+                    self.profiles[index] = newValue
+                    self.persistProfiles()
+                }
+            }
+        )
     }
 
-    func chooseRunnerFolder() {
-        chooseFolder(current: runnerPath) { runnerPath = $0 }
+    func addProfile() -> GameProfile {
+        let profile = GameProfile.empty(config: config)
+        profiles.append(profile)
+        persistProfiles()
+        return profile
     }
 
-    func chooseToolkitFolder() {
-        chooseFolder(current: toolkitSourceFolder) { toolkitSourceFolder = $0 }
+    func deleteProfile(id: UUID) {
+        guard profiles.count > 1 else {
+            lastResult = "At least one app profile is required"
+            return
+        }
+        profiles.removeAll { $0.id == id }
+        persistProfiles()
     }
 
-    func fileExists(inGameFolder relativePath: String) -> Bool {
-        FileManager.default.fileExists(atPath: URL(fileURLWithPath: gameFolder).appendingPathComponent(relativePath).path)
+    func persistProfiles() {
+        if let data = try? JSONEncoder().encode(profiles) {
+            defaults.set(data, forKey: "gameProfiles.v1")
+        }
     }
 
-    func startSteam() {
-        persist()
+    func chooseFolder(current: String, assign: (String) -> Void) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: current)
+        if panel.runModal() == .OK, let url = panel.url {
+            assign(url.path)
+        }
+    }
+
+    func chooseExecutable(for profile: inout GameProfile) {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = URL(fileURLWithPath: profile.gameFolder)
+        if panel.runModal() == .OK, let url = panel.url {
+            profile.gameFolder = url.deletingLastPathComponent().path
+            profile.executable = url.lastPathComponent
+            persistProfiles()
+        }
+    }
+
+    func fileExists(_ relativePath: String, in profile: GameProfile) -> Bool {
+        guard !relativePath.isEmpty else { return false }
+        let path = URL(fileURLWithPath: profile.gameFolder).appendingPathComponent(relativePath).path
+        return FileManager.default.fileExists(atPath: path)
+    }
+
+    func startSteam(for profile: GameProfile) {
         runShell(
             title: "Start Steam",
-            command: previewStartSteamCommand(detached: true),
+            command: previewStartSteamCommand(for: profile, detached: true),
             detached: true
         )
     }
 
     func stopSteam() {
-        persist()
         runShell(title: "Stop Steam", command: previewStopSteamCommand())
     }
 
-    func launchGame() {
-        persist()
+    func launch(_ profile: GameProfile) {
         runShell(
-            title: "Launch ERSC",
-            command: previewLaunchCommand(detached: true),
+            title: "Launch \(profile.name)",
+            command: previewLaunchCommand(for: profile, detached: true),
             detached: true
         )
     }
 
     func createBackupOnly() {
-        persist()
         runShell(
             title: "Create Backup",
             command: "cd \(toolkitSourceFolder.shellQuoted) && ./install.zsh --skip-deps --backup-only",
@@ -647,7 +834,6 @@ private final class LauncherModel: ObservableObject {
     }
 
     func installToolkit() {
-        persist()
         runShell(
             title: "Install Toolkit",
             command: "cd \(toolkitSourceFolder.shellQuoted) && ./install.zsh --skip-deps",
@@ -656,7 +842,6 @@ private final class LauncherModel: ObservableObject {
     }
 
     func installDependencies() {
-        persist()
         runShell(
             title: "Install GPTK",
             command: "cd \(toolkitSourceFolder.shellQuoted) && RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh",
@@ -664,17 +849,7 @@ private final class LauncherModel: ObservableObject {
         )
     }
 
-    func installGUIApp() {
-        persist()
-        runShell(
-            title: "Install .app",
-            command: "cd \(toolkitSourceFolder.shellQuoted) && zsh scripts/install-gui-app.zsh",
-            completion: { [weak self] in self?.refreshBackups() }
-        )
-    }
-
     func updateFromGitHub() {
-        persist()
         let command = """
         cd \(toolkitSourceFolder.shellQuoted) && \
         git fetch --tags origin && \
@@ -690,7 +865,6 @@ private final class LauncherModel: ObservableObject {
     }
 
     func uninstallToolkit() {
-        persist()
         var args: [String] = []
         if removeConfigOnUninstall {
             args.append("--remove-config")
@@ -716,8 +890,7 @@ private final class LauncherModel: ObservableObject {
     }
 
     func refreshBackups() {
-        let backupRoot = URL(fileURLWithPath: config.gptkHome)
-            .appendingPathComponent("backups")
+        let backupRoot = URL(fileURLWithPath: config.gptkHome).appendingPathComponent("backups")
         let contents = (try? FileManager.default.contentsOfDirectory(
             at: backupRoot,
             includingPropertiesForKeys: [.contentModificationDateKey],
@@ -737,9 +910,57 @@ private final class LauncherModel: ObservableObject {
         NSWorkspace.shared.open(URL(fileURLWithPath: config.logsPath))
     }
 
-    func previewStartSteamCommand(detached: Bool = false) -> String {
-        let logPath = "\(config.logsPath)/RipperMoonKitLauncher-steam.log"
-        let envPart = runnerEnvAssignment()
+    func openGPTKPage() {
+        NSWorkspace.shared.open(URL(string: config.gptkDownloadPage)!)
+    }
+
+    func dismissSetupGuide() {
+        defaults.set(true, forKey: "setupGuideSeen.v2")
+        showSetupGuide = false
+    }
+
+    func addDriveMap() {
+        let used = Set(driveMaps.map { $0.letter.uppercased() })
+        let letter = (["D", "E", "F", "G", "H", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "T", "U", "V", "W", "Y", "Z"].first { !used.contains($0) }) ?? "D"
+        driveMaps.append(DriveMap(letter: letter, path: config.externalRoot))
+    }
+
+    func removeDriveMap(id: UUID) {
+        driveMaps.removeAll { $0.id == id }
+    }
+
+    func savePathSettings() {
+        defaults.set(toolkitSourceFolder, forKey: "toolkitSourceFolder")
+        saveEnvValues([
+            "GPTK_HOME": envPath(pathSettings.gptkHome),
+            "GPTK_PREFIX_ROOT": envPath(pathSettings.prefixRoot),
+            "GPTK_GAMES_ROOT": envPath(pathSettings.gamesRoot),
+            "GPTK_EXTERNAL_ROOT": envPath(pathSettings.externalRoot),
+            "GPTK_STEAM_LIBRARY": envPath(pathSettings.steamLibrary)
+        ])
+    }
+
+    func saveDriveMaps() {
+        var seen = Set<String>()
+        var parts: [String] = []
+
+        for map in driveMaps {
+            let letter = map.letter.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+            let path = map.path.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard letter.count == 1, letter != "C", !path.isEmpty, !seen.contains(letter) else {
+                continue
+            }
+            seen.insert(letter)
+            parts.append("\(letter)=\(envPath(path))")
+        }
+
+        driveMaps = parts.compactMap { DriveMap(line: $0) }
+        saveEnvValues(["GPTK_DRIVE_MAPS": parts.joined(separator: ";")])
+    }
+
+    func previewStartSteamCommand(for profile: GameProfile, detached: Bool = false) -> String {
+        let logPath = "\(config.logsPath)/\(profile.safeName)-steam.log"
+        let envPart = runnerEnvAssignment(for: profile)
         let base = "\(sourceConfig); nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log >> \(logPath.shellQuoted) 2>&1 &"
         return detached ? base : "\(sourceConfig); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log"
     }
@@ -748,68 +969,97 @@ private final class LauncherModel: ObservableObject {
         "\(sourceConfig); \(config.gptkSteamPath.shellQuoted) --kill"
     }
 
-    func previewLaunchCommand(detached: Bool = false) -> String {
-        let logPath = "\(config.logsPath)/ERSC-gui.log"
-        let overrides = dllOverrides()
-        var args: [String] = [
-            "--prefix", prefix,
-            "--set-winver", winver
-        ]
+    func previewLaunchCommand(for profile: GameProfile, detached: Bool = false) -> String {
+        let logPath = "\(config.logsPath)/\(profile.safeName).log"
+        var args: [String] = ["--prefix", profile.prefix, "--set-winver", profile.winver]
+        if profile.noDXR { args.append("--no-dxr") }
+        if profile.noEsync { args.append("--no-esync") }
+        if profile.hud { args.append("--hud") }
+        args.append(contentsOf: ["--log-file", logPath, "--", "./\(profile.executable)"])
 
-        if noDXR { args.append("--no-dxr") }
-        if noEsync { args.append("--no-esync") }
-        if hud { args.append("--hud") }
+        let extra = profile.extraArguments.trimmingCharacters(in: .whitespacesAndNewlines)
+        let extraPart = extra.isEmpty ? "" : " \(extra)"
+        let overrides = dllOverrides(for: profile)
+        let launch = "cd \(profile.gameFolder.shellQuoted) && nohup env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart) >> \(logPath.shellQuoted) 2>&1 &"
 
-        args.append(contentsOf: ["--log-file", logPath, "--", "./ersc_launcher.exe"])
-
-        let launch = "cd \(gameFolder.shellQuoted) && nohup env \(runnerEnvAssignment()) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " ")) >> \(logPath.shellQuoted) 2>&1 &"
         if detached {
             return "\(sourceConfig); \(launch)"
         }
-        return "\(sourceConfig); cd \(gameFolder.shellQuoted) && env \(runnerEnvAssignment()) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))"
+        return "\(sourceConfig); cd \(profile.gameFolder.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart)"
     }
 
     private var sourceConfig: String {
         "[[ -r \(config.configPath.shellQuoted) ]] && source \(config.configPath.shellQuoted)"
     }
 
-    private func runnerEnvAssignment() -> String {
-        runnerPath.isEmpty ? "" : "GPTK_WINE_HOME=\(runnerPath.shellQuoted)"
+    private func runnerEnvAssignment(for profile: GameProfile) -> String {
+        profile.runnerPath.isEmpty ? "" : "GPTK_WINE_HOME=\(profile.runnerPath.shellQuoted)"
     }
 
-    private func dllOverrides() -> String {
+    private func dllOverrides(for profile: GameProfile) -> String {
         var values: [String] = []
-        if nativeWinmm { values.append("winmm=n,b") }
-        if nativeSteamAPI { values.append("steam_api64=n,b") }
+        if profile.nativeWinmm { values.append("winmm=n,b") }
+        if profile.nativeSteamAPI { values.append("steam_api64=n,b") }
         return values.joined(separator: ";")
     }
 
-    private func chooseFolder(current: String, assign: (String) -> Void) {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.directoryURL = URL(fileURLWithPath: current)
-        if panel.runModal() == .OK, let url = panel.url {
-            assign(url.path)
-            persist()
+    private func envPath(_ path: String) -> String {
+        if path == config.home {
+            return "$HOME"
+        }
+        if path.hasPrefix(config.home + "/") {
+            return "$HOME/" + path.dropFirst(config.home.count + 1)
+        }
+        return path
+    }
+
+    private func saveEnvValues(_ values: [String: String]) {
+        do {
+            try backupConfigForEdit()
+            var lines: [String]
+            if FileManager.default.fileExists(atPath: config.configPath) {
+                let text = try String(contentsOfFile: config.configPath, encoding: .utf8)
+                lines = text.components(separatedBy: .newlines)
+            } else {
+                lines = ["# RipperMoonToolKit configuration"]
+            }
+
+            var remaining = Set(values.keys)
+            for index in lines.indices {
+                let trimmed = lines[index].trimmingCharacters(in: .whitespaces)
+                let body = trimmed.hasPrefix("export ") ? String(trimmed.dropFirst("export ".count)) : trimmed
+                guard let equal = body.firstIndex(of: "=") else { continue }
+                let key = String(body[..<equal]).trimmingCharacters(in: .whitespaces)
+                if let value = values[key] {
+                    lines[index] = "export \(key)=\"\(value.envEscaped)\""
+                    remaining.remove(key)
+                }
+            }
+
+            for key in remaining.sorted() {
+                lines.append("export \(key)=\"\(values[key, default: ""].envEscaped)\"")
+            }
+
+            try lines.joined(separator: "\n").write(toFile: config.configPath, atomically: true, encoding: .utf8)
+            config = ToolkitConfig.load()
+            pathSettings = PathSettings(config: config)
+            lastResult = "Saved config"
+        } catch {
+            lastResult = "Config save failed"
+            commandOutput += "\(error.localizedDescription)\n"
         }
     }
 
-    private func persist() {
-        defaults.set(gameFolder, forKey: "gameFolder")
-        defaults.set(runnerPath, forKey: "runnerPath")
-        defaults.set(toolkitSourceFolder, forKey: "toolkitSourceFolder")
-        defaults.set(prefix, forKey: "prefix")
-        defaults.set(winver, forKey: "winver")
-        defaults.set(noDXR, forKey: "noDXR")
-        defaults.set(hud, forKey: "hud")
-        defaults.set(noEsync, forKey: "noEsync")
-        defaults.set(nativeWinmm, forKey: "nativeWinmm")
-        defaults.set(nativeSteamAPI, forKey: "nativeSteamAPI")
+    private func backupConfigForEdit() throws {
+        guard FileManager.default.fileExists(atPath: config.configPath) else { return }
+        let stamp = DateFormatter.backupStamp.string(from: Date())
+        let backup = "\(config.gptkHome)/backups/env-edit-\(stamp)/.rippermoon-gptk.env"
+        try FileManager.default.createDirectory(atPath: (backup as NSString).deletingLastPathComponent, withIntermediateDirectories: true)
+        try FileManager.default.copyItem(atPath: config.configPath, toPath: backup)
     }
 
     private func runShell(title: String, command: String, detached: Bool = false, completion: (() -> Void)? = nil) {
+        defaults.set(toolkitSourceFolder, forKey: "toolkitSourceFolder")
         isRunning = true
         lastResult = "\(title) running"
         commandOutput = "$ \(command)\n"
@@ -826,6 +1076,15 @@ private final class LauncherModel: ObservableObject {
             }
             completion?()
         }
+    }
+
+    private static func loadProfiles(config: ToolkitConfig, defaults: UserDefaults) -> [GameProfile] {
+        if let data = defaults.data(forKey: "gameProfiles.v1"),
+           let profiles = try? JSONDecoder().decode([GameProfile].self, from: data),
+           !profiles.isEmpty {
+            return profiles
+        }
+        return [GameProfile.eldenRing(config: config, defaults: defaults)]
     }
 }
 
@@ -860,9 +1119,109 @@ private struct ShellResult: Sendable {
     let error: String?
 }
 
-private enum CompatibilityProfile: String, CaseIterable, Hashable {
-    case eldenRingERSC
-    case custom
+private struct GameProfile: Codable, Identifiable, Hashable {
+    var id: UUID
+    var name: String
+    var prefix: String
+    var gameFolder: String
+    var executable: String
+    var runnerPath: String
+    var winver: String
+    var requiresSteam: Bool
+    var noDXR: Bool
+    var hud: Bool
+    var noEsync: Bool
+    var nativeWinmm: Bool
+    var nativeSteamAPI: Bool
+    var extraArguments: String
+    var requiredFiles: [String]
+    var systemImage: String
+
+    var safeName: String {
+        name.replacingOccurrences(of: "[^A-Za-z0-9._-]+", with: "-", options: .regularExpression)
+    }
+
+    static func eldenRing(config: ToolkitConfig, defaults: UserDefaults) -> GameProfile {
+        GameProfile(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000480") ?? UUID(),
+            name: "Elden Ring ERSC",
+            prefix: defaults.string(forKey: "prefix") ?? "Steam",
+            gameFolder: defaults.string(forKey: "gameFolder") ?? "\(config.externalRoot)/Games/EldenRing/Game",
+            executable: "ersc_launcher.exe",
+            runnerPath: defaults.string(forKey: "runnerPath") ?? "\(config.gptkHome)/runners/gptk-dsound-nocap-20260513",
+            winver: defaults.string(forKey: "winver") ?? "win10",
+            requiresSteam: true,
+            noDXR: defaults.object(forKey: "noDXR") as? Bool ?? true,
+            hud: defaults.object(forKey: "hud") as? Bool ?? false,
+            noEsync: defaults.object(forKey: "noEsync") as? Bool ?? false,
+            nativeWinmm: defaults.object(forKey: "nativeWinmm") as? Bool ?? true,
+            nativeSteamAPI: defaults.object(forKey: "nativeSteamAPI") as? Bool ?? true,
+            extraArguments: "",
+            requiredFiles: ["eldenring.exe", "SeamlessCoop"],
+            systemImage: "gamecontroller.fill"
+        )
+    }
+
+    static func empty(config: ToolkitConfig) -> GameProfile {
+        GameProfile(
+            id: UUID(),
+            name: "New App",
+            prefix: "MyGame",
+            gameFolder: "\(config.externalRoot)/Games",
+            executable: "Game.exe",
+            runnerPath: "",
+            winver: "win10",
+            requiresSteam: false,
+            noDXR: false,
+            hud: false,
+            noEsync: false,
+            nativeWinmm: false,
+            nativeSteamAPI: false,
+            extraArguments: "",
+            requiredFiles: [],
+            systemImage: "app.fill"
+        )
+    }
+}
+
+private struct PathSettings: Hashable {
+    var gptkHome: String
+    var prefixRoot: String
+    var gamesRoot: String
+    var externalRoot: String
+    var steamLibrary: String
+
+    init(config: ToolkitConfig) {
+        gptkHome = config.gptkHome
+        prefixRoot = config.prefixRoot
+        gamesRoot = config.gamesRoot
+        externalRoot = config.externalRoot
+        steamLibrary = config.steamLibrary
+    }
+}
+
+private struct DriveMap: Codable, Identifiable, Hashable {
+    var id = UUID()
+    var letter: String
+    var path: String
+
+    init(letter: String, path: String) {
+        self.letter = letter
+        self.path = path
+    }
+
+    init?(line: String) {
+        let parts = line.split(separator: "=", maxSplits: 1).map(String.init)
+        guard parts.count == 2 else { return nil }
+        letter = parts[0].trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        path = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func parse(_ value: String) -> [DriveMap] {
+        value.strippedShellQuotes
+            .split(separator: ";")
+            .compactMap { DriveMap(line: String($0)) }
+    }
 }
 
 private struct BackupItem: Identifiable, Hashable {
@@ -881,11 +1240,19 @@ private struct ToolkitConfig {
 
     var gptkHome: String { expand(values["GPTK_HOME"] ?? "$HOME/GPTK") }
     var prefixRoot: String { expand(values["GPTK_PREFIX_ROOT"] ?? "$HOME/WinePrefixes") }
+    var gamesRoot: String { expand(values["GPTK_GAMES_ROOT"] ?? "$HOME/Games") }
     var externalRoot: String { expand(values["GPTK_EXTERNAL_ROOT"] ?? "/Volumes/GameCoreApp") }
     var steamLibrary: String { expand(values["GPTK_STEAM_LIBRARY"] ?? "$GPTK_EXTERNAL_ROOT/SteamLibrary") }
     var logsPath: String { expand(values["GPTK_LOG_DIR"] ?? "$GPTK_HOME/logs") }
+    var gptkWineHome: String { expand(values["GPTK_WINE_HOME"] ?? "$GPTK_HOME/apps/Game Porting Toolkit.app/Contents/Resources/wine") }
+    var gptkRuntime: String { expand(values["GPTK_RUNTIME"] ?? "$GPTK_HOME/runtime") }
+    var gptkDownloadPage: String { expand(values["GPTK_DOWNLOAD_PAGE"] ?? "https://developer.apple.com/games/game-porting-toolkit/") }
     var gptkLaunchPath: String { "\(home)/bin/gptk-launch" }
     var gptkSteamPath: String { "\(home)/bin/gptk-steam" }
+    var hasLocalGPTK: Bool {
+        FileManager.default.isExecutableFile(atPath: "\(gptkWineHome)/bin/wine64")
+            && FileManager.default.fileExists(atPath: "\(gptkRuntime)/lib/wine/x86_64-windows/d3d12.dll")
+    }
 
     static func load() -> ToolkitConfig {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -938,9 +1305,22 @@ private struct ToolkitConfig {
     }
 }
 
+private extension DateFormatter {
+    static let backupStamp: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return formatter
+    }()
+}
+
 private extension String {
     var shellQuoted: String {
         "'\(replacingOccurrences(of: "'", with: "'\\''"))'"
+    }
+
+    var envEscaped: String {
+        replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
     }
 
     var strippedShellQuotes: String {
