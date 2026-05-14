@@ -64,12 +64,14 @@ runner path
 Windows version
 Steam requirement
 DLL overrides
-DXR/esync/HUD toggles
+DXR/esync/HUD/MetalFX-DLSS toggles
 validation files
 launch command preview
 ```
 
 Use **Add App** to create another app/game profile. The profile command preview lives inside that app's page, not in global Settings.
+
+The MetalFX/DLSS toggle is for games that expose DLSS in their own graphics menu. It adds `--metalfx` and prefers GPTK's built-in `nvapi64` and `nvngx` bridge DLLs for that launch.
 
 ## Default ERSC Profile
 

@@ -189,6 +189,10 @@ private struct ProfileDetailView: View {
                 HStack(spacing: 18) {
                     Toggle("Steam required", isOn: $profile.requiresSteam)
                     Toggle("No DXR", isOn: $profile.noDXR)
+                    Toggle("MetalFX/DLSS", isOn: Binding(
+                        get: { profile.metalFX ?? false },
+                        set: { profile.metalFX = $0 }
+                    ))
                     Toggle("HUD", isOn: $profile.hud)
                     Toggle("No esync", isOn: $profile.noEsync)
                 }
@@ -979,6 +983,7 @@ private final class LauncherModel: ObservableObject {
         var args: [String] = ["--prefix", profile.prefix, "--set-winver", profile.winver]
         if profile.noDXR { args.append("--no-dxr") }
         if profile.noEsync { args.append("--no-esync") }
+        if profile.metalFX == true { args.append("--metalfx") }
         if profile.hud { args.append("--hud") }
         args.append(contentsOf: ["--log-file", logPath, "--", "./\(profile.executable)"])
 
@@ -1005,6 +1010,10 @@ private final class LauncherModel: ObservableObject {
         var values: [String] = []
         if profile.nativeWinmm { values.append("winmm=n,b") }
         if profile.nativeSteamAPI { values.append("steam_api64=n,b") }
+        if profile.metalFX == true {
+            values.append("nvapi64=b,n")
+            values.append("nvngx=b,n")
+        }
         return values.joined(separator: ";")
     }
 
@@ -1151,6 +1160,7 @@ private struct GameProfile: Codable, Identifiable, Hashable {
     var winver: String
     var requiresSteam: Bool
     var noDXR: Bool
+    var metalFX: Bool?
     var hud: Bool
     var noEsync: Bool
     var nativeWinmm: Bool
@@ -1216,6 +1226,7 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             winver: defaults.string(forKey: "winver") ?? "win10",
             requiresSteam: true,
             noDXR: defaults.object(forKey: "noDXR") as? Bool ?? true,
+            metalFX: false,
             hud: defaults.object(forKey: "hud") as? Bool ?? false,
             noEsync: defaults.object(forKey: "noEsync") as? Bool ?? false,
             nativeWinmm: defaults.object(forKey: "nativeWinmm") as? Bool ?? true,
@@ -1237,6 +1248,7 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             winver: "win10",
             requiresSteam: false,
             noDXR: false,
+            metalFX: false,
             hud: false,
             noEsync: false,
             nativeWinmm: false,

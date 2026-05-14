@@ -25,6 +25,7 @@ Read in this order:
 
 - [game-folder-workflow.md](game-folder-workflow.md): copying an already-installed Windows game folder.
 - [elden-ring-ersc.md](elden-ring-ersc.md): Elden Ring ERSC tested launch path.
+- [clair-obscur-dlss-metalfx.md](clair-obscur-dlss-metalfx.md): Clair Obscur DLSS through GPTK MetalFX.
 - [save-transfer.md](save-transfer.md): finding and restoring save files.
 
 ## Support
