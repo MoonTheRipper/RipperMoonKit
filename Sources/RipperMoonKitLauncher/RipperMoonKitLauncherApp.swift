@@ -17,6 +17,7 @@ struct RipperMoonKitLauncherApp: App {
 }
 
 private enum SidebarSelection: Hashable {
+    case library
     case profile(UUID)
     case backups
     case settings
@@ -28,34 +29,18 @@ private struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            VStack(spacing: 0) {
-                List(selection: $selection) {
-                    Section("Apps & Games") {
-                        ForEach(model.profiles) { profile in
-                            ProfileSidebarRow(profile: profile)
-                                .tag(SidebarSelection.profile(profile.id))
-                        }
-                    }
-
-                    Section("Toolkit") {
-                        Label("Backups", systemImage: "clock.arrow.circlepath")
-                            .tag(SidebarSelection.backups)
-                        Label("Settings", systemImage: "gearshape.fill")
-                            .tag(SidebarSelection.settings)
-                    }
+            List(selection: $selection) {
+                Section("Library") {
+                    Label("Games & Apps", systemImage: "square.grid.2x2.fill")
+                        .tag(SidebarSelection.library)
                 }
 
-                Divider()
-
-                Button {
-                    let profile = model.addProfile()
-                    selection = .profile(profile.id)
-                } label: {
-                    Label("Add App", systemImage: "plus")
-                        .frame(maxWidth: .infinity)
+                Section("Toolkit") {
+                    Label("Backups", systemImage: "clock.arrow.circlepath")
+                        .tag(SidebarSelection.backups)
+                    Label("Settings", systemImage: "gearshape.fill")
+                        .tag(SidebarSelection.settings)
                 }
-                .buttonStyle(.bordered)
-                .padding(12)
             }
             .navigationTitle("RipperMoonKit")
         } detail: {
@@ -64,6 +49,8 @@ private struct ContentView: View {
                     HeaderView(profile: headerProfile)
 
                     switch selection ?? model.defaultSelection {
+                    case .library:
+                        LibraryView(selection: $selection)
                     case .profile(let id):
                         if let profile = model.profileBinding(id: id) {
                             ProfileDetailView(profile: profile)
@@ -85,6 +72,17 @@ private struct ContentView: View {
             model.reload()
             selection = selection ?? model.defaultSelection
         }
+        .toolbar {
+            ToolbarItemGroup {
+                Button {
+                    let profile = model.addProfile()
+                    selection = .profile(profile.id)
+                } label: {
+                    Label("Add Game", systemImage: "plus")
+                }
+                .help("Add game or app")
+            }
+        }
         .sheet(isPresented: $model.showSetupGuide) {
             SetupGuideView()
                 .environmentObject(model)
@@ -95,6 +93,124 @@ private struct ContentView: View {
     private var headerProfile: GameProfile? {
         guard case .profile(let id) = selection ?? model.defaultSelection else { return nil }
         return model.profiles.first { $0.id == id }
+    }
+}
+
+private struct LibraryView: View {
+    @EnvironmentObject private var model: LauncherModel
+    @Binding var selection: SidebarSelection?
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 170, maximum: 230), spacing: 14)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Library")
+                        .font(.title.weight(.semibold))
+                    Text("\(model.profiles.count) games and apps")
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button {
+                    let profile = model.addProfile()
+                    selection = .profile(profile.id)
+                } label: {
+                    Label("Add Game", systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                ForEach(model.profiles) { profile in
+                    Button {
+                        selection = .profile(profile.id)
+                    } label: {
+                        LibraryTile(profile: profile)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button {
+                    let profile = model.addProfile()
+                    selection = .profile(profile.id)
+                } label: {
+                    AddGameTile()
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+private struct LibraryTile: View {
+    let profile: GameProfile
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ProfileIconView(profile: profile, size: 64, appFallback: false)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(profile.name)
+                    .font(.headline)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: 154, alignment: .topLeading)
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(.primary.opacity(0.08))
+        }
+    }
+
+    private var subtitle: String {
+        if profile.isSteamApp {
+            return "Steam client"
+        }
+        if let steamAppID = profile.steamAppID, !steamAppID.isEmpty {
+            return "Steam game · AppID \(steamAppID)"
+        }
+        if profile.requiresSteam {
+            return "Uses Steam · \(profile.prefix)"
+        }
+        return "\(profile.prefix) · \(profile.executable)"
+    }
+}
+
+private struct AddGameTile: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "plus")
+                .font(.system(size: 28, weight: .semibold))
+                .frame(width: 64, height: 64)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            Text("Add Game")
+                .font(.headline)
+        }
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, minHeight: 154)
+        .padding(14)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [6, 5]))
+                .foregroundStyle(.secondary.opacity(0.3))
+        }
     }
 }
 
@@ -239,21 +355,23 @@ private struct ProfileDetailView: View {
             }
 
             Panel("Paths", systemImage: "folder.fill") {
-                PathEditor(title: "Folder", path: $profile.gameFolder) {
-                    model.chooseFolder(current: profile.gameFolder) { profile.gameFolder = $0 }
-                }
-
-                HStack(spacing: 10) {
-                    FieldLabel("Executable")
-                    TextField("Executable", text: $profile.executable)
-                        .textFieldStyle(.roundedBorder)
-                    Button {
-                        model.chooseExecutable(for: &profile)
-                    } label: {
-                        Image(systemName: "doc.badge.gearshape")
+                if !profile.isSteamApp {
+                    PathEditor(title: "Folder", path: $profile.gameFolder) {
+                        model.chooseFolder(current: profile.gameFolder) { profile.gameFolder = $0 }
                     }
-                    .buttonStyle(.bordered)
-                    .help("Choose executable")
+
+                    HStack(spacing: 10) {
+                        FieldLabel("Executable")
+                        TextField("Executable", text: $profile.executable)
+                            .textFieldStyle(.roundedBorder)
+                        Button {
+                            model.chooseExecutable(for: &profile)
+                        } label: {
+                            Image(systemName: "doc.badge.gearshape")
+                        }
+                        .buttonStyle(.bordered)
+                        .help("Choose executable")
+                    }
                 }
 
                 PathEditor(title: "Runner", path: $profile.runnerPath) {
@@ -262,62 +380,76 @@ private struct ProfileDetailView: View {
             }
 
             Panel("Launch Options", systemImage: "switch.2") {
-                HStack(spacing: 18) {
-                    Toggle("Steam required", isOn: $profile.requiresSteam)
-                    Toggle("No DXR", isOn: $profile.noDXR)
-                    Toggle("MetalFX/DLSS", isOn: Binding(
-                        get: { profile.metalFX ?? false },
-                        set: { profile.metalFX = $0 }
-                    ))
-                    Toggle("HUD", isOn: $profile.hud)
-                    Toggle("No esync", isOn: $profile.noEsync)
-                }
-                .toggleStyle(.checkbox)
+                if profile.isSteamManaged {
+                    HStack(spacing: 18) {
+                        Toggle("HUD", isOn: $profile.hud)
+                        Toggle("No esync", isOn: $profile.noEsync)
+                    }
+                    .toggleStyle(.checkbox)
+                } else {
+                    HStack(spacing: 18) {
+                        Toggle("Steam required", isOn: $profile.requiresSteam)
+                        Toggle("No DXR", isOn: $profile.noDXR)
+                        Toggle("MetalFX/DLSS", isOn: Binding(
+                            get: { profile.metalFX ?? false },
+                            set: { profile.metalFX = $0 }
+                        ))
+                        Toggle("HUD", isOn: $profile.hud)
+                        Toggle("No esync", isOn: $profile.noEsync)
+                    }
+                    .toggleStyle(.checkbox)
 
-                HStack(spacing: 18) {
-                    Toggle("Native winmm", isOn: $profile.nativeWinmm)
-                    Toggle("Native steam_api64", isOn: $profile.nativeSteamAPI)
-                }
-                .toggleStyle(.checkbox)
+                    HStack(spacing: 18) {
+                        Toggle("Native winmm", isOn: $profile.nativeWinmm)
+                        Toggle("Native steam_api64", isOn: $profile.nativeSteamAPI)
+                    }
+                    .toggleStyle(.checkbox)
 
-                HStack(spacing: 10) {
-                    FieldLabel("Arguments")
-                    TextField("Extra arguments", text: $profile.extraArguments)
-                        .textFieldStyle(.roundedBorder)
+                    HStack(spacing: 10) {
+                        FieldLabel("Arguments")
+                        TextField("Extra arguments", text: $profile.extraArguments)
+                            .textFieldStyle(.roundedBorder)
+                    }
                 }
             }
 
             Panel("Actions", systemImage: "play.circle.fill") {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
-                        Button {
-                            model.startSteam(for: profile)
-                        } label: {
-                            Label("Start Steam", systemImage: "play.fill")
+                        if profile.requiresSteam && !profile.isSteamManaged {
+                            Button {
+                                model.startSteam(for: profile)
+                            } label: {
+                                Label("Start Steam", systemImage: "play.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!profile.requiresSteam)
 
                         Button {
                             model.launch(profile)
                         } label: {
-                            Label("Launch", systemImage: "gamecontroller.fill")
+                            Label(profile.isSteamApp ? "Launch Steam" : "Launch", systemImage: profile.isSteamManaged ? "play.fill" : "gamecontroller.fill")
                         }
                         .buttonStyle(.borderedProminent)
 
-                        Button {
-                            model.closeGame(profile)
-                        } label: {
-                            Label("Close Game", systemImage: "xmark.circle.fill")
+                        if !profile.isSteamApp {
+                            Button {
+                                model.closeGame(profile)
+                            } label: {
+                                Label("Close Game", systemImage: "xmark.circle.fill")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(model.closeTargets(for: profile).isEmpty)
                         }
-                        .buttonStyle(.bordered)
 
-                        Button(role: .destructive) {
-                            model.stopSteam()
-                        } label: {
-                            Label("Stop Steam", systemImage: "power")
+                        if profile.isSteamApp {
+                            Button(role: .destructive) {
+                                model.stopSteam()
+                            } label: {
+                                Label("Stop Steam", systemImage: "power")
+                            }
+                            .buttonStyle(.bordered)
                         }
-                        .buttonStyle(.bordered)
                     }
 
                     HStack(spacing: 12) {
@@ -343,15 +475,24 @@ private struct ProfileDetailView: View {
                             Label("Delete", systemImage: "trash")
                         }
                         .buttonStyle(.bordered)
+                        .disabled(profile.isRequiredLibraryProfile)
                     }
                 }
             }
 
             Panel("Validation", systemImage: "checkmark.seal.fill") {
                 VStack(alignment: .leading, spacing: 10) {
-                    ValidationRow(title: profile.executable, isOK: model.fileExists(profile.executable, in: profile))
-                    ForEach(profile.requiredFiles, id: \.self) { item in
-                        ValidationRow(title: item, isOK: model.fileExists(item, in: profile))
+                    if profile.isSteamApp {
+                        ValidationRow(title: "Steam prefix", isOK: FileManager.default.fileExists(atPath: model.prefixPath(for: profile)))
+                        ValidationRow(title: "steam.exe", isOK: model.steamExecutableExists(in: profile))
+                    } else if profile.isSteamLibraryGame {
+                        ValidationRow(title: "Steam AppID \(profile.steamAppID ?? "")", isOK: true)
+                        ValidationRow(title: "Install folder", isOK: FileManager.default.fileExists(atPath: profile.gameFolder))
+                    } else {
+                        ValidationRow(title: profile.executable, isOK: model.fileExists(profile.executable, in: profile))
+                        ForEach(profile.requiredFiles, id: \.self) { item in
+                            ValidationRow(title: item, isOK: model.fileExists(item, in: profile))
+                        }
                     }
                     ValidationRow(title: "Runner folder", isOK: profile.runnerPath.isEmpty || FileManager.default.fileExists(atPath: profile.runnerPath))
                 }
@@ -359,12 +500,18 @@ private struct ProfileDetailView: View {
 
             Panel("Commands", systemImage: "chevron.left.forwardslash.chevron.right") {
                 VStack(alignment: .leading, spacing: 12) {
-                    if profile.requiresSteam {
+                    if profile.requiresSteam && !profile.isSteamManaged {
                         CommandPreview(title: "Start Steam", command: model.previewStartSteamCommand(for: profile))
                     }
-                    CommandPreview(title: "Launch", command: model.previewLaunchCommand(for: profile))
-                    CommandPreview(title: "Close Game", command: model.previewCloseGameCommand(for: profile))
-                    if profile.requiresSteam {
+                    if profile.isSteamManaged {
+                        CommandPreview(title: profile.isSteamApp ? "Launch Steam" : "Launch From Steam", command: model.previewSteamManagedLaunchCommand(for: profile))
+                    } else {
+                        CommandPreview(title: "Launch", command: model.previewLaunchCommand(for: profile))
+                    }
+                    if !profile.isSteamApp && !model.closeTargets(for: profile).isEmpty {
+                        CommandPreview(title: "Close Game", command: model.previewCloseGameCommand(for: profile))
+                    }
+                    if profile.isSteamApp {
                         CommandPreview(title: "Stop Steam", command: model.previewStopSteamCommand())
                     }
                 }
@@ -824,10 +971,7 @@ private final class LauncherModel: ObservableObject {
     private let setupGuideSeenKey = "setupGuideSeen.v2"
 
     var defaultSelection: SidebarSelection {
-        if let id = profiles.first?.id {
-            return .profile(id)
-        }
-        return .settings
+        .library
     }
 
     var statusLine: String {
@@ -885,6 +1029,10 @@ private final class LauncherModel: ObservableObject {
     }
 
     func deleteProfile(id: UUID) {
+        if profiles.first(where: { $0.id == id })?.isRequiredLibraryProfile == true {
+            lastResult = "Steam profile stays in the library"
+            return
+        }
         guard profiles.count > 1 else {
             lastResult = "At least one app profile is required"
             return
@@ -948,6 +1096,17 @@ private final class LauncherModel: ObservableObject {
         return FileManager.default.fileExists(atPath: path)
     }
 
+    func prefixPath(for profile: GameProfile) -> String {
+        if profile.prefix.hasPrefix("/") || profile.prefix.hasPrefix("./") || profile.prefix.hasPrefix("../") {
+            return NSString(string: profile.prefix).expandingTildeInPath
+        }
+        return "\(config.prefixRoot)/\(profile.prefix)"
+    }
+
+    func steamExecutableExists(in profile: GameProfile) -> Bool {
+        FileManager.default.fileExists(atPath: "\(prefixPath(for: profile))/drive_c/Program Files (x86)/Steam/steam.exe")
+    }
+
     func startSteam(for profile: GameProfile) {
         let profile = repairedProfile(profile)
         runShell(
@@ -970,7 +1129,7 @@ private final class LauncherModel: ObservableObject {
         let profile = repairedProfile(profile)
         runShell(
             title: "Launch \(profile.name)",
-            command: previewLaunchCommand(for: profile, detached: true),
+            command: profile.isSteamManaged ? previewSteamManagedLaunchCommand(for: profile, detached: true) : previewLaunchCommand(for: profile, detached: true),
             detached: true
         )
     }
@@ -1129,7 +1288,7 @@ private final class LauncherModel: ObservableObject {
 
     func previewStartSteamCommand(for profile: GameProfile, detached: Bool = false) -> String {
         let logPath = "\(config.logsPath)/\(profile.safeName)-steam.log"
-        let envPart = runnerEnvAssignment(for: profile)
+        let envPart = steamEnvAssignment(for: profile)
         let base = "\(sourceConfig); nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log >> \(logPath.shellQuoted) 2>&1 &"
         return detached ? base : "\(sourceConfig); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log"
     }
@@ -1138,9 +1297,25 @@ private final class LauncherModel: ObservableObject {
         "\(sourceConfig); \(config.gptkSteamPath.shellQuoted) --kill"
     }
 
+    func previewSteamManagedLaunchCommand(for profile: GameProfile, detached: Bool = false) -> String {
+        let logPath = "\(config.logsPath)/\(profile.safeName).log"
+        let appLaunch = (profile.steamAppID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let appArgs = appLaunch.isEmpty ? "" : " -applaunch \(appLaunch.shellQuoted)"
+        let envPart = steamEnvAssignment(for: profile)
+        let launch = "nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log\(appArgs) >> \(logPath.shellQuoted) 2>&1 &"
+
+        if detached {
+            return "\(sourceConfig); \(launch)"
+        }
+        return "\(sourceConfig); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log\(appArgs)"
+    }
+
     func previewCloseGameCommand(for profile: GameProfile) -> String {
         let commands = closeTargets(for: profile).map { target in
             "env \(runnerEnvAssignment(for: profile)) \(config.gptkLaunchPath.shellQuoted) --prefix \(profile.prefix.shellQuoted) --no-log -- taskkill /IM \(target.shellQuoted) /F >/dev/null 2>&1 || true"
+        }
+        if commands.isEmpty {
+            return "\(sourceConfig); echo \("No process target configured for \(profile.name)".shellQuoted)"
         }
         return "\(sourceConfig); \(commands.joined(separator: "; "))"
     }
@@ -1165,7 +1340,7 @@ private final class LauncherModel: ObservableObject {
         return "\(sourceConfig); cd \(profile.gameFolder.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart)"
     }
 
-    private func closeTargets(for profile: GameProfile) -> [String] {
+    func closeTargets(for profile: GameProfile) -> [String] {
         var targets: [String] = []
         let executable = (profile.executable as NSString).lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
         if !executable.isEmpty {
@@ -1184,6 +1359,16 @@ private final class LauncherModel: ObservableObject {
 
     private func runnerEnvAssignment(for profile: GameProfile) -> String {
         profile.runnerPath.isEmpty ? "" : "GPTK_WINE_HOME=\(profile.runnerPath.shellQuoted)"
+    }
+
+    private func steamEnvAssignment(for profile: GameProfile) -> String {
+        var assignments: [String] = []
+        if !profile.runnerPath.isEmpty {
+            assignments.append("GPTK_WINE_HOME=\(profile.runnerPath.shellQuoted)")
+        }
+        assignments.append("GPTK_MTL_HUD_ENABLED=\(profile.hud ? "1" : "0")")
+        assignments.append("GPTK_WINEESYNC=\(profile.noEsync ? "0" : "1")")
+        return assignments.joined(separator: " ")
     }
 
     private func dllOverrides(for profile: GameProfile) -> String {
@@ -1278,11 +1463,34 @@ private final class LauncherModel: ObservableObject {
            !profiles.isEmpty {
             return repairProfiles(profiles, config: config)
         }
-        return repairProfiles([GameProfile.eldenRing(config: config, defaults: defaults)], config: config)
+        return repairProfiles([GameProfile.steam(config: config), GameProfile.eldenRing(config: config, defaults: defaults)], config: config)
     }
 
     private static func repairProfiles(_ profiles: [GameProfile], config: ToolkitConfig) -> [GameProfile] {
-        profiles.map { $0.repairedForCurrentToolkit(config: config) }
+        var repaired = profiles.map { $0.repairedForCurrentToolkit(config: config) }
+
+        if !repaired.contains(where: { $0.isSteamApp }) {
+            repaired.insert(GameProfile.steam(config: config), at: 0)
+        }
+
+        if let steamIndex = repaired.firstIndex(where: { $0.isSteamApp }), steamIndex != 0 {
+            let steam = repaired.remove(at: steamIndex)
+            repaired.insert(steam, at: 0)
+        }
+
+        for steamGame in discoverSteamGames(config: config) {
+            if let existingIndex = repaired.firstIndex(where: { $0.steamAppID == steamGame.steamAppID }) {
+                repaired[existingIndex].name = repaired[existingIndex].name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? steamGame.name : repaired[existingIndex].name
+                repaired[existingIndex].gameFolder = steamGame.gameFolder
+                repaired[existingIndex].prefix = repaired[existingIndex].prefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Steam" : repaired[existingIndex].prefix
+                repaired[existingIndex].requiresSteam = true
+                repaired[existingIndex].systemImage = repaired[existingIndex].systemImage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? steamGame.systemImage : repaired[existingIndex].systemImage
+            } else {
+                repaired.append(steamGame)
+            }
+        }
+
+        return repaired
     }
 
     private func repairedProfile(_ profile: GameProfile) -> GameProfile {
@@ -1294,6 +1502,46 @@ private final class LauncherModel: ObservableObject {
             persistProfiles()
         }
         return repaired
+    }
+
+    private static func discoverSteamGames(config: ToolkitConfig) -> [GameProfile] {
+        let steamAppsURL = URL(fileURLWithPath: config.steamLibrary).appendingPathComponent("steamapps")
+        let manifestURLs = ((try? FileManager.default.contentsOfDirectory(
+            at: steamAppsURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )) ?? [])
+            .filter { url in
+                let name = url.lastPathComponent
+                return name.hasPrefix("appmanifest_") && name.hasSuffix(".acf")
+            }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+
+        return manifestURLs.compactMap { url in
+            guard let text = try? String(contentsOf: url, encoding: .utf8),
+                  let appID = acfValue("appid", in: text),
+                  let name = acfValue("name", in: text),
+                  let installDir = acfValue("installdir", in: text),
+                  !appID.isEmpty,
+                  !name.isEmpty,
+                  !installDir.isEmpty else {
+                return nil
+            }
+
+            return GameProfile.steamGame(appID: appID, name: name, installDir: installDir, config: config)
+        }
+    }
+
+    private static func acfValue(_ key: String, in text: String) -> String? {
+        let pattern = #""\#(key)"\s+"([^"]+)""#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, range: range),
+              match.numberOfRanges > 1,
+              let valueRange = Range(match.range(at: 1), in: text) else {
+            return nil
+        }
+        return String(text[valueRange])
     }
 }
 
@@ -1330,12 +1578,14 @@ private struct ShellResult: Sendable {
 
 private struct GameProfile: Codable, Identifiable, Hashable {
     private static let eldenRingERSCID = UUID(uuidString: "00000000-0000-0000-0000-000000000480") ?? UUID()
+    private static let steamClientID = UUID(uuidString: "00000000-0000-0000-0000-000000000481") ?? UUID()
 
     var id: UUID
     var name: String
     var prefix: String
     var gameFolder: String
     var executable: String
+    var steamAppID: String?
     var iconPath: String?
     var runnerPath: String
     var winver: String
@@ -1360,7 +1610,37 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             name.localizedCaseInsensitiveContains("elden ring ersc")
     }
 
+    var isSteamApp: Bool {
+        id == Self.steamClientID || (name == "Steam" && prefix == "Steam" && steamAppID == nil)
+    }
+
+    var isSteamLibraryGame: Bool {
+        !(steamAppID ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSteamApp
+    }
+
+    var isSteamManaged: Bool {
+        isSteamApp || isSteamLibraryGame
+    }
+
+    var isRequiredLibraryProfile: Bool {
+        isSteamApp
+    }
+
     func repairedForCurrentToolkit(config: ToolkitConfig) -> GameProfile {
+        if isSteamApp {
+            var repaired = self
+            repaired.id = Self.steamClientID
+            repaired.name = "Steam"
+            repaired.prefix = "Steam"
+            repaired.gameFolder = "\(config.prefixRoot)/Steam"
+            repaired.executable = "steam.exe"
+            repaired.steamAppID = nil
+            repaired.requiresSteam = false
+            repaired.requiredFiles = []
+            repaired.systemImage = "square.grid.2x2.fill"
+            return repaired
+        }
+
         guard isEldenRingERSC else { return self }
 
         var repaired = self
@@ -1403,6 +1683,7 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             prefix: defaults.string(forKey: "prefix") ?? "Steam",
             gameFolder: defaults.string(forKey: "gameFolder") ?? "\(config.externalRoot)/Games/EldenRing/Game",
             executable: "ersc_launcher.exe",
+            steamAppID: nil,
             iconPath: defaults.string(forKey: "iconPath"),
             runnerPath: defaults.string(forKey: "runnerPath") ?? "\(config.gptkHome)/runners/gptk-dsound-nocap-20260513",
             winver: defaults.string(forKey: "winver") ?? "win10",
@@ -1426,6 +1707,7 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             prefix: "MyGame",
             gameFolder: "\(config.externalRoot)/Games",
             executable: "Game.exe",
+            steamAppID: nil,
             iconPath: nil,
             runnerPath: "",
             winver: "win10",
@@ -1439,6 +1721,54 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             extraArguments: "",
             requiredFiles: [],
             systemImage: "app.fill"
+        )
+    }
+
+    static func steam(config: ToolkitConfig) -> GameProfile {
+        GameProfile(
+            id: steamClientID,
+            name: "Steam",
+            prefix: "Steam",
+            gameFolder: "\(config.prefixRoot)/Steam",
+            executable: "steam.exe",
+            steamAppID: nil,
+            iconPath: nil,
+            runnerPath: "",
+            winver: "win10",
+            requiresSteam: false,
+            noDXR: false,
+            metalFX: false,
+            hud: false,
+            noEsync: false,
+            nativeWinmm: false,
+            nativeSteamAPI: false,
+            extraArguments: "",
+            requiredFiles: [],
+            systemImage: "square.grid.2x2.fill"
+        )
+    }
+
+    static func steamGame(appID: String, name: String, installDir: String, config: ToolkitConfig) -> GameProfile {
+        GameProfile(
+            id: UUID(),
+            name: name,
+            prefix: "Steam",
+            gameFolder: "\(config.steamLibrary)/steamapps/common/\(installDir)",
+            executable: "",
+            steamAppID: appID,
+            iconPath: nil,
+            runnerPath: "",
+            winver: "win10",
+            requiresSteam: true,
+            noDXR: false,
+            metalFX: false,
+            hud: false,
+            noEsync: false,
+            nativeWinmm: false,
+            nativeSteamAPI: false,
+            extraArguments: "",
+            requiredFiles: [],
+            systemImage: "gamecontroller.fill"
         )
     }
 }

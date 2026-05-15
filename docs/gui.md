@@ -6,11 +6,11 @@ RipperMoonKit now includes a native SwiftUI launcher target:
 RipperMoonKitLauncher
 ```
 
-The launcher reads `~/.rippermoon-gptk.env`, shows a list of configured apps/games, opens each app into its own launch settings, validates that app's folder layout, starts and stops Windows Steam when the profile requires it, closes the selected game without stopping Steam, installs Microsoft Visual C++ runtime packages per prefix, and exposes install, update, uninstall, backup, and rollback actions.
+The launcher reads `~/.rippermoon-gptk.env`, shows a library grid of configured apps/games, opens each app into its own launch settings, validates that app's folder layout, starts Windows Steam when the profile requires it, closes the selected game without stopping Steam, installs Microsoft Visual C++ runtime packages per prefix, and exposes install, update, uninstall, backup, and rollback actions.
 
 ![RipperMoonKit launcher showing an Elden Ring ERSC profile](assets/rippermoonkit-gui.png)
 
-The app is organized around individual games and apps. Pick a profile on the left, then adjust that profile's icon, folder, prefix, runner, and launch options on the right.
+The app is organized around a library of individual games and apps. Pick **Games & Apps** to see the grid, then open a game tile to adjust that profile's icon, folder, prefix, runner, and launch options. Steam appears in the library as its own app, while still being available as a dependency for games that need the running Steam client.
 
 ## Build
 
@@ -57,7 +57,7 @@ The backup copy is stored as `.app.backup` so Spotlight does not show old launch
 
 ## Apps And Games
 
-The sidebar is centered on user-owned app/game profiles. Each profile stores its own:
+The sidebar opens the library, backups, and settings. The library grid is centered on user-owned app/game profiles. Each profile stores its own:
 
 ```text
 name
@@ -74,9 +74,9 @@ validation files
 launch command preview
 ```
 
-Use **Add App** to create another app/game profile. The profile command preview lives inside that app's page, not in global Settings.
+Use **Add Game** to create another app/game profile. Steam games found in the configured Steam library can appear as Steam-backed game tiles and launch through Steam AppID commands.
 
-Each profile can point at its own icon image. The sidebar row, the app settings preview, and the large square icon in the page header use that profile icon when configured. This is intentionally a user-selected image path, because the best icon is not always embedded in the Windows `.exe`.
+Each profile can point at its own icon image. The library tile, the app settings preview, and the large square icon in the page header use that profile icon when configured. This is intentionally a user-selected image path, because the best icon is not always embedded in the Windows `.exe`.
 
 The MetalFX/DLSS toggle is for games that expose DLSS in their own graphics menu. It adds `--metalfx` and prefers GPTK's built-in `nvapi64` and `nvngx` bridge DLLs for that launch.
 
