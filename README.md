@@ -16,6 +16,14 @@ Tested workflow:
 - Save transfer into the real Wine prefix save directory after confirming the game-created save path.
 - Elden Ring Seamless Coop Golden Pot lobby opening with a GPTK DirectSound capture workaround.
 
+## Proof Of Concept
+
+![RipperMoonKit launcher showing an Elden Ring ERSC game profile](docs/assets/rippermoonkit-gui.png)
+
+![Elden Ring running on macOS through Apple Game Porting Toolkit with the HUD visible](docs/assets/elden-ring-grace-hud.png)
+
+The screenshots show the launcher profile and a live Elden Ring GPTK run. See [docs/proof-of-concept.md](docs/proof-of-concept.md) for the full example.
+
 ## What This Provides
 
 - `gptk-launch`: runs Windows executables or Wine tools inside a named prefix.

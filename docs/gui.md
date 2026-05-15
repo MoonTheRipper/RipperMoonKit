@@ -8,6 +8,10 @@ RipperMoonKitLauncher
 
 The launcher reads `~/.rippermoon-gptk.env`, shows a list of configured apps/games, opens each app into its own launch settings, validates that app's folder layout, starts and stops Windows Steam when the profile requires it, closes the selected game without stopping Steam, installs Microsoft Visual C++ runtime packages per prefix, and exposes install, update, uninstall, backup, and rollback actions.
 
+![RipperMoonKit launcher showing an Elden Ring ERSC profile](assets/rippermoonkit-gui.png)
+
+The app is organized around individual games and apps. Pick a profile on the left, then adjust that profile's icon, folder, prefix, runner, and launch options on the right.
+
 ## Build
 
 ```zsh
@@ -142,7 +146,9 @@ It was copied from the local image:
 
 ## First Run Setup
 
-On first launch, or when GPTK is missing, the app shows a setup guide with actions for:
+The app shows the setup guide only when the toolkit is not ready and the guide has not already been dismissed. A missing path is still shown in the guide when opened, but clicking **Done** suppresses automatic repeats.
+
+The setup guide has actions for:
 
 ```text
 Install Toolkit
@@ -151,6 +157,8 @@ Open Apple GPTK Page
 ```
 
 The GPTK action runs the installer with `RIPPERMOON_OPEN_GPTK_PAGE=1`, so if GPTK is not present it opens Apple's page, watches `/Volumes` and `~/Downloads`, and continues when the user mounts or downloads GPTK media.
+
+GPTK detection accepts the configured `GPTK_WINE_HOME`, a copied GPTK app under `$GPTK_HOME/apps`, Apple's `/Applications/Game Porting Toolkit.app`, and patched runners under `$GPTK_HOME/runners`.
 
 ## Path And Drive Settings
 

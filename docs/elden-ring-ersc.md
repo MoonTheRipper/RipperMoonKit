@@ -2,6 +2,10 @@
 
 This page documents the working launch shape for ERSC when it needs Steam running and Spacewar/AppID 480 available.
 
+![Elden Ring running on macOS through Apple Game Porting Toolkit with the HUD visible](assets/elden-ring-grace-hud.png)
+
+This is a proof-of-concept capture from the RipperMoonKit Elden Ring profile. It shows the game running through Apple Game Porting Toolkit 3 with the HUD visible.
+
 ## Tested Content Layout
 
 This ERSC workflow was tested with a pre-installed offline/non-Steam Windows game folder copied into the target `Games` directory.
@@ -18,6 +22,18 @@ $GPTK_EXTERNAL_ROOT/Games/EldenRing/Game/
 Do not use the original installation files as the runtime source for this flow. In this GPTK build, the installer path is fragile; the reliable path was copying the already-installed `Game` folder and launching from there.
 
 This repository does not include game files, saves, Steam data, Wine prefixes, or runtime blobs.
+
+## Example Launcher Profile
+
+![RipperMoonKit launcher showing the Elden Ring ERSC profile](assets/rippermoonkit-gui.png)
+
+The GUI profile keeps the Elden Ring folder, Steam prefix, runner, and launch options in one place so the setup is easier to repeat.
+
+## Gameplay Capture
+
+![Elden Ring boss fight running on macOS through Apple Game Porting Toolkit with the HUD visible](assets/elden-ring-godrick-hud.png)
+
+This second capture is included to show the setup during active gameplay. It is not a promise of exact performance on every Mac.
 
 ## Path Variables
 

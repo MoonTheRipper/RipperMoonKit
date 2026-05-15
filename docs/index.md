@@ -24,6 +24,7 @@ Read in this order:
 
 ## Game Workflows
 
+- [proof-of-concept.md](proof-of-concept.md): screenshots of the launcher and Elden Ring running on macOS through GPTK.
 - [game-folder-workflow.md](game-folder-workflow.md): copying an already-installed Windows game folder.
 - [elden-ring-ersc.md](elden-ring-ersc.md): Elden Ring ERSC tested launch path.
 - [clair-obscur-dlss-metalfx.md](clair-obscur-dlss-metalfx.md): Clair Obscur DLSS through GPTK MetalFX.

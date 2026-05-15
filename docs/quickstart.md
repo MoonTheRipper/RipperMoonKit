@@ -2,6 +2,8 @@
 
 This is the shortest path to a working RipperMoonToolKit install.
 
+For a visual example of the app and Elden Ring running on macOS, see [proof-of-concept.md](proof-of-concept.md).
+
 ## 1. Download GPTK 3 From Apple
 
 Open Apple's Game Porting Toolkit page:
@@ -96,6 +98,10 @@ gptk-launch --prefix Steam -- ./GameLauncher.exe
 ```zsh
 swift run RipperMoonKitLauncher
 ```
+
+The launcher gives each game its own page:
+
+![RipperMoonKit launcher showing the Elden Ring ERSC profile](assets/rippermoonkit-gui.png)
 
 ## Logs
 

@@ -609,8 +609,9 @@ private struct SetupGuideView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                SetupRow(title: "Toolkit scripts", isOK: FileManager.default.fileExists(atPath: model.config.gptkLaunchPath))
-                SetupRow(title: "GPTK runtime", isOK: model.config.hasLocalGPTK)
+                SetupRow(title: "Toolkit scripts", isOK: model.config.hasToolkitScripts)
+                SetupRow(title: "GPTK Wine runner", isOK: model.config.hasWineRunner)
+                SetupRow(title: "D3DMetal runtime", isOK: model.config.hasD3DMetalRuntime)
                 SetupRow(title: "Config file", isOK: model.config.exists)
             }
 
@@ -820,6 +821,7 @@ private final class LauncherModel: ObservableObject {
     @Published var showSetupGuide = false
 
     private let defaults = UserDefaults.standard
+    private let setupGuideSeenKey = "setupGuideSeen.v2"
 
     var defaultSelection: SidebarSelection {
         if let id = profiles.first?.id {
@@ -840,7 +842,7 @@ private final class LauncherModel: ObservableObject {
         driveMaps = DriveMap.parse(loaded.values["GPTK_DRIVE_MAPS"] ?? "")
         toolkitSourceFolder = defaults.string(forKey: "toolkitSourceFolder") ?? "\(loaded.home)/Desktop/RipperMoonToolKit"
         refreshBackups()
-        showSetupGuide = !defaults.bool(forKey: "setupGuideSeen.v2") || !loaded.hasLocalGPTK
+        showSetupGuide = shouldShowSetupGuide(config: loaded)
         persistProfiles()
     }
 
@@ -853,6 +855,12 @@ private final class LauncherModel: ObservableObject {
         pathSettings = PathSettings(config: config)
         driveMaps = DriveMap.parse(config.values["GPTK_DRIVE_MAPS"] ?? "")
         refreshBackups()
+        if !config.needsSetupGuide {
+            defaults.set(true, forKey: setupGuideSeenKey)
+            showSetupGuide = false
+        } else {
+            showSetupGuide = shouldShowSetupGuide(config: config)
+        }
         lastResult = "Refreshed"
     }
 
@@ -1072,8 +1080,12 @@ private final class LauncherModel: ObservableObject {
     }
 
     func dismissSetupGuide() {
-        defaults.set(true, forKey: "setupGuideSeen.v2")
+        defaults.set(true, forKey: setupGuideSeenKey)
         showSetupGuide = false
+    }
+
+    private func shouldShowSetupGuide(config: ToolkitConfig) -> Bool {
+        !defaults.bool(forKey: setupGuideSeenKey) && config.needsSetupGuide
     }
 
     func addDriveMap() {
@@ -1497,9 +1509,62 @@ private struct ToolkitConfig {
     var gptkLaunchPath: String { "\(home)/bin/gptk-launch" }
     var gptkSteamPath: String { "\(home)/bin/gptk-steam" }
     var gptkVCRunPath: String { "\(home)/bin/gptk-vcrun" }
+    var hasToolkitScripts: Bool {
+        FileManager.default.isExecutableFile(atPath: gptkLaunchPath)
+            && FileManager.default.isExecutableFile(atPath: gptkSteamPath)
+    }
+    var hasWineRunner: Bool { detectedWineHome != nil }
+    var hasD3DMetalRuntime: Bool {
+        d3d12Candidates.contains { FileManager.default.fileExists(atPath: $0) }
+    }
     var hasLocalGPTK: Bool {
-        FileManager.default.isExecutableFile(atPath: "\(gptkWineHome)/bin/wine64")
-            && FileManager.default.fileExists(atPath: "\(gptkRuntime)/lib/wine/x86_64-windows/d3d12.dll")
+        hasWineRunner && hasD3DMetalRuntime
+    }
+    var needsSetupGuide: Bool {
+        !exists || !hasToolkitScripts || !hasLocalGPTK
+    }
+
+    private var detectedWineHome: String? {
+        wineHomeCandidates.first {
+            FileManager.default.isExecutableFile(atPath: "\($0)/bin/wine64")
+        }
+    }
+
+    private var d3d12Candidates: [String] {
+        uniqued(["\(gptkRuntime)/lib/wine/x86_64-windows/d3d12.dll"] + wineHomeCandidates.map {
+            "\($0)/lib/wine/x86_64-windows/d3d12.dll"
+        })
+    }
+
+    private var wineHomeCandidates: [String] {
+        var candidates = [
+            gptkWineHome,
+            "\(gptkHome)/apps/Game Porting Toolkit.app/Contents/Resources/wine",
+            "/Applications/Game Porting Toolkit.app/Contents/Resources/wine",
+            "/Applications/Wine Stable.app/Contents/Resources/wine",
+            "/Applications/Wine Staging.app/Contents/Resources/wine"
+        ]
+
+        let runnersURL = URL(fileURLWithPath: "\(gptkHome)/runners")
+        if let runnerURLs = try? FileManager.default.contentsOfDirectory(
+            at: runnersURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            candidates.append(contentsOf: runnerURLs.compactMap { url in
+                guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else {
+                    return nil
+                }
+                return url.path
+            })
+        }
+
+        return uniqued(candidates)
+    }
+
+    private func uniqued(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
     }
 
     static func load() -> ToolkitConfig {

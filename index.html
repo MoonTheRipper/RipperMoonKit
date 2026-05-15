@@ -3,8 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RipperMoonKit</title>
-  <meta name="description" content="A minimal Apple Game Porting Toolkit launcher for Steam, ERSC, and profile-based Windows game launches on macOS.">
+  <title>RipperMoonKit - Apple Game Porting Toolkit Launcher for Mac</title>
+  <meta name="description" content="RipperMoonKit is a clean macOS launcher for Apple Game Porting Toolkit workflows, with Steam support, game profiles, external drive paths, and an Elden Ring ERSC proof of concept.">
+  <meta name="keywords" content="RipperMoonKit, Apple Game Porting Toolkit launcher, GPTK launcher, Elden Ring Mac, Seamless Coop Mac, Steam Windows games macOS, Game Porting Toolkit 3">
+  <meta property="og:title" content="RipperMoonKit">
+  <meta property="og:description" content="A macOS launcher kit for Apple Game Porting Toolkit game profiles, Steam workflows, and copied Windows game folders.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="docs/assets/rippermoonkit-gui.png">
   <style>
     :root {
       color-scheme: light dark;
@@ -39,7 +44,7 @@
     header,
     main,
     footer {
-      width: min(900px, calc(100% - 40px));
+      width: min(1080px, calc(100% - 40px));
       margin: 0 auto;
     }
 
@@ -51,7 +56,7 @@
       align-items: center;
     }
 
-    img {
+    .brand-icon {
       width: 92px;
       height: 92px;
       object-fit: cover;
@@ -121,6 +126,82 @@
       font-size: 0.92em;
     }
 
+    section {
+      padding: 38px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: clamp(1.7rem, 4vw, 3rem);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      font-size: clamp(1.1rem, 2.2vw, 1.35rem);
+    }
+
+    .proof {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 24px;
+      margin-top: 22px;
+    }
+
+    .wide {
+      grid-column: 1 / -1;
+    }
+
+    figure {
+      margin: 0;
+    }
+
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #000;
+    }
+
+    figcaption {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px 22px;
+      margin-top: 8px;
+    }
+
+    .links a {
+      color: var(--accent);
+      font-weight: 650;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 4px;
+    }
+
+    @media (max-width: 760px) {
+      header {
+        grid-template-columns: 72px 1fr;
+      }
+
+      .brand-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 14px;
+      }
+
+      .proof {
+        grid-template-columns: 1fr;
+      }
+    }
+
     footer {
       margin-top: 56px;
       padding: 22px 0 44px;
@@ -132,15 +213,14 @@
 </head>
 <body>
   <header>
-    <img src="Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt="">
+    <img class="brand-icon" src="Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt="RipperMoonKit app icon">
     <h1>RipperMoonKit</h1>
   </header>
 
   <main>
-    <p>
-      A focused macOS launcher kit for Apple Game Porting Toolkit workflows:
-      profile-based Windows game launches, Steam support, external drive mappings,
-      rollback-safe updates, and the tested Elden Ring ERSC setup.
+    <p class="lead">
+      A clean macOS launcher for Apple Game Porting Toolkit game profiles,
+      copied Windows game folders, Steam support, external drives, and rollback-safe updates.
     </p>
 
     <nav aria-label="Downloads">
@@ -158,11 +238,56 @@
       </a>
     </nav>
 
-    <ul>
-      <li>Use your own Apple Game Porting Toolkit 3 download from Apple.</li>
-      <li>Keep Wine prefixes, saves, Steam data, installed games, and GPTK runtimes outside git.</li>
-      <li>Start with the built-in Elden Ring ERSC profile or add individual profiles for other apps and games.</li>
-    </ul>
+    <section>
+      <h2>Proof Of Concept</h2>
+      <p>
+        The screenshots below show the current launcher profile and Elden Ring running on macOS
+        through Apple Game Porting Toolkit 3. The example uses an unofficial copied Windows game
+        folder, Steam support, and an ERSC profile.
+      </p>
+
+      <div class="proof">
+        <figure class="wide">
+          <img src="docs/assets/rippermoonkit-gui.png" alt="RipperMoonKit launcher showing an Elden Ring ERSC game profile on macOS" loading="lazy">
+          <figcaption>RipperMoonKit keeps each game in its own profile, with its own icon, prefix, game folder, runner, and launch options.</figcaption>
+        </figure>
+
+        <figure>
+          <img src="docs/assets/elden-ring-grace-hud.png" alt="Elden Ring running on macOS through Game Porting Toolkit with the performance HUD visible" loading="lazy">
+          <figcaption>Elden Ring running through GPTK with the HUD visible, showing the toolkit path is active during gameplay.</figcaption>
+        </figure>
+
+        <figure>
+          <img src="docs/assets/elden-ring-godrick-hud.png" alt="Elden Ring boss fight running on macOS through Game Porting Toolkit with the HUD visible" loading="lazy">
+          <figcaption>A second gameplay capture from the same setup, included as a practical proof of concept rather than a benchmark.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>What It Helps With</h2>
+      <ul>
+        <li>Create separate launch profiles for each game or app.</li>
+        <li>Use your own Apple Game Porting Toolkit 3 download from Apple.</li>
+        <li>Map external drives without editing hidden config files by hand.</li>
+        <li>Start or stop Steam separately from the game you are running.</li>
+        <li>Keep saves, prefixes, Steam data, games, and GPTK runtimes outside the repository.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Start Here</h2>
+      <p>
+        New users should begin with the quickstart, then open the GUI guide or the Elden Ring example
+        depending on what they want to run first.
+      </p>
+      <div class="links">
+        <a href="docs/quickstart.md">Quickstart</a>
+        <a href="docs/gui.md">Launcher Guide</a>
+        <a href="docs/elden-ring-ersc.md">Elden Ring ERSC Example</a>
+        <a href="docs/index.md">All Documentation</a>
+      </div>
+    </section>
   </main>
 
   <footer>
