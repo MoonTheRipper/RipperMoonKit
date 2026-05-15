@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Elden Ring ERSC On Mac</title>
+  <meta name="description" content="RipperMoonKit Elden Ring ERSC setup using Apple Game Porting Toolkit, Steam support, and a copied Windows game folder.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html"><img src="../Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt=""><span>RipperMoonKit</span></a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a><a href="index.html">Docs</a><a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a><a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="elden-ring.html" aria-current="page">Elden Ring ERSC</a>
+      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Elden Ring ERSC</p>
+        <h1>The tested example profile.</h1>
+        <p class="lead">This setup was tested with an unofficial offline/non-Steam copied Windows game folder, Steam running in the Steam prefix, and ERSC launched from that same prefix.</p>
+      </div>
+
+      <figure>
+        <img src="assets/elden-ring-grace-hud.png" alt="Elden Ring running through Apple Game Porting Toolkit with HUD visible">
+        <figcaption>Elden Ring running through GPTK 3 with the HUD visible.</figcaption>
+      </figure>
+
+      <h2>Important Folder Note</h2>
+      <p>Copy the already-installed Windows game folder to the target Mac games folder. Do not copy only the installer files. Installers are less reliable in this build than a ready game folder.</p>
+
+      <pre><code>$GPTK_EXTERNAL_ROOT/Games/EldenRing/Game/
+  eldenring.exe
+  ersc_launcher.exe
+  SeamlessCoop/</code></pre>
+
+      <h2>Steam And ERSC</h2>
+      <p>Start Steam first, then launch ERSC from the same Steam prefix. This lets Steam API calls and Spacewar/AppID 480 state stay visible to the game.</p>
+
+      <h2>Golden Pot Stability</h2>
+      <p>The Golden Pot lobby workflow uses a patched GPTK runner that disables Wine DirectSound capture. That avoids the Steam Voice capture lock that caused the game screen to freeze while audio continued.</p>
+
+      <figure>
+        <img src="assets/elden-ring-godrick-hud.png" alt="Elden Ring boss fight running through Apple Game Porting Toolkit with HUD visible">
+        <figcaption>Active gameplay capture from the same workflow.</figcaption>
+      </figure>
+
+      <div class="next-links">
+        <a class="button-link primary" href="commands.html#elden-ring">View Commands</a>
+        <a class="button-link" href="troubleshooting.html">Troubleshooting</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RipperMoonKit Troubleshooting</title>
+  <meta name="description" content="Troubleshoot common RipperMoonKit setup, GPTK, Steam, game launch, save, and runtime issues.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html"><img src="../Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt=""><span>RipperMoonKit</span></a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a><a href="index.html">Docs</a><a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a><a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="elden-ring.html">Elden Ring ERSC</a>
+      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html" aria-current="page">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Troubleshooting</p>
+        <h1>Check paths first.</h1>
+        <p class="lead">Most launch failures come from a missing mounted drive, wrong prefix, missing runtime dependency, or a game folder that is not the actual installed game folder.</p>
+      </div>
+
+      <h2>GPTK Shows Missing</h2>
+      <p>Make sure Game Porting Toolkit is installed or mounted. The launcher accepts configured GPTK paths, the Apple app in <code>/Applications</code>, and patched runners under <code>$GPTK_HOME/runners</code>.</p>
+
+      <h2>Game Opens Then Exits</h2>
+      <p>Install Visual C++ runtime into that profile's prefix from the GUI, or run:</p>
+      <pre><code>gptk-vcrun --prefix GamePrefix</code></pre>
+
+      <h2>Steam Game Cannot See Steam</h2>
+      <p>Start Steam first and launch the game from the same prefix. For ERSC, the tested profile uses the Steam prefix.</p>
+
+      <h2>Save Files Do Not Appear</h2>
+      <p>Create one fresh save in the game, exit, then copy your backup saves into the exact folder the game just created.</p>
+
+      <h2>Find Logs</h2>
+      <pre><code>ls -lt "$GPTK_HOME/logs" | head</code></pre>
+
+      <div class="next-links">
+        <a class="button-link primary" href="faq.html">Read Q&amp;A</a>
+        <a class="button-link" href="commands.html">Command Reference</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

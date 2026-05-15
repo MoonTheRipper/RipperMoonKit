@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RipperMoonKit Commands</title>
+  <meta name="description" content="Common RipperMoonKit commands for installing, launching games, starting Steam, closing games, VC++ runtime setup, and Elden Ring ERSC.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html"><img src="../Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt=""><span>RipperMoonKit</span></a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a><a href="index.html">Docs</a><a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a><a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="elden-ring.html">Elden Ring ERSC</a>
+      <strong>Reference</strong><a href="commands.html" aria-current="page">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Commands</p>
+        <h1>Copyable commands for repeatable launches.</h1>
+        <p class="lead">The app is the preferred path, but these commands are useful when testing or sharing a setup.</p>
+      </div>
+
+      <h2>Install Toolkit</h2>
+      <pre><code>cd RipperMoonToolKit
+./install.zsh</code></pre>
+
+      <h2>Start And Stop Steam</h2>
+      <pre><code>gptk-steam --log
+gptk-steam --kill</code></pre>
+
+      <h2>Run A Game</h2>
+      <pre><code>cd "$GPTK_EXTERNAL_ROOT/Games/MyGame"
+gptk-launch --prefix MyGame -- ./MyGame.exe</code></pre>
+
+      <h2>Close A Game Without Closing Steam</h2>
+      <pre><code>gptk-launch --prefix Steam --no-log -- taskkill /IM eldenring.exe /F</code></pre>
+
+      <h2>Install Microsoft Visual C++ Runtime</h2>
+      <pre><code>gptk-vcrun --prefix Dispatch
+gptk-vcrun --all</code></pre>
+
+      <h2 id="elden-ring">Elden Ring ERSC</h2>
+      <pre><code>env GPTK_WINE_HOME="/Users/USERNAME/GPTK/runners/gptk-dsound-nocap-20260513" \
+  /Users/USERNAME/bin/gptk-steam --no-log
+
+cd "EXE PATH"
+env GPTK_WINE_HOME="/Users/USERNAME/GPTK/runners/gptk-dsound-nocap-20260513" \
+  WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
+  /Users/USERNAME/bin/gptk-launch \
+    --prefix Steam \
+    --set-winver win10 \
+    --no-dxr \
+    --log-file "/Users/USERNAME/GPTK/logs/ERSC-dsound-nocap.log" \
+    -- ./ersc_launcher.exe</code></pre>
+
+      <div class="next-links">
+        <a class="button-link primary" href="faq.html">Q&amp;A</a>
+        <a class="button-link" href="troubleshooting.html">Troubleshooting</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

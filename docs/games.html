@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Games, Folders, Saves</title>
+  <meta name="description" content="How RipperMoonKit handles copied Windows game folders, external drives, saves, and per-game prefixes.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html"><img src="../Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt=""><span>RipperMoonKit</span></a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a><a href="index.html">Docs</a><a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a><a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html" aria-current="page">Games And Saves</a><a href="elden-ring.html">Elden Ring ERSC</a>
+      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Games</p>
+        <h1>Use installed game folders, not installer folders.</h1>
+        <p class="lead">For many Windows games under GPTK, copying an already-installed game folder from Windows is more reliable than running the original installer.</p>
+      </div>
+
+      <h2>Folder Shape</h2>
+      <p>Place copied games under your configured games folder. The default external layout looks like this:</p>
+      <pre><code>/Volumes/GameCoreApp/Games/GameName/
+  GameLauncher.exe
+  GameData/
+  other game files...</code></pre>
+
+      <h2>Prefixes</h2>
+      <p>A prefix is the Windows-like home for a game or app. Use separate prefixes when games need different dependencies. Use the Steam prefix when the game must talk to the running Steam client.</p>
+
+      <h2>Saves</h2>
+      <p>Let the game create one new save first. That proves the real save folder. After that, copy backed-up saves into the matching prefix folder and relaunch the game.</p>
+
+      <h2>External Drives</h2>
+      <p>RipperMoonKit can map as many mounted drives as you need. Assign letters in Settings, keep <code>C:</code> reserved for the Wine prefix, and keep the game paths stable.</p>
+
+      <div class="next-links">
+        <a class="button-link primary" href="gui.html">Create A Profile</a>
+        <a class="button-link" href="elden-ring.html">Elden Ring Example</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

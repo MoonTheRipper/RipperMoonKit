@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install RipperMoonKit</title>
+  <meta name="description" content="Install RipperMoonKit with Apple Game Porting Toolkit 3 and prepare the macOS launcher app.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html"><img src="../Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt=""><span>RipperMoonKit</span></a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a><a href="index.html">Docs</a><a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a><a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html" aria-current="page">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="elden-ring.html">Elden Ring ERSC</a>
+      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Installation</p>
+        <h1>Set up the toolkit once.</h1>
+        <p class="lead">The installer prepares folders, helper commands, backups, and the local GPTK runtime path. It does not include Apple runtime files or game files.</p>
+      </div>
+
+      <h2>1. Download GPTK 3</h2>
+      <p>Download <strong>Game Porting Toolkit 3</strong> from Apple and mount the downloaded disk image. Leave it mounted while installing RipperMoonKit.</p>
+      <p><a href="https://developer.apple.com/games/game-porting-toolkit/">Open Apple Game Porting Toolkit page</a></p>
+
+      <h2>2. Install RipperMoonKit</h2>
+      <p>From the source folder, run the installer. It creates local configuration, installs the helper commands, and writes a timestamped log.</p>
+      <pre><code>cd RipperMoonToolKit
+./install.zsh</code></pre>
+
+      <h2>3. Install The App</h2>
+      <p>The GUI is the easiest path for non-technical users. It installs to your user Applications folder.</p>
+      <pre><code>zsh scripts/install-gui-app.zsh</code></pre>
+
+      <h2>4. Reload The Shell</h2>
+      <p>Open a new Terminal window or reload your shell configuration.</p>
+      <pre><code>source ~/.zshrc</code></pre>
+
+      <h2>5. Check The Main Commands</h2>
+      <pre><code>which gptk-launch
+which gptk-steam
+which gptk-game</code></pre>
+
+      <h2>What Gets Protected</h2>
+      <p>Updates back up the small toolkit files first. Saves, Wine prefixes, Steam data, installed games, GPTK runtimes, and patched runners stay outside the repository and are not removed by normal updates.</p>
+
+      <div class="next-links">
+        <a class="button-link primary" href="gui.html">Open Launcher Guide</a>
+        <a class="button-link" href="commands.html">View Commands</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

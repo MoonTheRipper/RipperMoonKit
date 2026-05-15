@@ -41,14 +41,74 @@
       font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
     }
 
-    header,
+    .hero-header,
     main,
     footer {
       width: min(1080px, calc(100% - 40px));
       margin: 0 auto;
     }
 
-    header {
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--bg), transparent 8%);
+      backdrop-filter: blur(18px);
+    }
+
+    .topbar-inner {
+      width: min(1080px, calc(100% - 40px));
+      min-height: 68px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--fg);
+      text-decoration: none;
+      font-weight: 760;
+    }
+
+    .brand img {
+      width: 38px;
+      height: 38px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    .topnav {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .topnav a {
+      min-height: 38px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 12px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 650;
+    }
+
+    .topnav a:hover {
+      border-color: var(--line);
+      color: var(--fg);
+      background: color-mix(in srgb, var(--bg), var(--fg) 4%);
+    }
+
+    .hero-header {
       padding: 64px 0 36px;
       display: grid;
       gap: 22px;
@@ -187,7 +247,18 @@
     }
 
     @media (max-width: 760px) {
-      header {
+      .topbar-inner {
+        min-height: auto;
+        padding: 12px 0;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .topnav {
+        margin-left: 0;
+      }
+
+      .hero-header {
         grid-template-columns: 72px 1fr;
       }
 
@@ -212,7 +283,23 @@
   </style>
 </head>
 <body>
-  <header>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="index.html">
+        <img src="Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt="">
+        <span>RipperMoonKit</span>
+      </a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="docs/index.html">Docs</a>
+        <a href="docs/installation.html">Installation</a>
+        <a href="docs/commands.html">Commands</a>
+        <a href="docs/faq.html">Q&amp;A</a>
+        <a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download</a>
+      </nav>
+    </div>
+  </header>
+
+  <header class="hero-header">
     <img class="brand-icon" src="Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt="RipperMoonKit app icon">
     <h1>RipperMoonKit</h1>
   </header>
@@ -282,10 +369,10 @@
         depending on what they want to run first.
       </p>
       <div class="links">
-        <a href="docs/quickstart.md">Quickstart</a>
-        <a href="docs/gui.md">Launcher Guide</a>
-        <a href="docs/elden-ring-ersc.md">Elden Ring ERSC Example</a>
-        <a href="docs/index.md">All Documentation</a>
+        <a href="docs/installation.html">Installation</a>
+        <a href="docs/gui.html">Launcher Guide</a>
+        <a href="docs/elden-ring.html">Elden Ring ERSC Example</a>
+        <a href="docs/index.html">All Documentation</a>
       </div>
     </section>
   </main>

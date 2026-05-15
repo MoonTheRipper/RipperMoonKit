@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RipperMoonKit Q&amp;A</title>
+  <meta name="description" content="Common RipperMoonKit questions and answers for installation, Apple Game Porting Toolkit, Steam, copied game folders, commands, saves, and updates.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html"><img src="../Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt=""><span>RipperMoonKit</span></a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a><a href="index.html">Docs</a><a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a><a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="elden-ring.html">Elden Ring ERSC</a>
+      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html" aria-current="page">Q&amp;A</a>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Q&amp;A</p>
+        <h1>Plain answers for common questions.</h1>
+      </div>
+
+      <h2>Does RipperMoonKit include games or Apple GPTK?</h2>
+      <p>No. You provide your own Apple Game Porting Toolkit download and your own game files. The repository only contains launch scripts, the app, examples, and documentation.</p>
+
+      <h2>Should I copy installer files or an installed game folder?</h2>
+      <p>For the tested Elden Ring workflow, copy the already-installed Windows game folder. Do not use only the installation files as the game source.</p>
+
+      <h2>Can one external drive have several letters?</h2>
+      <p>Yes. Several Wine drive letters can point to folders on the same physical drive. Keep <code>C:</code> reserved for the prefix.</p>
+
+      <h2>Can I close the game without closing Steam?</h2>
+      <p>Yes. Use the GUI's <strong>Close Game</strong> button. It targets the selected game process and leaves Steam running.</p>
+
+      <h2>Why install Visual C++ runtime per prefix?</h2>
+      <p>Wine prefixes behave like separate Windows environments. Installing the runtime into the prefix that launches the game avoids many runtime popups and early exits.</p>
+
+      <h2>Will updates delete saves?</h2>
+      <p>Normal updates are designed to avoid saves, Wine prefixes, Steam data, games, and GPTK runtime folders. The installer backs up small toolkit files before replacing them.</p>
+
+      <div class="next-links">
+        <a class="button-link primary" href="installation.html">Installation</a>
+        <a class="button-link" href="troubleshooting.html">Troubleshooting</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

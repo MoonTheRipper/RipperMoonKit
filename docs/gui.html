@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RipperMoonKit Launcher Guide</title>
+  <meta name="description" content="Use the RipperMoonKit macOS app to manage per-game launch profiles, paths, runners, Steam support, and updates.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html"><img src="../Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt=""><span>RipperMoonKit</span></a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a><a href="index.html">Docs</a><a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a><a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
+      <strong>Use The App</strong><a href="gui.html" aria-current="page">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="elden-ring.html">Elden Ring ERSC</a>
+      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Launcher</p>
+        <h1>One page per game.</h1>
+        <p class="lead">The app keeps each game or Windows app separate, so paths, icons, runners, Steam requirements, and launch options do not get mixed together.</p>
+      </div>
+
+      <figure>
+        <img src="assets/rippermoonkit-gui.png" alt="RipperMoonKit launcher profile for Elden Ring ERSC">
+        <figcaption>A profile page for Elden Ring ERSC.</figcaption>
+      </figure>
+
+      <h2>Profiles</h2>
+      <p>Use <strong>Add App</strong> to create a profile. Set the display name, icon, prefix, game folder, executable, and any game-specific runner. The square icon in the page header belongs to the selected game.</p>
+
+      <h2>Actions</h2>
+      <ul>
+        <li><strong>Start Steam</strong> starts Steam when the profile needs it.</li>
+        <li><strong>Launch</strong> starts the selected game.</li>
+        <li><strong>Close Game</strong> closes the game process without closing Steam.</li>
+        <li><strong>Install VC++ Runtime</strong> installs Microsoft Visual C++ runtime files into that profile's prefix.</li>
+      </ul>
+
+      <h2>Paths And Drives</h2>
+      <p>Settings lets users update the main paths and drive mappings without editing the hidden environment file by hand. Drive letters are flexible except for <code>C:</code>, which belongs to the Wine prefix.</p>
+
+      <h2>Updates</h2>
+      <p><strong>Update From GitHub</strong> fetches the latest repository changes, installs the helper scripts, and rebuilds the local app. Update backups are created before toolkit files are replaced.</p>
+
+      <div class="next-links">
+        <a class="button-link primary" href="games.html">Add Games</a>
+        <a class="button-link" href="commands.html">Command Reference</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
