@@ -1706,7 +1706,7 @@ private struct GameProfile: Codable, Identifiable, Hashable {
         repaired.winver = repaired.winver.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "win10" : repaired.winver
         repaired.requiresSteam = true
         repaired.noDXR = true
-        repaired.noEsync = false
+        repaired.noEsync = true
         repaired.nativeWinmm = true
         repaired.nativeSteamAPI = true
         repaired.systemImage = "gamecontroller.fill"
@@ -1741,7 +1741,7 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             avx: nil,
             metalFX: false,
             hud: defaults.object(forKey: "hud") as? Bool ?? false,
-            noEsync: defaults.object(forKey: "noEsync") as? Bool ?? false,
+            noEsync: defaults.object(forKey: "noEsync") as? Bool ?? true,
             nativeWinmm: defaults.object(forKey: "nativeWinmm") as? Bool ?? true,
             nativeSteamAPI: defaults.object(forKey: "nativeSteamAPI") as? Bool ?? true,
             extraDllOverrides: nil,

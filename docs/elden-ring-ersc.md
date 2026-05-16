@@ -128,7 +128,15 @@ Steam prefix:
 
 ## Esync Rule
 
-If Steam's Wine server is already running with esync enabled, do not launch ERSC with `--no-esync`.
+The current ERSC profile starts both Steam and ERSC with esync disabled. This avoids the repeated `pipe: Too many open files` / `eventfd: Too many open files` failure seen when Steam, Spacewar/AppID 480, and ERSC keep opening sockets through Wine esync.
+
+If Steam's Wine server is already running with esync enabled, stop Steam before launching the ERSC profile again:
+
+```zsh
+gptk-steam --kill
+```
+
+Then launch Steam and ERSC through the same RipperMoonKit profile so both processes use the same esync setting.
 
 An esync mismatch looks like:
 
@@ -136,7 +144,7 @@ An esync mismatch looks like:
 Server is running with WINEESYNC but this process is not
 ```
 
-Leave esync enabled for ERSC in that case.
+Do not mix esync settings between Steam and ERSC inside the same Wine prefix.
 
 ## Useful Checks
 

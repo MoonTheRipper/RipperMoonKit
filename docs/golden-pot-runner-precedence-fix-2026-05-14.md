@@ -66,7 +66,7 @@ The SwiftUI launcher also repairs the default Elden Ring ERSC profile on load an
 - `prefix = Steam` when empty
 - `winver = win10` when empty
 - `noDXR = true`
-- `noEsync = false`
+- `noEsync = true`
 - `nativeWinmm = true`
 - `nativeSteamAPI = true`
 - `runnerPath = $HOME/GPTK/runners/gptk-dsound-nocap-20260513` when the profile is empty, missing, or pointing at stock GPTK
