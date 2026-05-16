@@ -44,7 +44,7 @@ gptk-stubs --prefix GOWR
 ## Launch Command
 
 ```zsh
-cd "/path/to/God of War - Ragnarok"
+cd "$GPTK_EXTERNAL_ROOT/Games/GoWR"
 env GPTK_WINE_HOME="$GPTK_HOME/runners/gptk-dsound-nocap-20260513" \
     WINEDLLOVERRIDES='GameInput=n' \
   gptk-launch --prefix GOWR --set-winver win10 \

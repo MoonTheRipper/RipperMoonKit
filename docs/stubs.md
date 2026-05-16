@@ -95,7 +95,7 @@ Then add `WINEDLLOVERRIDES='GameInput=n'` to the launch command so Wine uses the
 After installing the stub, include `WINEDLLOVERRIDES='GameInput=n'` in the launch environment:
 
 ```zsh
-cd "/Users/odunga/Desktop/GAMES/God of War - Ragnarok"
+cd "$GPTK_EXTERNAL_ROOT/Games/GoWR"
 env GPTK_WINE_HOME="$GPTK_HOME/runners/gptk-dsound-nocap-20260513" \
     WINEDLLOVERRIDES='GameInput=n' \
   gptk-launch --prefix GOWR --set-winver win10 \

@@ -9,7 +9,7 @@
 
 source ~/.rippermoon-gptk.env
 
-GAME_DIR="/Users/odunga/Desktop/GAMES/God of War - Ragnarok"
+GAME_DIR="$GPTK_EXTERNAL_ROOT/Games/GoWR"
 RUNNER="$GPTK_HOME/runners/gptk-dsound-nocap-20260513"
 LOG="$GPTK_HOME/logs/gowr-launch.log"
 
