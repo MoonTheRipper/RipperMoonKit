@@ -130,6 +130,8 @@ Steam prefix:
 
 The current ERSC profile starts both Steam and ERSC with esync disabled. This avoids the repeated `pipe: Too many open files` / `eventfd: Too many open files` failure seen when Steam, Spacewar/AppID 480, and ERSC keep opening sockets through Wine esync.
 
+This was confirmed on 2026-05-16: after disabling esync for the ERSC profile, the Golden Pot lobby stopped hanging.
+
 If Steam's Wine server is already running with esync enabled, stop Steam before launching the ERSC profile again:
 
 ```zsh

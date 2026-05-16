@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ERSC Esync File Descriptor Fix</title>
+  <meta name="description" content="Confirmed RipperMoonKit fix for Elden Ring ERSC Golden Pot hang and close caused by Wine esync pipe and eventfd exhaustion.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html"><img src="../Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt=""><span>RipperMoonKit</span></a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a><a href="index.html">Docs</a><a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a><a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="elden-ring.html">Elden Ring ERSC</a>
+      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Confirmed Fix</p>
+        <h1>ERSC no longer hangs after Golden Pot.</h1>
+        <p class="lead">The 2026-05-16 fix disables Wine esync for the Elden Ring ERSC profile so Steam, Spacewar/AppID 480, and ERSC stop exhausting pipe and eventfd descriptors.</p>
+      </div>
+
+      <h2>Symptoms</h2>
+      <p>ERSC launched and entered the game, but opening the Golden Pot lobby could hang or close the game after a few minutes. Activity Monitor could show high Metal and app memory numbers, but no new macOS memory-pressure report was produced.</p>
+
+      <h2>Log Signature</h2>
+      <pre><code>gptk: open-file limit 49152
+pipe: Too many open files
+eventfd: Too many open files
+NtCreateFile Too many open files
+wine: Unhandled page fault</code></pre>
+
+      <h2>Fix</h2>
+      <p>The Elden Ring ERSC profile now repairs itself to <code>noEsync = true</code>. The launcher starts both Steam and ERSC with <code>GPTK_WINEESYNC=0</code>.</p>
+      <p>Stop any older Wine session before testing:</p>
+      <pre><code>gptk-steam --kill</code></pre>
+
+      <h2>Result</h2>
+      <p>After disabling esync for the ERSC profile and restarting the Wine prefix, the Golden Pot workflow no longer hung.</p>
+
+      <div class="next-links">
+        <a class="button-link primary" href="elden-ring.html">Back To Elden Ring</a>
+        <a class="button-link" href="troubleshooting.html">Troubleshooting</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

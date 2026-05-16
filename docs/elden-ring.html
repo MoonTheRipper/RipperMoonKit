@@ -47,6 +47,7 @@
 
       <h2>Golden Pot Stability</h2>
       <p>The Golden Pot lobby workflow uses a patched GPTK runner that disables Wine DirectSound capture. That avoids the Steam Voice capture lock that caused the game screen to freeze while audio continued.</p>
+      <p>The ERSC profile also starts both Steam and ERSC with esync disabled. This avoids the later <code>pipe/eventfd</code> exhaustion that could close the game after opening the lobby.</p>
 
       <figure>
         <img src="assets/elden-ring-godrick-hud.png" alt="Elden Ring boss fight running through Apple Game Porting Toolkit with HUD visible">

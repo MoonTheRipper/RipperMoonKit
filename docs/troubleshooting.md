@@ -71,6 +71,17 @@ export GPTK_NOFILE_LIMIT="49152"
 
 The change only applies to newly launched Wine processes. Already-running Steam sessions must be restarted.
 
+If the same entries continue after the log confirms `gptk: open-file limit 49152`, disable esync for the affected profile and restart the whole Wine prefix. For Elden Ring ERSC, this is now the default because the confirmed 2026-05-16 fix was launching Steam and ERSC together with `WINEESYNC=0`.
+
+Expected fixed behavior:
+
+```text
+No Golden Pot hang
+No repeated pipe/eventfd exhaustion after opening the lobby
+```
+
+See [ersc-esync-file-descriptor-fix-2026-05-16.md](ersc-esync-file-descriptor-fix-2026-05-16.md) for the full report.
+
 ## Elden Ring ERSC Golden Pot Freezes The Frame
 
 Symptom:

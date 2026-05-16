@@ -36,6 +36,7 @@ Read in this order:
 - [troubleshooting.md](troubleshooting.md): failure modes and checks.
 - [steam-voice-capture-fix-2026-05-13.md](steam-voice-capture-fix-2026-05-13.md): Golden Pot freeze bug report and DirectSound capture workaround.
 - [golden-pot-runner-precedence-fix-2026-05-14.md](golden-pot-runner-precedence-fix-2026-05-14.md): update regression fix for profile-specific GPTK runners.
+- [ersc-esync-file-descriptor-fix-2026-05-16.md](ersc-esync-file-descriptor-fix-2026-05-16.md): Golden Pot hang and close fix for Wine esync file descriptor exhaustion.
 - [gowr.md](gowr.md): God of War Ragnarök launch setup, GameInput stub, and working command.
 - [faq.md](faq.md): common questions.
 

@@ -36,6 +36,12 @@
       <p>Install Visual C++ runtime into that profile's prefix from the GUI, or run:</p>
       <pre><code>gptk-vcrun --prefix GamePrefix</code></pre>
 
+      <h2>Elden Ring ERSC Closes After Golden Pot</h2>
+      <p>If the logs show <code>pipe: Too many open files</code>, <code>eventfd: Too many open files</code>, or <code>NtCreateFile Too many open files</code> even after the launcher reports <code>open-file limit 49152</code>, use the current ERSC profile with esync disabled.</p>
+      <p>The confirmed fix is to start both Steam and ERSC from the same RipperMoonKit Elden Ring ERSC profile so both use <code>GPTK_WINEESYNC=0</code>. Stop old Wine sessions first:</p>
+      <pre><code>gptk-steam --kill</code></pre>
+      <p>Read the <a href="ersc-esync-file-descriptor-fix-2026-05-16.html">confirmed esync descriptor fix report</a>.</p>
+
       <h2>Steam Game Cannot See Steam</h2>
       <p>Start Steam first and launch the game from the same prefix. For ERSC, the tested profile uses the Steam prefix.</p>
 
