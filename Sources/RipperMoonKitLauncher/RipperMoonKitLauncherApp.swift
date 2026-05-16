@@ -1398,7 +1398,7 @@ private final class LauncherModel: ObservableObject {
     }
 
     private var sourceConfig: String {
-        "[[ -r \(config.configPath.shellQuoted) ]] && source \(config.configPath.shellQuoted)"
+        "[[ -r \(config.configPath.shellQuoted) ]] && source \(config.configPath.shellQuoted); ulimit -n \"${GPTK_NOFILE_LIMIT:-8192}\" 2>/dev/null || true"
     }
 
     private func runnerEnvAssignment(for profile: GameProfile) -> String {

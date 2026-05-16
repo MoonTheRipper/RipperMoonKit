@@ -5,6 +5,7 @@ SCRIPT_DIR="${0:A:h}"
 COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
 [[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
 source "${COMMON}"
+gptk_raise_file_limit
 
 usage() {
   cat <<'USAGE'
