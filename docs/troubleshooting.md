@@ -55,6 +55,22 @@ For ERSC, also check:
 ls -lt "$ER_GAME_DIR/SeamlessCoop/crashdumps/reports" | head
 ```
 
+## Game Runs For A Few Minutes Then Closes
+
+Look for file descriptor exhaustion:
+
+```zsh
+rg -n "Too many open files|NtCreateFile|eventfd|pipe" "$GPTK_HOME/logs"
+```
+
+If the log contains `Too many open files`, restart Steam and the game through the current RipperMoonKit launcher. The launcher raises the inherited open-file limit before Wine starts. You can tune the limit in `~/.rippermoon-gptk.env`:
+
+```zsh
+export GPTK_NOFILE_LIMIT="8192"
+```
+
+The change only applies to newly launched Wine processes. Already-running Steam sessions must be restarted.
+
 ## Elden Ring ERSC Golden Pot Freezes The Frame
 
 Symptom:

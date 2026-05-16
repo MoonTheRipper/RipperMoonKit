@@ -12,6 +12,31 @@ gptk_note() {
   print -u2 -- "gptk: $*"
 }
 
+gptk_raise_file_limit() {
+  local desired="${GPTK_NOFILE_LIMIT:-8192}"
+  [[ "${desired}" == <-> ]] || return 0
+
+  local current hard target
+  current="$(ulimit -n 2>/dev/null || print 0)"
+  hard="$(ulimit -H -n 2>/dev/null || print "${desired}")"
+  target="${desired}"
+
+  if [[ "${hard}" == <-> && "${hard}" -lt "${target}" ]]; then
+    target="${hard}"
+  fi
+
+  if [[ "${current}" == <-> && "${current}" -ge "${target}" ]]; then
+    export GPTK_EFFECTIVE_NOFILE_LIMIT="${current}"
+    return 0
+  fi
+
+  if ulimit -n "${target}" 2>/dev/null; then
+    export GPTK_EFFECTIVE_NOFILE_LIMIT="${target}"
+  else
+    gptk_note "warning: could not raise open-file limit from ${current} to ${target}"
+  fi
+}
+
 gptk_join_path() {
   local result=""
   local item
@@ -54,6 +79,7 @@ gptk_init_defaults() {
     GPTK_METALFX
     GPTK_ADVERTISE_AVX
     GPTK_LOG_ENABLED
+    GPTK_NOFILE_LIMIT
     GPTK_STEAM_PREFIX
     GPTK_STEAM_LEGACY_CEF
     GPTK_STEAM_RESET_WEBHELPER_CACHE
@@ -91,6 +117,7 @@ gptk_init_defaults() {
   export GPTK_DXR="${GPTK_DXR:-1}"
   export GPTK_METALFX="${GPTK_METALFX:-0}"
   export GPTK_ADVERTISE_AVX="${GPTK_ADVERTISE_AVX:-0}"
+  export GPTK_NOFILE_LIMIT="${GPTK_NOFILE_LIMIT:-8192}"
 }
 
 gptk_find_wine_home() {
@@ -142,6 +169,7 @@ gptk_configure_environment() {
   local prefix_path="$1"
   GPTK_WINE_HOME="$(gptk_find_wine_home)" || gptk_die "no compatible wine64 found"
   export GPTK_WINE_HOME
+  gptk_raise_file_limit
 
   export WINEPREFIX="${prefix_path}"
   export WINEARCH="${WINEARCH:-win64}"

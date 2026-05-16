@@ -456,11 +456,11 @@ private struct ProfileDetailView: View {
                             .disabled(model.closeTargets(for: profile).isEmpty)
                         }
 
-                        if profile.isSteamApp {
+                        if profile.isSteamApp || profile.requiresSteam {
                             Button(role: .destructive) {
                                 model.stopSteam()
                             } label: {
-                                Label("Stop Steam", systemImage: "power")
+                                Label("Close Steam", systemImage: "power")
                             }
                             .buttonStyle(.bordered)
                         }
@@ -532,8 +532,8 @@ private struct ProfileDetailView: View {
                     if !profile.isSteamApp && !model.closeTargets(for: profile).isEmpty {
                         CommandPreview(title: "Close Game", command: model.previewCloseGameCommand(for: profile))
                     }
-                    if profile.isSteamApp {
-                        CommandPreview(title: "Stop Steam", command: model.previewStopSteamCommand())
+                    if profile.isSteamApp || profile.requiresSteam {
+                        CommandPreview(title: "Close Steam", command: model.previewStopSteamCommand())
                     }
                 }
             }
