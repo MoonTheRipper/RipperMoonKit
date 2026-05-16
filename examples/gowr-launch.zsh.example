@@ -1,0 +1,31 @@
+#!/bin/zsh
+# God of War Ragnarok launch example
+#
+# Prerequisites:
+#   - GOWR Wine prefix at $GPTK_PREFIX_ROOT/GOWR with VC++ runtimes installed
+#   - GameInput.dll stub in GOWR prefix system32 (see docs/gowr.md)
+#   - Patched runner at $GPTK_HOME/runners/gptk-dsound-nocap-20260513
+#   - Game folder at $GPTK_EXTERNAL_ROOT/Games/GoWR or adjust GAME_DIR below
+
+source ~/.rippermoon-gptk.env
+
+GAME_DIR="/Users/odunga/Desktop/GAMES/God of War - Ragnarok"
+RUNNER="$GPTK_HOME/runners/gptk-dsound-nocap-20260513"
+LOG="$GPTK_HOME/logs/gowr-launch.log"
+
+cd "$GAME_DIR"
+exec env \
+  GPTK_WINE_HOME="$RUNNER" \
+  WINEDLLOVERRIDES='GameInput=n' \
+  "$HOME/bin/gptk-launch" \
+    --prefix GOWR \
+    --set-winver win10 \
+    --no-dxr \
+    --avx \
+    --metalfx \
+    --log-file "$LOG" \
+    -- ./GoWR.exe \
+      -dxSkipDriverVersionCheck \
+      -disableNvStreamline \
+      -disablePSPCSteam \
+      -novalidation

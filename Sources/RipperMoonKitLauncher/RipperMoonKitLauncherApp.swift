@@ -461,6 +461,13 @@ private struct ProfileDetailView: View {
                         .buttonStyle(.bordered)
 
                         Button {
+                            model.installStubs(for: profile)
+                        } label: {
+                            Label("Install API Stubs", systemImage: "puzzlepiece.fill")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
                             model.openLogsFolder()
                         } label: {
                             Label("Logs", systemImage: "doc.text.magnifyingglass")
@@ -709,6 +716,13 @@ private struct SettingsView: View {
                             model.installVCRuntimeGlobally()
                         } label: {
                             Label("Install VC++ Runtime", systemImage: "shippingbox.fill")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            model.installStubsGlobally()
+                        } label: {
+                            Label("Install API Stubs", systemImage: "puzzlepiece.fill")
                         }
                         .buttonStyle(.bordered)
                     }
@@ -1146,6 +1160,21 @@ private final class LauncherModel: ObservableObject {
         runShell(
             title: "Install VC++ Runtime",
             command: "\(sourceConfig); \(config.gptkVCRunPath.shellQuoted) --all"
+        )
+    }
+
+    func installStubs(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(
+            title: "Install API Stubs",
+            command: "\(sourceConfig); \(config.gptkStubsPath.shellQuoted) --prefix \(profile.prefix.shellQuoted)"
+        )
+    }
+
+    func installStubsGlobally() {
+        runShell(
+            title: "Install API Stubs",
+            command: "\(sourceConfig); \(config.gptkStubsPath.shellQuoted) --all"
         )
     }
 
@@ -1839,6 +1868,7 @@ private struct ToolkitConfig {
     var gptkLaunchPath: String { "\(home)/bin/gptk-launch" }
     var gptkSteamPath: String { "\(home)/bin/gptk-steam" }
     var gptkVCRunPath: String { "\(home)/bin/gptk-vcrun" }
+    var gptkStubsPath: String { "\(home)/bin/gptk-stubs" }
     var hasToolkitScripts: Bool {
         FileManager.default.isExecutableFile(atPath: gptkLaunchPath)
             && FileManager.default.isExecutableFile(atPath: gptkSteamPath)

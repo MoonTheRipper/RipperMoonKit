@@ -208,6 +208,40 @@ env GPTK_WINE_HOME="/Users/USERNAME/GPTK/runners/gptk-dsound-nocap-20260513" \
     -- ./ersc_launcher.exe
 ```
 
+## gptk-stubs
+
+Build and install API stub DLLs for missing Wine/GPTK system libraries.
+
+Install GameInput.dll stub into one prefix:
+
+```zsh
+gptk-stubs --prefix GOWR
+```
+
+Install into every existing Wine prefix under `GPTK_PREFIX_ROOT`:
+
+```zsh
+gptk-stubs --all
+```
+
+Archived prefixes ending in `.broken-*`, `.backup-*`, `.old-*`, or `.disabled-*` are skipped.
+
+Build and cache the stub without installing:
+
+```zsh
+gptk-stubs --build-only
+```
+
+Force a rebuild even if already cached:
+
+```zsh
+gptk-stubs --force-build --prefix GOWR
+```
+
+Requires `x86_64-w64-mingw32-gcc` — install with `brew install mingw-w64`.
+
+See [stubs.md](stubs.md) for background on delay-load crashes and the full GoWR launch command.
+
 ## gptk-game
 
 Create a per-game launcher:

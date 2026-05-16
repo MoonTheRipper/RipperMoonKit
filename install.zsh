@@ -277,6 +277,7 @@ write_backup_readme() {
     print -r -- "- ${install_bin}/gptk-steam"
     print -r -- "- ${install_bin}/gptk-game"
     print -r -- "- ${install_bin}/gptk-vcrun"
+    print -r -- "- ${install_bin}/gptk-stubs"
     print -r -- "- ${install_libexec}/gptk-common.zsh"
     print -r -- ""
     print -r -- "Files listed in absent.tsv did not exist before the update and are removed during rollback if the update created them."
@@ -308,6 +309,7 @@ create_backup() {
   backup_restore_path "${install_bin}/gptk-steam" "home/bin/gptk-steam" "Steam launcher"
   backup_restore_path "${install_bin}/gptk-game" "home/bin/gptk-game" "game helper"
   backup_restore_path "${install_bin}/gptk-vcrun" "home/bin/gptk-vcrun" "VC++ runtime helper"
+  backup_restore_path "${install_bin}/gptk-stubs" "home/bin/gptk-stubs" "API stubs helper"
   backup_restore_path "${install_libexec}/gptk-common.zsh" "gptk/libexec/gptk-common.zsh" "shared helper library"
 
   record_protected_path "Wine prefix root" "${GPTK_PREFIX_ROOT}"
@@ -397,6 +399,7 @@ rollback_backup() {
         "${HOME:A}/bin/gptk-steam"|\
         "${HOME:A}/bin/gptk-game"|\
         "${HOME:A}/bin/gptk-vcrun"|\
+        "${HOME:A}/bin/gptk-stubs"|\
         "${HOME:A}/.zshrc"|\
         "${GPTK_HOME:A}/libexec/gptk-common.zsh")
           rm -rf "${destination}"
@@ -503,6 +506,7 @@ install_toolkit_files() {
   install -m 755 "${repo_dir}/bin/gptk-steam" "${install_bin}/gptk-steam"
   install -m 755 "${repo_dir}/bin/gptk-game" "${install_bin}/gptk-game"
   install -m 755 "${repo_dir}/bin/gptk-vcrun" "${install_bin}/gptk-vcrun"
+  install -m 755 "${repo_dir}/bin/gptk-stubs" "${install_bin}/gptk-stubs"
   install -m 644 "${repo_dir}/libexec/gptk-common.zsh" "${install_libexec}/gptk-common.zsh"
 
   if [[ ! -e "${config}" ]]; then

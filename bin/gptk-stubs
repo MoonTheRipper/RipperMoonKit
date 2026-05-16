@@ -1,0 +1,194 @@
+#!/bin/zsh
+
+set -e
+SCRIPT_DIR="${0:A:h}"
+COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
+[[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
+source "${COMMON}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  gptk-stubs [options]
+
+Options:
+  -p, --prefix NAME|PATH     Install API stubs into one Wine prefix
+      --all                  Install into every existing prefix under GPTK_PREFIX_ROOT
+      --build-only           Build/cache stubs and exit without installing
+      --force-build          Rebuild stubs even if already cached
+  -h, --help                 Show this help
+
+Default:
+  If neither --prefix nor --all is provided, gptk-stubs installs into GPTK_PREFIX or Default.
+
+What this does:
+  Builds a minimal GameInput.dll stub using the mingw-w64 cross-compiler and
+  installs it into the Wine prefix system32 directory. This unblocks games that
+  delay-load GameInput.dll (Microsoft GameInput API), which Wine/GPTK does not
+  provide. The stub returns ERROR_NOT_SUPPORTED so games fall back gracefully.
+
+Requirements:
+  x86_64-w64-mingw32-gcc must be on PATH. Install with: brew install mingw-w64
+
+Environment:
+  RIPPERMOON_STUBS_DIR   Override the local stub cache folder (default: GPTK_HOME/stubs)
+USAGE
+}
+
+prefix="${GPTK_PREFIX:-Default}"
+install_all=0
+build_only=0
+force_build=0
+explicit_prefix=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--prefix)
+      [[ $# -ge 2 ]] || gptk_die "--prefix requires a value"
+      prefix="$2"
+      explicit_prefix=1
+      shift 2
+      ;;
+    --prefix=*)
+      prefix="${1#--prefix=}"
+      explicit_prefix=1
+      shift
+      ;;
+    --all)
+      install_all=1
+      shift
+      ;;
+    --build-only)
+      build_only=1
+      shift
+      ;;
+    --force-build)
+      force_build=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      gptk_die "unknown option: $1"
+      ;;
+  esac
+done
+
+if [[ "${install_all}" == "1" && "${explicit_prefix}" == "1" ]]; then
+  gptk_die "use either --all or --prefix, not both"
+fi
+
+stubs_cache="${RIPPERMOON_STUBS_DIR:-${GPTK_HOME}/stubs}"
+gameinput_dll="${stubs_cache}/GameInput.dll"
+
+# Locate C source: prefer repo-relative path, fall back to embedded heredoc
+repo_stubs_c="${SCRIPT_DIR:h}/stubs/gameinput.c"
+repo_stubs_def="${SCRIPT_DIR:h}/stubs/gameinput.def"
+
+build_gameinput_stub() {
+  local compiler
+  compiler="$(command -v x86_64-w64-mingw32-gcc 2>/dev/null || true)"
+  if [[ -z "${compiler}" ]]; then
+    gptk_die "x86_64-w64-mingw32-gcc not found; install with: brew install mingw-w64"
+  fi
+
+  mkdir -p "${stubs_cache}"
+  local tmp_dir
+  tmp_dir="$(mktemp -d)"
+  trap "rm -rf '${tmp_dir}'" EXIT INT TERM
+
+  if [[ -f "${repo_stubs_c}" && -f "${repo_stubs_def}" ]]; then
+    cp "${repo_stubs_c}" "${tmp_dir}/gameinput.c"
+    cp "${repo_stubs_def}" "${tmp_dir}/gameinput.def"
+  else
+    # Embedded fallback — same source as stubs/gameinput.c in the repo
+    cat > "${tmp_dir}/gameinput.c" <<'CSRC'
+#include <windows.h>
+__declspec(dllexport) HRESULT __stdcall GameInputCreate(void **ppGameInput)
+{
+    if (ppGameInput) *ppGameInput = NULL;
+    return (HRESULT)0x80070032; /* HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED) */
+}
+BOOL WINAPI DllMainCRTStartup(HINSTANCE hInst, DWORD fdwReason, LPVOID lpvReserved)
+{
+    return TRUE;
+}
+CSRC
+    cat > "${tmp_dir}/gameinput.def" <<'DEFSRC'
+LIBRARY GameInput
+EXPORTS
+  GameInputCreate @1
+DEFSRC
+  fi
+
+  gptk_note "building GameInput.dll stub with ${compiler}"
+  "${compiler}" -nostdlib -shared \
+    -o "${tmp_dir}/GameInput.dll" \
+    "${tmp_dir}/gameinput.c" \
+    "${tmp_dir}/gameinput.def" \
+    -lkernel32
+
+  mv "${tmp_dir}/GameInput.dll" "${gameinput_dll}"
+  trap - EXIT INT TERM
+  rm -rf "${tmp_dir}"
+  gptk_note "cached GameInput.dll stub: ${gameinput_dll}"
+}
+
+collect_prefixes() {
+  local dir
+  local name
+  for dir in "${GPTK_PREFIX_ROOT}"/*(N/); do
+    name="${dir:t}"
+    case "${name}" in
+      *.backup|*.backup-*|*.broken|*.broken-*|*.disabled|*.disabled-*|*.old|*.old-*)
+        gptk_note "skipping archived prefix ${dir}"
+        continue
+        ;;
+    esac
+    if [[ -d "${dir}/drive_c/windows" || -f "${dir}/system.reg" ]]; then
+      print -r -- "${dir}"
+    fi
+  done
+}
+
+install_into_prefix() {
+  local prefix_value="$1"
+  local prefix_path
+  local system32
+
+  prefix_path="$(gptk_resolve_prefix "${prefix_value}")"
+  system32="${prefix_path}/drive_c/windows/system32"
+
+  if [[ ! -d "${system32}" ]]; then
+    gptk_note "system32 not found in ${prefix_path}; initialise prefix first with gptk-launch --prefix ... --init"
+    return 1
+  fi
+
+  cp "${gameinput_dll}" "${system32}/GameInput.dll"
+  gptk_note "installed GameInput.dll stub → ${system32}/GameInput.dll"
+}
+
+# Build if not cached or forced
+if [[ ! -s "${gameinput_dll}" || "${force_build}" == "1" ]]; then
+  build_gameinput_stub
+else
+  gptk_note "using cached ${gameinput_dll} (pass --force-build to rebuild)"
+fi
+
+[[ "${build_only}" == "1" ]] && { gptk_note "stubs built and cached"; exit 0; }
+
+if [[ "${install_all}" == "1" ]]; then
+  prefixes=("${(@f)$(collect_prefixes)}")
+  if [[ "${#prefixes[@]}" -eq 0 ]]; then
+    gptk_die "no existing prefixes found under ${GPTK_PREFIX_ROOT}"
+  fi
+  for existing_prefix in "${prefixes[@]}"; do
+    install_into_prefix "${existing_prefix}"
+  done
+else
+  install_into_prefix "${prefix}"
+fi
+
+gptk_note "API stub install finished"

@@ -29,6 +29,8 @@ The screenshots show the launcher profile and a live Elden Ring GPTK run. See [d
 - `gptk-launch`: runs Windows executables or Wine tools inside a named prefix.
 - `gptk-steam`: installs, launches, repairs, and stops Windows Steam.
 - `gptk-game`: creates small per-game launcher scripts.
+- `gptk-vcrun`: downloads and installs Microsoft Visual C++ runtimes into Wine prefixes.
+- `gptk-stubs`: cross-compiles and installs minimal stub DLLs for Wine/GPTK missing APIs (GameInput, etc.) so delay-load crashes are resolved without touching game files.
 - Dynamic path configuration through `~/.rippermoon-gptk.env`.
 - Configurable Wine drive mappings with any letters except `C:`.
 - Installer bootstrap with timestamped emoji logs.

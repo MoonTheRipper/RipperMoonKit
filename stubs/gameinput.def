@@ -1,0 +1,3 @@
+LIBRARY GameInput
+EXPORTS
+  GameInputCreate @1

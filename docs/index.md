@@ -18,6 +18,7 @@ Read in this order:
 - [drives.md](drives.md): custom Wine drive mappings.
 - [dependencies.md](dependencies.md): installer bootstrap behavior and logs.
 - [visual-c-runtime.md](visual-c-runtime.md): Microsoft Visual C++ runtime installation for Wine prefixes.
+- [stubs.md](stubs.md): API stub DLLs for games that delay-load missing Wine/GPTK libraries (GameInput, etc.).
 - [update-safety.md](update-safety.md): backups, protected paths, and rollback.
 - [gui.md](gui.md): SwiftUI launcher build/run workflow.
 - [uninstall.md](uninstall.md): conservative uninstall behavior and optional config/save removal.
@@ -35,6 +36,7 @@ Read in this order:
 - [troubleshooting.md](troubleshooting.md): failure modes and checks.
 - [steam-voice-capture-fix-2026-05-13.md](steam-voice-capture-fix-2026-05-13.md): Golden Pot freeze bug report and DirectSound capture workaround.
 - [golden-pot-runner-precedence-fix-2026-05-14.md](golden-pot-runner-precedence-fix-2026-05-14.md): update regression fix for profile-specific GPTK runners.
+- [gowr.md](gowr.md): God of War Ragnarök launch setup, GameInput stub, and working command.
 - [faq.md](faq.md): common questions.
 
 ## Maintainers
