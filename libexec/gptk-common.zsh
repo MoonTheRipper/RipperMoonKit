@@ -13,7 +13,7 @@ gptk_note() {
 }
 
 gptk_raise_file_limit() {
-  local desired="${GPTK_NOFILE_LIMIT:-8192}"
+  local desired="${GPTK_NOFILE_LIMIT:-49152}"
   [[ "${desired}" == <-> ]] || return 0
 
   local current hard target
@@ -117,7 +117,7 @@ gptk_init_defaults() {
   export GPTK_DXR="${GPTK_DXR:-1}"
   export GPTK_METALFX="${GPTK_METALFX:-0}"
   export GPTK_ADVERTISE_AVX="${GPTK_ADVERTISE_AVX:-0}"
-  export GPTK_NOFILE_LIMIT="${GPTK_NOFILE_LIMIT:-8192}"
+  export GPTK_NOFILE_LIMIT="${GPTK_NOFILE_LIMIT:-49152}"
 }
 
 gptk_find_wine_home() {

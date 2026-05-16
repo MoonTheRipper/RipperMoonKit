@@ -149,6 +149,7 @@ prefix_name="${prefix_path:t}"
 gptk_prepare_prefix_dirs "${prefix_path}"
 gptk_configure_environment "${prefix_path}"
 [[ -n "${log_file}" ]] || log_file="$(gptk_log_file "${prefix_name}")"
+gptk_note "open-file limit ${GPTK_EFFECTIVE_NOFILE_LIMIT:-$(ulimit -n 2>/dev/null || print unknown)}"
 
 if [[ "${do_init}" == "1" ]]; then
   gptk_note "initializing prefix ${prefix_path}"
