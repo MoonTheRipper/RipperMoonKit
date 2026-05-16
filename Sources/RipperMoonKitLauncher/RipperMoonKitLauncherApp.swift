@@ -390,6 +390,10 @@ private struct ProfileDetailView: View {
                     HStack(spacing: 18) {
                         Toggle("Steam required", isOn: $profile.requiresSteam)
                         Toggle("No DXR", isOn: $profile.noDXR)
+                        Toggle("AVX", isOn: Binding(
+                            get: { profile.avx ?? false },
+                            set: { profile.avx = $0 }
+                        ))
                         Toggle("MetalFX/DLSS", isOn: Binding(
                             get: { profile.metalFX ?? false },
                             set: { profile.metalFX = $0 }
@@ -404,6 +408,16 @@ private struct ProfileDetailView: View {
                         Toggle("Native steam_api64", isOn: $profile.nativeSteamAPI)
                     }
                     .toggleStyle(.checkbox)
+
+                    HStack(spacing: 10) {
+                        FieldLabel("DLL overrides")
+                        TextField("e.g. GameInput=n", text: Binding(
+                            get: { profile.extraDllOverrides ?? "" },
+                            set: { profile.extraDllOverrides = $0.isEmpty ? nil : $0 }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        .help("Extra WINEDLLOVERRIDES entries appended after built-in overrides, semicolon-separated")
+                    }
 
                     HStack(spacing: 10) {
                         FieldLabel("Arguments")
@@ -1353,6 +1367,7 @@ private final class LauncherModel: ObservableObject {
         let logPath = "\(config.logsPath)/\(profile.safeName).log"
         var args: [String] = ["--prefix", profile.prefix, "--set-winver", profile.winver]
         if profile.noDXR { args.append("--no-dxr") }
+        if profile.avx == true { args.append("--avx") }
         if profile.noEsync { args.append("--no-esync") }
         if profile.metalFX == true { args.append("--metalfx") }
         if profile.hud { args.append("--hud") }
@@ -1407,6 +1422,9 @@ private final class LauncherModel: ObservableObject {
         if profile.metalFX == true {
             values.append("nvapi64=b,n")
             values.append("nvngx=b,n")
+        }
+        if let extra = profile.extraDllOverrides, !extra.trimmingCharacters(in: .whitespaces).isEmpty {
+            values.append(extra.trimmingCharacters(in: .whitespaces))
         }
         return values.joined(separator: ";")
     }
@@ -1620,11 +1638,13 @@ private struct GameProfile: Codable, Identifiable, Hashable {
     var winver: String
     var requiresSteam: Bool
     var noDXR: Bool
+    var avx: Bool?
     var metalFX: Bool?
     var hud: Bool
     var noEsync: Bool
     var nativeWinmm: Bool
     var nativeSteamAPI: Bool
+    var extraDllOverrides: String?
     var extraArguments: String
     var requiredFiles: [String]
     var systemImage: String
@@ -1718,11 +1738,13 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             winver: defaults.string(forKey: "winver") ?? "win10",
             requiresSteam: true,
             noDXR: defaults.object(forKey: "noDXR") as? Bool ?? true,
+            avx: nil,
             metalFX: false,
             hud: defaults.object(forKey: "hud") as? Bool ?? false,
             noEsync: defaults.object(forKey: "noEsync") as? Bool ?? false,
             nativeWinmm: defaults.object(forKey: "nativeWinmm") as? Bool ?? true,
             nativeSteamAPI: defaults.object(forKey: "nativeSteamAPI") as? Bool ?? true,
+            extraDllOverrides: nil,
             extraArguments: "",
             requiredFiles: ["eldenring.exe", "SeamlessCoop"],
             systemImage: "gamecontroller.fill"
@@ -1742,11 +1764,13 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             winver: "win10",
             requiresSteam: false,
             noDXR: false,
+            avx: nil,
             metalFX: false,
             hud: false,
             noEsync: false,
             nativeWinmm: false,
             nativeSteamAPI: false,
+            extraDllOverrides: nil,
             extraArguments: "",
             requiredFiles: [],
             systemImage: "app.fill"
@@ -1766,11 +1790,13 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             winver: "win10",
             requiresSteam: false,
             noDXR: false,
+            avx: nil,
             metalFX: false,
             hud: false,
             noEsync: false,
             nativeWinmm: false,
             nativeSteamAPI: false,
+            extraDllOverrides: nil,
             extraArguments: "",
             requiredFiles: [],
             systemImage: "square.grid.2x2.fill"
@@ -1790,11 +1816,13 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             winver: "win10",
             requiresSteam: true,
             noDXR: false,
+            avx: nil,
             metalFX: false,
             hud: false,
             noEsync: false,
             nativeWinmm: false,
             nativeSteamAPI: false,
+            extraDllOverrides: nil,
             extraArguments: "",
             requiredFiles: [],
             systemImage: "gamecontroller.fill"
