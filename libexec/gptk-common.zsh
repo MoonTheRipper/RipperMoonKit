@@ -128,7 +128,7 @@ gptk_find_wine_home() {
     "/Applications/Game Porting Toolkit.app/Contents/Resources/wine" \
     "/Applications/Wine Stable.app/Contents/Resources/wine" \
     "/Applications/Wine Staging.app/Contents/Resources/wine"; do
-    [[ -x "${candidate}/bin/wine64" ]] && {
+    [[ -x "${candidate}/bin/wine64" || -x "${candidate}/bin/wine" ]] && {
       print -r -- "${candidate}"
       return 0
     }
@@ -150,6 +150,9 @@ gptk_find_wine_home() {
 gptk_tool_path() {
   local tool="$1"
   local path="${GPTK_WINE_HOME}/bin/${tool}"
+  if [[ "${tool}" == "wine64" && ! -x "${path}" && -x "${GPTK_WINE_HOME}/bin/wine" ]]; then
+    path="${GPTK_WINE_HOME}/bin/wine"
+  fi
   [[ -x "${path}" ]] || gptk_die "missing ${tool}; expected ${path}"
   print -r -- "${path}"
 }
@@ -290,7 +293,13 @@ gptk_link_configured_drives() {
 
 gptk_prepare_prefix_dirs() {
   local prefix_path="$1"
-  mkdir -p "${prefix_path}" "${GPTK_LOG_DIR}" "${GPTK_GAMES_ROOT}"
+  mkdir -p "${prefix_path}" "${prefix_path}/drive_c" "${prefix_path}/dosdevices" "${GPTK_LOG_DIR}" "${GPTK_GAMES_ROOT}"
+  if [[ ! -e "${prefix_path}/dosdevices/c:" && ! -L "${prefix_path}/dosdevices/c:" ]]; then
+    ln -s "../drive_c" "${prefix_path}/dosdevices/c:"
+  fi
+  if [[ ! -e "${prefix_path}/dosdevices/z:" && ! -L "${prefix_path}/dosdevices/z:" ]]; then
+    ln -s "/" "${prefix_path}/dosdevices/z:"
+  fi
   if [[ -d "${prefix_path}/drive_c" ]]; then
     gptk_link_configured_drives "${prefix_path}"
   fi

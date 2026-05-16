@@ -379,6 +379,111 @@ private struct ProfileDetailView: View {
                 }
             }
 
+            if profile.supportsModEngine {
+                Panel("Mod Manager", systemImage: "slider.horizontal.3") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle("Use ModEngine launch", isOn: Binding(
+                            get: { profile.useModEngine ?? false },
+                            set: { profile.useModEngine = $0 }
+                        ))
+                        .toggleStyle(.checkbox)
+
+                        PathEditor(title: "ModEngine", path: Binding(
+                            get: { profile.modEngineFolder ?? "ModEngine2" },
+                            set: { profile.modEngineFolder = $0.isEmpty ? nil : $0 }
+                        )) {
+                            model.chooseFolder(current: model.modEngineDirectory(for: profile)) { selected in
+                                profile.modEngineFolder = model.profileRelativePath(selected, from: profile.gameFolder)
+                            }
+                        }
+
+                        Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
+                            GridRow {
+                                FieldLabel("Launch Bat")
+                                TextField("launchmod_eldenring.bat", text: Binding(
+                                    get: { profile.modEngineLaunchBat ?? "launchmod_eldenring.bat" },
+                                    set: { profile.modEngineLaunchBat = $0.isEmpty ? nil : $0 }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                            }
+
+                            GridRow {
+                                FieldLabel("Config")
+                                TextField("config_eldenring.toml", text: Binding(
+                                    get: { profile.modEngineConfig ?? "config_eldenring.toml" },
+                                    set: { profile.modEngineConfig = $0.isEmpty ? nil : $0 }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                            }
+
+                            GridRow {
+                                FieldLabel("Launcher")
+                                TextField("modengine2_launcher.exe", text: Binding(
+                                    get: { profile.modEngineLauncher ?? "modengine2_launcher.exe" },
+                                    set: { profile.modEngineLauncher = $0.isEmpty ? nil : $0 }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                            }
+
+                            GridRow {
+                                FieldLabel("Randomizer")
+                                TextField("randomizer/EldenRingRandomizer.exe", text: Binding(
+                                    get: { profile.randomizerExecutable ?? "randomizer/EldenRingRandomizer.exe" },
+                                    set: { profile.randomizerExecutable = $0.isEmpty ? nil : $0 }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                            }
+
+                            GridRow {
+                                FieldLabel("Seamless DLL")
+                                TextField("../SeamlessCoop/ersc.dll", text: Binding(
+                                    get: { profile.seamlessDllPath ?? "../SeamlessCoop/ersc.dll" },
+                                    set: { profile.seamlessDllPath = $0.isEmpty ? nil : $0 }
+                                ))
+                                .textFieldStyle(.roundedBorder)
+                            }
+                        }
+
+                        HStack(spacing: 12) {
+                            Button {
+                                model.installModEngineRandomizerProfile(for: profile)
+                            } label: {
+                                Label("Install ModEngine + Randomizer", systemImage: "square.and.arrow.down.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+
+                            Button {
+                                model.installModZips(for: profile)
+                            } label: {
+                                Label("Install Mod Zips", systemImage: "archivebox.fill")
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button {
+                                model.prepareModEngine(for: profile)
+                            } label: {
+                                Label("Prepare Mod Files", systemImage: "wrench.adjustable.fill")
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button {
+                                model.runRandomizer(for: profile)
+                            } label: {
+                                Label("Run Randomizer", systemImage: "shuffle")
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button {
+                                model.launchModEngine(profile)
+                            } label: {
+                                Label("Launch Modded", systemImage: "play.circle.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    }
+                }
+            }
+
             Panel("Launch Options", systemImage: "switch.2") {
                 if profile.isSteamManaged {
                     HStack(spacing: 18) {
@@ -474,6 +579,15 @@ private struct ProfileDetailView: View {
                         }
                         .buttonStyle(.bordered)
 
+                        if profile.supportsModEngine {
+                            Button {
+                                model.installDotNet6(for: profile)
+                            } label: {
+                                Label("Install .NET 6", systemImage: "curlybraces")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+
                         Button {
                             model.installStubs(for: profile)
                         } label: {
@@ -509,6 +623,10 @@ private struct ProfileDetailView: View {
                     } else if profile.isSteamLibraryGame {
                         ValidationRow(title: "Steam AppID \(profile.steamAppID ?? "")", isOK: true)
                         ValidationRow(title: "Install folder", isOK: FileManager.default.fileExists(atPath: profile.gameFolder))
+                    } else if profile.useModEngine == true {
+                        ForEach(model.modEngineValidationItems(for: profile), id: \.title) { item in
+                            ValidationRow(title: item.title, isOK: item.isOK)
+                        }
                     } else {
                         ValidationRow(title: profile.executable, isOK: model.fileExists(profile.executable, in: profile))
                         ForEach(profile.requiredFiles, id: \.self) { item in
@@ -526,6 +644,9 @@ private struct ProfileDetailView: View {
                     }
                     if profile.isSteamManaged {
                         CommandPreview(title: profile.isSteamApp ? "Launch Steam" : "Launch From Steam", command: model.previewSteamManagedLaunchCommand(for: profile))
+                    } else if profile.useModEngine == true {
+                        CommandPreview(title: "Launch Modded", command: model.previewModEngineLaunchCommand(for: profile))
+                        CommandPreview(title: "Run Randomizer", command: model.previewRandomizerCommand(for: profile))
                     } else {
                         CommandPreview(title: "Launch", command: model.previewLaunchCommand(for: profile))
                     }
@@ -1157,9 +1278,82 @@ private final class LauncherModel: ObservableObject {
         let profile = repairedProfile(profile)
         runShell(
             title: "Launch \(profile.name)",
-            command: profile.isSteamManaged ? previewSteamManagedLaunchCommand(for: profile, detached: true) : previewLaunchCommand(for: profile, detached: true),
+            command: launchCommand(for: profile, detached: true),
             detached: true
         )
+    }
+
+    func launchModEngine(_ profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(
+            title: "Launch \(profile.name) ModEngine",
+            command: previewModEngineLaunchCommand(for: profile, detached: true),
+            detached: true
+        )
+    }
+
+    func runRandomizer(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(
+            title: "Run Randomizer",
+            command: previewRandomizerCommand(for: profile, detached: true),
+            detached: true
+        )
+    }
+
+    func installModEngineRandomizerProfile(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        let sourceScript = "\(toolkitSourceFolder)/scripts/install-elden-mod-pack.zsh"
+        let installedScript = "\(config.gptkHome)/scripts/install-elden-mod-pack.zsh"
+        let toolsPrefix = toolPrefixName(for: profile)
+        let toolEnv = toolRunnerEnvAssignment()
+        runShell(
+            title: "Install ModEngine + Randomizer",
+            command: "\(sourceConfig); env \(toolEnv) \(config.gptkDotNet6Path.shellQuoted) --prefix \(toolsPrefix.shellQuoted); if [[ -x \(sourceScript.shellQuoted) ]]; then script=\(sourceScript.shellQuoted); else script=\(installedScript.shellQuoted); fi; zsh \"$script\" --game-dir \(profile.gameFolder.shellQuoted) --open-download-pages",
+            completion: { [weak self] in self?.reload() }
+        )
+    }
+
+    func installModZips(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        let panel = NSOpenPanel()
+        panel.title = "Choose ModEngine, Randomizer, Seamless Coop, Or Anti Cheat ZIPs"
+        panel.prompt = "Install Zips"
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [UTType(filenameExtension: "zip") ?? .zip]
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+
+        guard panel.runModal() == .OK else { return }
+        let paths = panel.urls.map(\.path)
+        guard !paths.isEmpty else { return }
+
+        runShell(
+            title: "Install Mod Zips",
+            command: modZipInstallCommand(for: profile, zipPaths: paths)
+        )
+    }
+
+    func prepareModEngine(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        do {
+            let modEngineDir = modEngineDirectory(for: profile)
+            try FileManager.default.createDirectory(atPath: modEngineDir, withIntermediateDirectories: true)
+            try writeModEngineConfig(for: profile)
+            try writeModEngineLaunchBat(for: profile)
+            lastResult = "Prepared ModEngine files"
+            commandOutput = """
+            Wrote:
+            \(modEngineConfigPath(for: profile))
+            \(modEngineLaunchBatPath(for: profile))
+
+            Open the randomizer, import the .randomizeopt file, click Randomize, then launch the modded profile.
+            """
+        } catch {
+            lastResult = "ModEngine prep failed"
+            commandOutput = error.localizedDescription
+        }
     }
 
     func installVCRuntime(for profile: GameProfile) {
@@ -1167,6 +1361,14 @@ private final class LauncherModel: ObservableObject {
         runShell(
             title: "Install VC++ Runtime",
             command: "\(sourceConfig); \(config.gptkVCRunPath.shellQuoted) --prefix \(profile.prefix.shellQuoted)"
+        )
+    }
+
+    func installDotNet6(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(
+            title: "Install .NET 6 Desktop Runtime",
+            command: "\(sourceConfig); \(config.gptkDotNet6Path.shellQuoted) --prefix \(profile.prefix.shellQuoted)"
         )
     }
 
@@ -1353,6 +1555,16 @@ private final class LauncherModel: ObservableObject {
         return "\(sourceConfig); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log\(appArgs)"
     }
 
+    func launchCommand(for profile: GameProfile, detached: Bool = false) -> String {
+        if profile.isSteamManaged {
+            return previewSteamManagedLaunchCommand(for: profile, detached: detached)
+        }
+        if profile.useModEngine == true {
+            return previewModEngineLaunchCommand(for: profile, detached: detached)
+        }
+        return previewLaunchCommand(for: profile, detached: detached)
+    }
+
     func previewCloseGameCommand(for profile: GameProfile) -> String {
         let commands = closeTargets(for: profile).map { target in
             "env \(runnerEnvAssignment(for: profile)) \(config.gptkLaunchPath.shellQuoted) --prefix \(profile.prefix.shellQuoted) --no-log -- taskkill /IM \(target.shellQuoted) /F >/dev/null 2>&1 || true"
@@ -1384,6 +1596,220 @@ private final class LauncherModel: ObservableObject {
         return "\(sourceConfig); cd \(profile.gameFolder.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart)"
     }
 
+    func previewModEngineLaunchCommand(for profile: GameProfile, detached: Bool = false) -> String {
+        let logPath = "\(config.logsPath)/\(profile.safeName)-modengine.log"
+        let modEngineDir = modEngineDirectory(for: profile)
+        var args: [String] = ["--prefix", profile.prefix, "--set-winver", profile.winver]
+        if profile.noDXR { args.append("--no-dxr") }
+        if profile.avx == true { args.append("--avx") }
+        if profile.noEsync { args.append("--no-esync") }
+        if profile.metalFX == true { args.append("--metalfx") }
+        if profile.hud { args.append("--hud") }
+        args.append(contentsOf: [
+            "--log-file", logPath,
+            "--",
+            "./\(profile.modEngineLauncherName)",
+            "-t", "er",
+            "-c", "./\(profile.modEngineConfigName)",
+            "--game-path", winePath(forMacPath: "\(profile.gameFolder)/eldenring.exe")
+        ])
+
+        let overrides = dllOverrides(for: profile)
+        let launch = "cd \(modEngineDir.shellQuoted) && nohup env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " ")) >> \(logPath.shellQuoted) 2>&1 &"
+
+        if detached {
+            return "\(sourceConfig); \(launch)"
+        }
+        return "\(sourceConfig); cd \(modEngineDir.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))"
+    }
+
+    func previewRandomizerCommand(for profile: GameProfile, detached: Bool = false) -> String {
+        let logPath = "\(config.logsPath)/\(profile.safeName)-randomizer.log"
+        let modEngineDir = modEngineDirectory(for: profile)
+        let randomizerRelative = profile.randomizerExecutablePath
+        let randomizerDir = URL(fileURLWithPath: modEngineDir).appendingPathComponent(randomizerRelative).deletingLastPathComponent().path
+        var args: [String] = ["--prefix", toolPrefixName(for: profile), "--set-winver", profile.winver, "--no-esync", "--no-dxr"]
+        args.append(contentsOf: ["--log-file", logPath, "--", "./\((randomizerRelative as NSString).lastPathComponent)"])
+        let toolEnv = toolRunnerEnvAssignment()
+
+        let launch = "cd \(randomizerDir.shellQuoted) && nohup env \(toolEnv) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " ")) >> \(logPath.shellQuoted) 2>&1 &"
+        if detached {
+            return "\(sourceConfig); \(launch)"
+        }
+        return "\(sourceConfig); cd \(randomizerDir.shellQuoted) && env \(toolEnv) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))"
+    }
+
+    func modZipInstallCommand(for profile: GameProfile, zipPaths: [String]) -> String {
+        let zipList = zipPaths.map(\.shellQuoted).joined(separator: " ")
+        return """
+        \(sourceConfig)
+        game=\(profile.gameFolder.shellQuoted)
+        modengine=\(modEngineDirectory(for: profile).shellQuoted)
+        stamp="$(date +%Y%m%d-%H%M%S)"
+        cleanup_mac_sidecars() {
+          local path="$1"
+          [[ -d "$path" ]] || return 0
+          find "$path" \\( -name '._*' -o -name '.DS_Store' -o -name '__MACOSX' \\) -exec rm -rf {} + 2>/dev/null || true
+        }
+        mkdir -p "$modengine"
+        for zip in \(zipList); do
+          echo "Inspecting $zip"
+          entries="$(unzip -Z1 "$zip" 2>/dev/null || true)"
+          if print -r -- "$entries" | grep -qi 'modengine2_launcher.exe'; then
+            echo "Installing ModEngine 2"
+            unzip -oq "$zip" -d "$modengine"
+            cleanup_mac_sidecars "$modengine"
+            if [[ ! -f "$modengine/modengine2_launcher.exe" ]]; then
+              root="$(find "$modengine" -mindepth 1 -maxdepth 1 -type d -print | head -n 1)"
+              if [[ -n "$root" && -f "$root/modengine2_launcher.exe" ]]; then
+                find "$root" -mindepth 1 -maxdepth 1 -exec mv -f {} "$modengine/" \\;
+                rmdir "$root" 2>/dev/null || true
+              fi
+            fi
+            cleanup_mac_sidecars "$modengine"
+          elif print -r -- "$entries" | grep -qi 'EldenRingRandomizer.exe'; then
+            echo "Installing Item and Enemy Randomizer"
+            target="$modengine/randomizer"
+            tmp="$modengine/.randomizer-install-$stamp"
+            [[ -d "$target" ]] && mv "$target" "$target.$stamp.backup"
+            rm -rf "$tmp"
+            mkdir -p "$tmp"
+            unzip -oq "$zip" -d "$tmp"
+            cleanup_mac_sidecars "$tmp"
+            root="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d -print | head -n 1)"
+            if [[ -n "$root" && -f "$root/EldenRingRandomizer.exe" ]]; then
+              mv "$root" "$target"
+            else
+              mkdir -p "$target"
+              find "$tmp" -mindepth 1 -maxdepth 1 -exec mv -f {} "$target/" \\;
+            fi
+            rm -rf "$tmp"
+            cleanup_mac_sidecars "$target"
+          elif print -r -- "$entries" | grep -qi 'ersc_launcher.exe'; then
+            echo "Installing Seamless Coop"
+            keep="$(mktemp -t ersc-settings.XXXXXX)"
+            [[ -f "$game/SeamlessCoop/ersc_settings.ini" ]] && cp "$game/SeamlessCoop/ersc_settings.ini" "$keep"
+            unzip -oq "$zip" -d "$game"
+            cleanup_mac_sidecars "$game/SeamlessCoop"
+            [[ -s "$keep" ]] && mkdir -p "$game/SeamlessCoop" && cp "$keep" "$game/SeamlessCoop/ersc_settings.ini"
+            rm -f "$keep"
+          elif print -r -- "$entries" | grep -qi 'toggle_anti_cheat.exe'; then
+            echo "Installing Anti Cheat Toggler"
+            unzip -oq "$zip" -d "$game"
+            cleanup_mac_sidecars "$game"
+          else
+            echo "Skipped unrecognized zip: $zip"
+          fi
+        done
+        echo "Mod zip install finished."
+        """
+    }
+
+    func modEngineValidationItems(for profile: GameProfile) -> [ValidationItem] {
+        [
+            ValidationItem(title: "eldenring.exe", isOK: FileManager.default.fileExists(atPath: "\(profile.gameFolder)/eldenring.exe")),
+            ValidationItem(title: profile.modEngineLauncherName, isOK: FileManager.default.fileExists(atPath: modEngineLauncherPath(for: profile))),
+            ValidationItem(title: profile.modEngineConfigName, isOK: FileManager.default.fileExists(atPath: modEngineConfigPath(for: profile))),
+            ValidationItem(title: profile.modEngineLaunchBatName, isOK: FileManager.default.fileExists(atPath: modEngineLaunchBatPath(for: profile))),
+            ValidationItem(title: profile.randomizerExecutablePath, isOK: FileManager.default.fileExists(atPath: randomizerExecutablePath(for: profile))),
+            ValidationItem(title: profile.seamlessDllConfigPath, isOK: FileManager.default.fileExists(atPath: URL(fileURLWithPath: modEngineDirectory(for: profile)).appendingPathComponent(profile.seamlessDllConfigPath).standardized.path))
+        ]
+    }
+
+    func modEngineDirectory(for profile: GameProfile) -> String {
+        resolvedProfilePath(profile.modEngineFolderPath, in: profile.gameFolder)
+    }
+
+    func profileRelativePath(_ path: String, from gameFolder: String) -> String {
+        let folder = URL(fileURLWithPath: gameFolder).standardized.path
+        let selected = URL(fileURLWithPath: path).standardized.path
+        if selected == folder {
+            return "."
+        }
+        if selected.hasPrefix(folder + "/") {
+            return String(selected.dropFirst(folder.count + 1))
+        }
+        return selected
+    }
+
+    private func modEngineLauncherPath(for profile: GameProfile) -> String {
+        URL(fileURLWithPath: modEngineDirectory(for: profile)).appendingPathComponent(profile.modEngineLauncherName).path
+    }
+
+    private func modEngineConfigPath(for profile: GameProfile) -> String {
+        URL(fileURLWithPath: modEngineDirectory(for: profile)).appendingPathComponent(profile.modEngineConfigName).path
+    }
+
+    private func modEngineLaunchBatPath(for profile: GameProfile) -> String {
+        URL(fileURLWithPath: modEngineDirectory(for: profile)).appendingPathComponent(profile.modEngineLaunchBatName).path
+    }
+
+    private func randomizerExecutablePath(for profile: GameProfile) -> String {
+        URL(fileURLWithPath: modEngineDirectory(for: profile)).appendingPathComponent(profile.randomizerExecutablePath).path
+    }
+
+    private func writeModEngineConfig(for profile: GameProfile) throws {
+        let configPath = modEngineConfigPath(for: profile)
+        try backupFileIfPresent(configPath)
+        let text = """
+        [modengine]
+        debug = false
+
+        external_dlls = [
+            "\(profile.seamlessDllConfigPath.tomlEscaped)"
+        ]
+
+        [extension.mod_loader]
+        enabled = true
+        loose_params = false
+
+        mods = [
+            { enabled = true, name = "default", path = "mod" },
+            { enabled = true, name = "randomizer", path = "randomizer" }
+        ]
+
+        [extension.scylla_hide]
+        enabled = false
+        """
+        try text.write(toFile: configPath, atomically: true, encoding: .utf8)
+    }
+
+    private func writeModEngineLaunchBat(for profile: GameProfile) throws {
+        let batPath = modEngineLaunchBatPath(for: profile)
+        try backupFileIfPresent(batPath)
+        let gameExe = winePath(forMacPath: "\(profile.gameFolder)/eldenring.exe")
+        let text = """
+        @echo off
+        chcp 65001
+        .\\\(profile.modEngineLauncherName) -t er -c .\\\(profile.modEngineConfigName) --game-path "\(gameExe)"
+        """
+        try text.write(toFile: batPath, atomically: true, encoding: .utf8)
+    }
+
+    private func backupFileIfPresent(_ path: String) throws {
+        guard FileManager.default.fileExists(atPath: path) else { return }
+        let stamp = DateFormatter.backupStamp.string(from: Date())
+        let backup = "\(path).\(stamp).bak"
+        if !FileManager.default.fileExists(atPath: backup) {
+            try FileManager.default.copyItem(atPath: path, toPath: backup)
+        }
+    }
+
+    private func resolvedProfilePath(_ path: String, in gameFolder: String) -> String {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != "." else { return gameFolder }
+        if trimmed.hasPrefix("/") || trimmed.hasPrefix("~") {
+            return NSString(string: trimmed).expandingTildeInPath
+        }
+        return URL(fileURLWithPath: gameFolder).appendingPathComponent(trimmed).standardized.path
+    }
+
+    private func winePath(forMacPath path: String) -> String {
+        let standardized = URL(fileURLWithPath: path).standardized.path
+        let withoutLeadingSlash = standardized.hasPrefix("/") ? String(standardized.dropFirst()) : standardized
+        return "Z:\\\(withoutLeadingSlash.replacingOccurrences(of: "/", with: "\\"))"
+    }
+
     func closeTargets(for profile: GameProfile) -> [String] {
         var targets: [String] = []
         let executable = (profile.executable as NSString).lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1391,6 +1817,10 @@ private final class LauncherModel: ObservableObject {
             targets.append(executable)
         }
         if profile.isEldenRingERSC {
+            targets.append("eldenring.exe")
+        }
+        if profile.useModEngine == true {
+            targets.append(profile.modEngineLauncherName)
             targets.append("eldenring.exe")
         }
         var seen = Set<String>()
@@ -1403,6 +1833,16 @@ private final class LauncherModel: ObservableObject {
 
     private func runnerEnvAssignment(for profile: GameProfile) -> String {
         profile.runnerPath.isEmpty ? "" : "GPTK_WINE_HOME=\(profile.runnerPath.shellQuoted)"
+    }
+
+    private func toolPrefixName(for profile: GameProfile) -> String {
+        let suffix = config.toolWineHome.localizedCaseInsensitiveContains("Wine Staging.app") ? "ToolsStaging" : "Tools"
+        return profile.isEldenRingERSC ? "EldenRing\(suffix)" : "\(profile.safeName)-\(suffix)"
+    }
+
+    private func toolRunnerEnvAssignment() -> String {
+        let wineHome = config.toolWineHome
+        return wineHome.isEmpty ? "" : "GPTK_WINE_HOME=\(wineHome.shellQuoted)"
     }
 
     private func steamEnvAssignment(for profile: GameProfile) -> String {
@@ -1648,6 +2088,13 @@ private struct GameProfile: Codable, Identifiable, Hashable {
     var extraArguments: String
     var requiredFiles: [String]
     var systemImage: String
+    var useModEngine: Bool?
+    var modEngineFolder: String?
+    var modEngineLauncher: String?
+    var modEngineConfig: String?
+    var modEngineLaunchBat: String?
+    var randomizerExecutable: String?
+    var seamlessDllPath: String?
 
     var safeName: String {
         name.replacingOccurrences(of: "[^A-Za-z0-9._-]+", with: "-", options: .regularExpression)
@@ -1657,6 +2104,34 @@ private struct GameProfile: Codable, Identifiable, Hashable {
         id == Self.eldenRingERSCID ||
             executable.localizedCaseInsensitiveContains("ersc_launcher.exe") ||
             name.localizedCaseInsensitiveContains("elden ring ersc")
+    }
+
+    var supportsModEngine: Bool {
+        isEldenRingERSC || name.localizedCaseInsensitiveContains("elden ring")
+    }
+
+    var modEngineFolderPath: String {
+        cleanOptional(modEngineFolder, fallback: "ModEngine2")
+    }
+
+    var modEngineLauncherName: String {
+        cleanOptional(modEngineLauncher, fallback: "modengine2_launcher.exe")
+    }
+
+    var modEngineConfigName: String {
+        cleanOptional(modEngineConfig, fallback: "config_eldenring.toml")
+    }
+
+    var modEngineLaunchBatName: String {
+        cleanOptional(modEngineLaunchBat, fallback: "launchmod_eldenring.bat")
+    }
+
+    var randomizerExecutablePath: String {
+        cleanOptional(randomizerExecutable, fallback: "randomizer/EldenRingRandomizer.exe")
+    }
+
+    var seamlessDllConfigPath: String {
+        cleanOptional(seamlessDllPath, fallback: "../SeamlessCoop/ersc.dll")
     }
 
     var isSteamApp: Bool {
@@ -1710,6 +2185,12 @@ private struct GameProfile: Codable, Identifiable, Hashable {
         repaired.nativeWinmm = true
         repaired.nativeSteamAPI = true
         repaired.systemImage = "gamecontroller.fill"
+        repaired.modEngineFolder = repaired.modEngineFolder ?? "ModEngine2"
+        repaired.modEngineLauncher = repaired.modEngineLauncher ?? "modengine2_launcher.exe"
+        repaired.modEngineConfig = repaired.modEngineConfig ?? "config_eldenring.toml"
+        repaired.modEngineLaunchBat = repaired.modEngineLaunchBat ?? "launchmod_eldenring.bat"
+        repaired.randomizerExecutable = repaired.randomizerExecutable ?? "randomizer/EldenRingRandomizer.exe"
+        repaired.seamlessDllPath = repaired.seamlessDllPath ?? "../SeamlessCoop/ersc.dll"
 
         for required in ["eldenring.exe", "SeamlessCoop"] where !repaired.requiredFiles.contains(required) {
             repaired.requiredFiles.append(required)
@@ -1747,7 +2228,14 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             extraDllOverrides: nil,
             extraArguments: "",
             requiredFiles: ["eldenring.exe", "SeamlessCoop"],
-            systemImage: "gamecontroller.fill"
+            systemImage: "gamecontroller.fill",
+            useModEngine: false,
+            modEngineFolder: "ModEngine2",
+            modEngineLauncher: "modengine2_launcher.exe",
+            modEngineConfig: "config_eldenring.toml",
+            modEngineLaunchBat: "launchmod_eldenring.bat",
+            randomizerExecutable: "randomizer/EldenRingRandomizer.exe",
+            seamlessDllPath: "../SeamlessCoop/ersc.dll"
         )
     }
 
@@ -1773,7 +2261,14 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             extraDllOverrides: nil,
             extraArguments: "",
             requiredFiles: [],
-            systemImage: "app.fill"
+            systemImage: "app.fill",
+            useModEngine: false,
+            modEngineFolder: nil,
+            modEngineLauncher: nil,
+            modEngineConfig: nil,
+            modEngineLaunchBat: nil,
+            randomizerExecutable: nil,
+            seamlessDllPath: nil
         )
     }
 
@@ -1799,7 +2294,14 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             extraDllOverrides: nil,
             extraArguments: "",
             requiredFiles: [],
-            systemImage: "square.grid.2x2.fill"
+            systemImage: "square.grid.2x2.fill",
+            useModEngine: false,
+            modEngineFolder: nil,
+            modEngineLauncher: nil,
+            modEngineConfig: nil,
+            modEngineLaunchBat: nil,
+            randomizerExecutable: nil,
+            seamlessDllPath: nil
         )
     }
 
@@ -1825,8 +2327,20 @@ private struct GameProfile: Codable, Identifiable, Hashable {
             extraDllOverrides: nil,
             extraArguments: "",
             requiredFiles: [],
-            systemImage: "gamecontroller.fill"
+            systemImage: "gamecontroller.fill",
+            useModEngine: false,
+            modEngineFolder: nil,
+            modEngineLauncher: nil,
+            modEngineConfig: nil,
+            modEngineLaunchBat: nil,
+            randomizerExecutable: nil,
+            seamlessDllPath: nil
         )
+    }
+
+    private func cleanOptional(_ value: String?, fallback: String) -> String {
+        let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallback : trimmed
     }
 }
 
@@ -1878,6 +2392,11 @@ private struct BackupItem: Identifiable, Hashable {
     var id: String { path }
 }
 
+private struct ValidationItem: Hashable {
+    let title: String
+    let isOK: Bool
+}
+
 private struct ToolkitConfig {
     let home: String
     let configPath: String
@@ -1891,11 +2410,16 @@ private struct ToolkitConfig {
     var steamLibrary: String { expand(values["GPTK_STEAM_LIBRARY"] ?? "$GPTK_EXTERNAL_ROOT/SteamLibrary") }
     var logsPath: String { expand(values["GPTK_LOG_DIR"] ?? "$GPTK_HOME/logs") }
     var gptkWineHome: String { expand(values["GPTK_WINE_HOME"] ?? "$GPTK_HOME/apps/Game Porting Toolkit.app/Contents/Resources/wine") }
+    var effectiveWineHome: String { detectedWineHome ?? gptkWineHome }
+    var toolWineHome: String {
+        toolWineHomeCandidates.first(where: hasWineExecutable) ?? effectiveWineHome
+    }
     var gptkRuntime: String { expand(values["GPTK_RUNTIME"] ?? "$GPTK_HOME/runtime") }
     var gptkDownloadPage: String { expand(values["GPTK_DOWNLOAD_PAGE"] ?? "https://developer.apple.com/games/game-porting-toolkit/") }
     var gptkLaunchPath: String { "\(home)/bin/gptk-launch" }
     var gptkSteamPath: String { "\(home)/bin/gptk-steam" }
     var gptkVCRunPath: String { "\(home)/bin/gptk-vcrun" }
+    var gptkDotNet6Path: String { "\(home)/bin/gptk-dotnet6" }
     var gptkStubsPath: String { "\(home)/bin/gptk-stubs" }
     var hasToolkitScripts: Bool {
         FileManager.default.isExecutableFile(atPath: gptkLaunchPath)
@@ -1913,9 +2437,7 @@ private struct ToolkitConfig {
     }
 
     private var detectedWineHome: String? {
-        wineHomeCandidates.first {
-            FileManager.default.isExecutableFile(atPath: "\($0)/bin/wine64")
-        }
+        wineHomeCandidates.first(where: hasWine64Executable)
     }
 
     private var d3d12Candidates: [String] {
@@ -1948,6 +2470,22 @@ private struct ToolkitConfig {
         }
 
         return uniqued(candidates)
+    }
+
+    private var toolWineHomeCandidates: [String] {
+        uniqued([
+            "/Applications/Wine Staging.app/Contents/Resources/wine",
+            "/Applications/Wine Stable.app/Contents/Resources/wine",
+            effectiveWineHome
+        ].map(expand))
+    }
+
+    private func hasWine64Executable(_ path: String) -> Bool {
+        FileManager.default.isExecutableFile(atPath: "\(path)/bin/wine64")
+    }
+
+    private func hasWineExecutable(_ path: String) -> Bool {
+        hasWine64Executable(path) || FileManager.default.isExecutableFile(atPath: "\(path)/bin/wine")
     }
 
     private func uniqued(_ values: [String]) -> [String] {
@@ -2035,5 +2573,10 @@ private extension String {
             }
         }
         return value
+    }
+
+    var tomlEscaped: String {
+        replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
     }
 }

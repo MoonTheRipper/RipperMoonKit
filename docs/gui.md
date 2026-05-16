@@ -112,6 +112,96 @@ env GPTK_WINE_HOME="/Users/USERNAME/GPTK/runners/gptk-dsound-nocap-20260513" \
     -- ./ersc_launcher.exe
 ```
 
+## Elden Ring Mod Manager
+
+The Elden Ring profile now has a **Mod Manager** panel for the ModEngine 2 plus Item and Enemy Randomizer workflow. This treats ModEngine, Randomizer, and Seamless Coop as tools attached to Elden Ring, not as separate games in the library.
+
+Expected copied game layout:
+
+```text
+Game/
+  eldenring.exe
+  ersc_launcher.exe
+  SeamlessCoop/
+    ersc.dll
+    ersc_settings.ini
+  ModEngine2/
+    modengine2_launcher.exe
+    launchmod_eldenring.bat
+    config_eldenring.toml
+    mod/
+    randomizer/
+      EldenRingRandomizer.exe
+```
+
+The **Install ModEngine + Randomizer** action installs .NET 6 Desktop Runtime into the randomizer tools prefix, then runs RipperMoonKit's native profile helper. That helper clones or updates the `elden-randomizer-coop` setup reference repo under `$GPTK_HOME/tools`, opens the ModEngine/Randomizer/Seamless download pages, scans the reference repo's `inputs/` folder for ZIPs, installs what it finds, and writes the current-machine ModEngine files.
+
+On macOS, the randomizer GUI is launched as a tool, not as the game. RipperMoonKit prefers **Wine Staging 11.8** at `/Applications/Wine Staging.app/Contents/Resources/wine` when it is installed, because GPTK/Wine 7.7 can stack-overflow in WinForms UIAutomation before the randomizer window appears. Elden Ring itself still launches through the normal GPTK game runner.
+
+This intentionally does not run `setup.bat` or `ercoop.ps1` on macOS. Those files call Windows PowerShell, which is not present in a normal GPTK prefix. The native helper mirrors the setup behavior with macOS tools.
+
+The separate **Install .NET 6** action is available when you only need to repair the randomizer runtime. It runs:
+
+```zsh
+gptk-dotnet6 --prefix PROFILE_TOOLS_PREFIX
+```
+
+The default download is Microsoft's .NET Desktop Runtime 6 channel URL:
+
+```text
+https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe
+```
+
+.NET 6 is end-of-life, but the randomizer is built for it, so this is installed only inside the selected Wine prefix.
+
+The **Install Mod Zips** action is the manual version. It accepts selected downloaded ZIPs for ModEngine 2, Seamless Coop, Item and Enemy Randomizer, and optionally Anti Cheat Toggler. It identifies them by marker files inside the ZIP, extracts them into the expected folders, preserves an existing `SeamlessCoop/ersc_settings.ini`, and moves any existing `ModEngine2/randomizer/` folder to a timestamped backup before replacing it.
+
+The **Prepare Mod Files** action writes or repairs:
+
+```text
+ModEngine2/config_eldenring.toml
+ModEngine2/launchmod_eldenring.bat
+```
+
+Existing files are copied to timestamped `.bak` files before being replaced. The generated TOML uses relative paths for the local setup:
+
+```toml
+external_dlls = [
+    "../SeamlessCoop/ersc.dll"
+]
+
+mods = [
+    { enabled = true, name = "default", path = "mod" },
+    { enabled = true, name = "randomizer", path = "randomizer" }
+]
+```
+
+The launch bat uses the current Mac path converted to Wine's default `Z:\...` view. It does not preserve another Windows machine's drive letters such as `G:`.
+
+Use the panel in this order:
+
+1. Click **Install ModEngine + Randomizer** to clone/update the setup reference and open the download pages.
+2. Put the downloaded ZIPs into `$GPTK_HOME/tools/elden-randomizer-coop/inputs`, then run the action again; or click **Install Mod Zips** and choose the ZIPs manually.
+3. Click **Prepare Mod Files** if you changed paths or want to regenerate the config/bat.
+4. Click **Run Randomizer**, import the `.randomizeopt` file, and click Randomize.
+5. Start Steam if the profile needs Steam/Spacewar.
+6. Click **Launch Modded**.
+
+The regular **Launch** button also uses ModEngine when **Use ModEngine launch** is enabled.
+
+The randomized files are mounted by ModEngine at launch time. If you launch the same Elden Ring folder without ModEngine, randomization stops appearing. That is expected: it means the randomized profile is isolated to the ModEngine launch path.
+
+On macOS/external volumes, ZIP extraction or Finder copies can create AppleDouble files named `._Something.xml`. These are binary metadata sidecars, not real Randomizer definitions. The installer removes `._*`, `.DS_Store`, and `__MACOSX` entries after extraction so the Randomizer does not try to parse sidecars as XML.
+
+## Tool Credits
+
+RipperMoonKit's Elden Ring Mod Manager depends on user-downloaded community tools and does not redistribute their files:
+
+- [ModEngine 2](https://github.com/soulsmods/ModEngine2) supplies the mod loader used by **Launch Modded**.
+- [Elden Ring Seamless Co-op / ERSC](https://www.nexusmods.com/eldenring/mods/510) supplies the co-op DLL and launcher used by the ERSC profile.
+- [MoonTheRipper/elden-randomizer-coop](https://github.com/MoonTheRipper/elden-randomizer-coop) is the setup reference repo used to mirror the Windows workflow in native macOS scripts.
+- Elden Ring Item and Enemy Randomizer is launched as a separate .NET tool through the tools prefix.
+
 ## Design Direction
 
 The interface follows current Apple platform conventions:

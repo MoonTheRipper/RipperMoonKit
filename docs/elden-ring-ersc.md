@@ -74,6 +74,84 @@ WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
   gptk-launch --prefix Steam --set-winver win10 --no-dxr --log-file "$ER_LOG" -- ./ersc_launcher.exe
 ```
 
+## ModEngine And Randomizer Launch
+
+For the Item and Enemy Randomizer workflow, the final launcher is not `ersc_launcher.exe`. The final launcher is ModEngine 2:
+
+```text
+Game/ModEngine2/launchmod_eldenring.bat
+```
+
+The randomizer GUI imports a `.randomizeopt` file and generates randomized files under:
+
+```text
+Game/ModEngine2/randomizer/
+```
+
+ModEngine then launches `eldenring.exe`, loads Seamless Coop as an external DLL, and mounts the randomizer folder:
+
+```toml
+external_dlls = [
+    "../SeamlessCoop/ersc.dll"
+]
+
+mods = [
+    { enabled = true, name = "default", path = "mod" },
+    { enabled = true, name = "randomizer", path = "randomizer" }
+]
+```
+
+RipperMoonKit's Mod Manager panel can write the current-machine `config_eldenring.toml` and `launchmod_eldenring.bat`. It intentionally does not copy Windows drive letters from another PC. A copied Windows example such as `G:\Games\ELDEN RING\Game\eldenring.exe` becomes the current GPTK/Wine path, usually through Wine's default `Z:\...` mapping.
+
+The panel can also run **Install ModEngine + Randomizer**. That action installs .NET 6 Desktop Runtime into the Elden Ring randomizer tools prefix, clones or updates the `elden-randomizer-coop` setup reference repo under `$GPTK_HOME/tools`, opens the download pages, scans its `inputs/` folder, installs recognized ZIPs, and writes the local ModEngine config/launch files.
+
+RipperMoonKit does this natively instead of running `setup.bat`, because the Windows setup path calls `powershell.exe`. A normal GPTK prefix does not include Windows PowerShell, and native macOS PowerShell is not required for this workflow.
+
+The critical runtime is not PowerShell. It is Windows .NET 6 Desktop Runtime, because `EldenRingRandomizer.exe` is a .NET desktop application. RipperMoonKit installs that with:
+
+```zsh
+gptk-dotnet6 --prefix EldenRingToolsStaging
+```
+
+The randomizer GUI is not launched through the live Steam/game prefix. If Wine Staging 11.8 is installed, RipperMoonKit uses it for the randomizer tools prefix to avoid the GPTK/Wine 7.7 WinForms UIAutomation crash. The actual Elden Ring and ERSC launches continue to use the configured GPTK game runner.
+
+The ZIP installer recognizes ZIPs by their contents:
+
+```text
+modengine2_launcher.exe      ModEngine 2
+EldenRingRandomizer.exe      Item and Enemy Randomizer
+ersc_launcher.exe            Seamless Coop
+toggle_anti_cheat.exe        Anti Cheat Toggler
+```
+
+Existing Seamless settings are preserved, and an existing randomizer folder is moved to a timestamped backup before replacement.
+
+Manual launch shape:
+
+```zsh
+cd "$ER_GAME_DIR/ModEngine2"
+WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
+  gptk-launch --prefix Steam --set-winver win10 --no-dxr \
+    --log-file "$GPTK_HOME/logs/elden-ring-modengine.log" \
+    -- ./modengine2_launcher.exe \
+       -t er \
+       -c ./config_eldenring.toml \
+       --game-path "Z:\\path\\to\\Game\\eldenring.exe"
+```
+
+Use the ERSC-only launcher first if you still need to create the Seamless save. Use the ModEngine launcher after the randomizer has generated its files.
+
+Confirmed behavior: when the same game folder is launched without ModEngine, the randomized changes are not active. That is expected. Randomizer output is mounted through ModEngine, so the modded and non-modded launch paths stay separate.
+
+## Tool Credits
+
+RipperMoonKit coordinates local launches and setup files, but the Elden Ring mod workflow depends on community tools downloaded by the user:
+
+- [ModEngine 2](https://github.com/soulsmods/ModEngine2) provides `modengine2_launcher.exe` and the TOML-driven mod loading path.
+- [Elden Ring Seamless Co-op / ERSC](https://www.nexusmods.com/eldenring/mods/510) provides `ersc_launcher.exe`, `ersc.dll`, and the co-op save/online flow.
+- [MoonTheRipper/elden-randomizer-coop](https://github.com/MoonTheRipper/elden-randomizer-coop) provided the Windows setup reference used to design the native macOS helper.
+- Elden Ring Item and Enemy Randomizer provides the randomizer GUI and generated randomizer files.
+
 ## Full Placeholder Commands
 
 These commands use literal placeholders for GitHub readers. Replace `USERNAME` with your macOS user name and replace `EXE PATH` with the folder that contains `ersc_launcher.exe` and `eldenring.exe`.

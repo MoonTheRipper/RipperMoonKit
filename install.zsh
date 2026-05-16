@@ -51,6 +51,8 @@ Environment:
                             Override the Microsoft VC++ x64 runtime URL
   RIPPERMOON_VCREDIST_X86_URL
                             Override the Microsoft VC++ x86 runtime URL
+  RIPPERMOON_DOTNET6_DESKTOP_URL
+                            Override the .NET 6 Desktop Runtime x64 URL
   GPTK_SOURCE               Mounted GPTK folder or volume to search first
   RIPPERMOON_BACKUP_EXTRA_PATHS
                             Semicolon-separated extra files/folders to snapshot
@@ -166,10 +168,13 @@ STEAM_SETUP_URL="${STEAM_SETUP_URL:-https://cdn.akamai.steamstatic.com/client/in
 STEAM_SETUP_PATH="${STEAM_SETUP_PATH:-${GPTK_EXTERNAL_ROOT}/Installers/SteamSetup.exe}"
 RIPPERMOON_VCREDIST_X64_URL="${RIPPERMOON_VCREDIST_X64_URL:-https://aka.ms/vc14/vc_redist.x64.exe}"
 RIPPERMOON_VCREDIST_X86_URL="${RIPPERMOON_VCREDIST_X86_URL:-https://aka.ms/vc14/vc_redist.x86.exe}"
+RIPPERMOON_DOTNET6_DESKTOP_URL="${RIPPERMOON_DOTNET6_DESKTOP_URL:-https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe}"
+RIPPERMOON_DOTNET6_DIR="${RIPPERMOON_DOTNET6_DIR:-${GPTK_HOME}/downloads/dotnet6}"
 RIPPERMOON_BREW_FORMULAE="${RIPPERMOON_BREW_FORMULAE-cabextract p7zip samba gnutls molten-vk vulkan-loader vulkan-headers}"
 
 install_bin="${HOME}/bin"
 install_libexec="${GPTK_HOME}/libexec"
+install_scripts="${GPTK_HOME}/scripts"
 stamp="$(date +%Y%m%d-%H%M%S)"
 backup_root="${GPTK_HOME}/backups"
 backup_dir="${backup_root}/rippermoon-update-${stamp}"
@@ -277,8 +282,10 @@ write_backup_readme() {
     print -r -- "- ${install_bin}/gptk-steam"
     print -r -- "- ${install_bin}/gptk-game"
     print -r -- "- ${install_bin}/gptk-vcrun"
+    print -r -- "- ${install_bin}/gptk-dotnet6"
     print -r -- "- ${install_bin}/gptk-stubs"
     print -r -- "- ${install_libexec}/gptk-common.zsh"
+    print -r -- "- ${install_scripts}/install-elden-mod-pack.zsh"
     print -r -- ""
     print -r -- "Files listed in absent.tsv did not exist before the update and are removed during rollback if the update created them."
     print -r -- ""
@@ -309,8 +316,10 @@ create_backup() {
   backup_restore_path "${install_bin}/gptk-steam" "home/bin/gptk-steam" "Steam launcher"
   backup_restore_path "${install_bin}/gptk-game" "home/bin/gptk-game" "game helper"
   backup_restore_path "${install_bin}/gptk-vcrun" "home/bin/gptk-vcrun" "VC++ runtime helper"
+  backup_restore_path "${install_bin}/gptk-dotnet6" "home/bin/gptk-dotnet6" ".NET 6 Desktop Runtime helper"
   backup_restore_path "${install_bin}/gptk-stubs" "home/bin/gptk-stubs" "API stubs helper"
   backup_restore_path "${install_libexec}/gptk-common.zsh" "gptk/libexec/gptk-common.zsh" "shared helper library"
+  backup_restore_path "${install_scripts}/install-elden-mod-pack.zsh" "gptk/scripts/install-elden-mod-pack.zsh" "Elden Ring mod profile helper"
 
   record_protected_path "Wine prefix root" "${GPTK_PREFIX_ROOT}"
   record_protected_path "Game script root" "${GPTK_GAMES_ROOT}"
@@ -399,9 +408,11 @@ rollback_backup() {
         "${HOME:A}/bin/gptk-steam"|\
         "${HOME:A}/bin/gptk-game"|\
         "${HOME:A}/bin/gptk-vcrun"|\
+        "${HOME:A}/bin/gptk-dotnet6"|\
         "${HOME:A}/bin/gptk-stubs"|\
         "${HOME:A}/.zshrc"|\
-        "${GPTK_HOME:A}/libexec/gptk-common.zsh")
+        "${GPTK_HOME:A}/libexec/gptk-common.zsh"|\
+        "${GPTK_HOME:A}/scripts/install-elden-mod-pack.zsh")
           rm -rf "${destination}"
           log "✅" "Removed file that did not exist before backup: ${destination}"
           ;;
@@ -489,7 +500,7 @@ ensure_brew_formulae() {
 
 ensure_directories() {
   log "📁" "Creating toolkit directories."
-  mkdir -p "${install_bin}" "${install_libexec}" "${GPTK_LOG_DIR}" "${GPTK_PREFIX_ROOT}" "${GPTK_GAMES_ROOT}" "${GPTK_HOME}/apps" "${GPTK_RUNTIME}"
+  mkdir -p "${install_bin}" "${install_libexec}" "${install_scripts}" "${GPTK_LOG_DIR}" "${GPTK_PREFIX_ROOT}" "${GPTK_GAMES_ROOT}" "${GPTK_HOME}/apps" "${GPTK_RUNTIME}"
 
   if [[ -d "${GPTK_EXTERNAL_ROOT}" ]]; then
     mkdir -p "${GPTK_EXTERNAL_ROOT}/Games" "${GPTK_EXTERNAL_ROOT}/Installers" "${GPTK_STEAM_LIBRARY}"
@@ -506,8 +517,10 @@ install_toolkit_files() {
   install -m 755 "${repo_dir}/bin/gptk-steam" "${install_bin}/gptk-steam"
   install -m 755 "${repo_dir}/bin/gptk-game" "${install_bin}/gptk-game"
   install -m 755 "${repo_dir}/bin/gptk-vcrun" "${install_bin}/gptk-vcrun"
+  install -m 755 "${repo_dir}/bin/gptk-dotnet6" "${install_bin}/gptk-dotnet6"
   install -m 755 "${repo_dir}/bin/gptk-stubs" "${install_bin}/gptk-stubs"
   install -m 644 "${repo_dir}/libexec/gptk-common.zsh" "${install_libexec}/gptk-common.zsh"
+  install -m 755 "${repo_dir}/scripts/install-elden-mod-pack.zsh" "${install_scripts}/install-elden-mod-pack.zsh"
 
   if [[ ! -e "${config}" ]]; then
     install -m 644 "${repo_dir}/env.example" "${config}"
@@ -534,6 +547,8 @@ ensure_gptk_config() {
   ensure_config_export "GPTK_RUNTIME" '${GPTK_HOME}/runtime'
   ensure_config_export "GPTK_WINE_HOME" '${GPTK_APP_PATH}/Contents/Resources/wine'
   ensure_config_export "GPTK_REQUIRED_VERSION" "3"
+  ensure_config_export "RIPPERMOON_DOTNET6_DESKTOP_URL" "https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe"
+  ensure_config_export "RIPPERMOON_DOTNET6_DIR" '${GPTK_HOME}/downloads/dotnet6'
 }
 
 update_shell_config() {
@@ -921,5 +936,6 @@ fi
 
 log "✅" "Installed launchers to ${install_bin}"
 log "✅" "Installed shared library to ${install_libexec}"
+log "✅" "Installed helper scripts to ${install_scripts}"
 log "✅" "Config file: ${config}"
 log "✅" "Done. Open a new terminal or run: source ~/.zshrc"

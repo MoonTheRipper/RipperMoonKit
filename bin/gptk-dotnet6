@@ -1,0 +1,177 @@
+#!/bin/zsh
+
+set -e
+SCRIPT_DIR="${0:A:h}"
+COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
+[[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
+source "${COMMON}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  gptk-dotnet6 [options]
+
+Options:
+  -p, --prefix NAME|PATH     Install .NET 6 Desktop Runtime into one Wine prefix
+      --all                  Install into every existing prefix under GPTK_PREFIX_ROOT
+      --download-only        Download the installer and exit
+      --force-download       Re-download the installer even if cached
+  -h, --help                 Show this help
+
+Default:
+  If neither --prefix nor --all is provided, gptk-dotnet6 installs into GPTK_PREFIX or Default.
+
+Environment:
+  RIPPERMOON_DOTNET6_DESKTOP_URL  Override the Microsoft .NET 6 Desktop Runtime x64 URL
+  RIPPERMOON_DOTNET6_DIR          Override the local installer cache folder
+USAGE
+}
+
+prefix="${GPTK_PREFIX:-Default}"
+install_all=0
+download_only=0
+force_download=0
+explicit_prefix=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--prefix)
+      [[ $# -ge 2 ]] || gptk_die "--prefix requires a value"
+      prefix="$2"
+      explicit_prefix=1
+      shift 2
+      ;;
+    --prefix=*)
+      prefix="${1#--prefix=}"
+      explicit_prefix=1
+      shift
+      ;;
+    --all)
+      install_all=1
+      shift
+      ;;
+    --download-only)
+      download_only=1
+      shift
+      ;;
+    --force-download)
+      force_download=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      gptk_die "unknown option: $1"
+      ;;
+  esac
+done
+
+if [[ "${install_all}" == "1" && "${explicit_prefix}" == "1" ]]; then
+  gptk_die "use either --all or --prefix, not both"
+fi
+
+dotnet_dir="${RIPPERMOON_DOTNET6_DIR:-${GPTK_HOME}/downloads/dotnet6}"
+dotnet_url="${RIPPERMOON_DOTNET6_DESKTOP_URL:-https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe}"
+dotnet_installer="${dotnet_dir}/windowsdesktop-runtime-6.0-win-x64.exe"
+log_file="${GPTK_LOG_DIR}/dotnet6-desktop-$(date +%Y%m%d-%H%M%S).log"
+
+download_installer() {
+  local tmp="${dotnet_installer}.download"
+
+  mkdir -p "${dotnet_dir}" "${GPTK_LOG_DIR}"
+  if [[ -s "${dotnet_installer}" && "${force_download}" != "1" ]]; then
+    gptk_note "using cached ${dotnet_installer}"
+    return 0
+  fi
+
+  command -v curl >/dev/null 2>&1 || gptk_die "curl is required to download ${dotnet_url}"
+  gptk_note "downloading ${dotnet_url}"
+  curl -fL --retry 3 --connect-timeout 30 -o "${tmp}" "${dotnet_url}" >> "${log_file}" 2>&1
+  mv "${tmp}" "${dotnet_installer}"
+  gptk_note "downloaded ${dotnet_installer}"
+}
+
+collect_prefixes() {
+  local dir
+  local name
+  for dir in "${GPTK_PREFIX_ROOT}"/*(N/); do
+    name="${dir:t}"
+    case "${name}" in
+      *.backup|*.backup-*|*.broken|*.broken-*|*.disabled|*.disabled-*|*.old|*.old-*)
+        gptk_note "skipping archived prefix ${dir}"
+        continue
+        ;;
+    esac
+    if [[ -d "${dir}/drive_c/windows" || -f "${dir}/system.reg" ]]; then
+      print -r -- "${dir}"
+    fi
+  done
+}
+
+install_into_prefix() {
+  local prefix_value="$1"
+  local prefix_path
+  local exit_status=0
+
+  [[ -s "${dotnet_installer}" ]] || gptk_die "missing ${dotnet_installer}; run gptk-dotnet6 --download-only first"
+
+  prefix_path="$(gptk_resolve_prefix "${prefix_value}")"
+  gptk_prepare_prefix_dirs "${prefix_path}"
+  gptk_configure_environment "${prefix_path}"
+  gptk_link_configured_drives "${prefix_path}"
+
+  if [[ ! -d "${prefix_path}/drive_c/windows/system32" ]]; then
+    gptk_note "initializing Wine prefix ${prefix_path}"
+    set +e
+    gptk_run_tool wineboot -u >> "${log_file}" 2>&1
+    exit_status=$?
+    set -e
+    if [[ "${exit_status}" -ne 0 ]]; then
+      gptk_note "Wine prefix initialization failed with status ${exit_status}; see ${log_file}"
+      return "${exit_status}"
+    fi
+  fi
+
+  gptk_note "installing .NET 6 Desktop Runtime into ${WINEPREFIX}"
+  set +e
+  gptk_run_native "$(gptk_tool_path wine64)" "${dotnet_installer}" /install /quiet /norestart >> "${log_file}" 2>&1
+  exit_status=$?
+  set -e
+
+  case "${exit_status}" in
+    0)
+      gptk_note ".NET 6 Desktop Runtime install completed"
+      ;;
+    194|3010)
+      gptk_note ".NET 6 Desktop Runtime install completed; reboot requested by installer"
+      ;;
+    102|1638)
+      gptk_note ".NET 6 Desktop Runtime already installed or newer version present"
+      ;;
+    *)
+      gptk_note ".NET 6 Desktop Runtime installer exited with status ${exit_status}; see ${log_file}"
+      return "${exit_status}"
+      ;;
+  esac
+}
+
+gptk_note ".NET 6 Desktop Runtime log: ${log_file}"
+download_installer
+
+[[ "${download_only}" == "1" ]] && exit 0
+
+if [[ "${install_all}" == "1" ]]; then
+  prefixes=("${(@f)$(collect_prefixes)}")
+  if [[ "${#prefixes[@]}" -eq 0 ]]; then
+    gptk_die "no existing prefixes found under ${GPTK_PREFIX_ROOT}"
+  fi
+  for existing_prefix in "${prefixes[@]}"; do
+    install_into_prefix "${existing_prefix}"
+  done
+else
+  install_into_prefix "${prefix}"
+fi
+
+gptk_note ".NET 6 Desktop Runtime install finished"

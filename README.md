@@ -13,6 +13,8 @@ Tested workflow:
 - Apple Game Porting Toolkit 3.
 - Windows Steam running through a dedicated `Steam` prefix.
 - Elden Ring ERSC from a copied pre-installed offline/non-Steam Windows `Game` folder.
+- Elden Ring ModEngine 2 plus Item and Enemy Randomizer profile preparation.
+- Elden Ring randomized output launching through ModEngine 2; launching without ModEngine returns the game to the non-randomized path.
 - Save transfer into the real Wine prefix save directory after confirming the game-created save path.
 - Elden Ring Seamless Coop Golden Pot lobby opening with a GPTK DirectSound capture workaround.
 
@@ -30,12 +32,14 @@ The screenshots show the launcher profile and a live Elden Ring GPTK run. See [d
 - `gptk-steam`: installs, launches, repairs, and stops Windows Steam.
 - `gptk-game`: creates small per-game launcher scripts.
 - `gptk-vcrun`: downloads and installs Microsoft Visual C++ runtimes into Wine prefixes.
+- `gptk-dotnet6`: downloads and installs Microsoft .NET 6 Desktop Runtime into Wine prefixes for tools like Elden Ring Randomizer.
 - `gptk-stubs`: cross-compiles and installs minimal stub DLLs for Wine/GPTK missing APIs (GameInput, etc.) so delay-load crashes are resolved without touching game files.
 - Dynamic path configuration through `~/.rippermoon-gptk.env`.
 - Configurable Wine drive mappings with any letters except `C:`.
 - Installer bootstrap with timestamped emoji logs.
 - Update backups and rollback for existing local installs.
 - A SwiftUI launcher target with per-app profiles, ERSC defaults, validation, logs, path editing, drive mapping, close-game control, VC++ runtime install actions, and rollback.
+- An Elden Ring Mod Manager panel that installs selected mod ZIPs, prepares ModEngine 2 config/launch files, runs the randomizer GUI, and launches the modded profile without copying another PC's drive letters.
 - Documentation for GPTK 3, Steam, ERSC, copied game folders, saves, and troubleshooting.
 
 ## Quick Start
@@ -165,6 +169,19 @@ Important tested constraint:
 - Launch ERSC from the same `Steam` prefix.
 - Keep esync enabled when Steam is already running with esync.
 - If Golden Pot lobby opening freezes the frame while audio continues, use the no-capture GPTK runner documented in [docs/steam-voice-capture-fix-2026-05-13.md](docs/steam-voice-capture-fix-2026-05-13.md).
+
+For Randomizer plus Seamless Coop, use the GUI's Elden Ring **Mod Manager** panel. **Install ModEngine + Randomizer** installs .NET 6 Desktop Runtime into a randomizer tools prefix, clones or updates the `elden-randomizer-coop` setup reference repo under `$GPTK_HOME/tools`, opens the download pages, installs recognized ZIPs from its `inputs/` folder, prepares `ModEngine2/config_eldenring.toml` and `ModEngine2/launchmod_eldenring.bat`, runs `ModEngine2/randomizer/EldenRingRandomizer.exe`, and launches through `modengine2_launcher.exe` after the `.randomizeopt` seed has been imported and randomized. When Wine Staging is installed, the randomizer GUI uses that tool runner while Elden Ring itself remains on the configured GPTK game runner.
+
+The randomizer generates files that ModEngine mounts at launch. If you start Elden Ring without ModEngine, the randomized layout is not loaded. That behavior is expected and is used as a quick sanity check that the randomized profile is isolated from the regular game path.
+
+## Credits
+
+RipperMoonKit does not redistribute third-party mods or game files. It automates local setup around tools the user downloads separately:
+
+- [ModEngine 2](https://github.com/soulsmods/ModEngine2) by the Souls modding community provides the mod loader path used for randomized Elden Ring launches.
+- [Elden Ring Seamless Co-op / ERSC](https://www.nexusmods.com/eldenring/mods/510) provides the co-op DLL and launcher used by the ERSC workflow.
+- [MoonTheRipper/elden-randomizer-coop](https://github.com/MoonTheRipper/elden-randomizer-coop) provides the Windows setup reference that informed the native macOS helper flow.
+- Elden Ring Item and Enemy Randomizer is installed from the user's downloaded ZIP and run locally through a dedicated tools prefix.
 
 ## Repository Safety
 

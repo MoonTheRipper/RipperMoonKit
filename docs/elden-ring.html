@@ -45,9 +45,24 @@
       <h2>Steam And ERSC</h2>
       <p>Start Steam first, then launch ERSC from the same Steam prefix. This lets Steam API calls and Spacewar/AppID 480 state stay visible to the game.</p>
 
+      <h2>ModEngine And Randomizer</h2>
+      <p>For randomized Elden Ring, the final launcher is <code>Game/ModEngine2/launchmod_eldenring.bat</code>. The randomizer imports a <code>.randomizeopt</code> file and generates files under <code>ModEngine2/randomizer/</code>; ModEngine then launches <code>eldenring.exe</code>, loads <code>SeamlessCoop/ersc.dll</code>, and mounts the randomizer folder.</p>
+      <p>RipperMoonKit's Mod Manager panel can clone or update the setup reference repo, open the download pages, install recognized mod ZIPs, prepare the current-machine <code>config_eldenring.toml</code> and launch bat, run the randomizer GUI, and launch the modded profile. It does not copy another Windows PC's drive letters. The copied Windows layout is only a reference for what files should exist.</p>
+      <p>Confirmed behavior: if Elden Ring is launched without ModEngine, the randomized changes are not active. That means the randomized profile is isolated to the ModEngine launch path.</p>
+
+      <pre><code>Game/ModEngine2/
+  modengine2_launcher.exe
+  launchmod_eldenring.bat
+  config_eldenring.toml
+  randomizer/
+    EldenRingRandomizer.exe</code></pre>
+
       <h2>Golden Pot Stability</h2>
       <p>The Golden Pot lobby workflow uses a patched GPTK runner that disables Wine DirectSound capture. That avoids the Steam Voice capture lock that caused the game screen to freeze while audio continued.</p>
       <p>The ERSC profile also starts both Steam and ERSC with esync disabled. This avoids the later <code>pipe/eventfd</code> exhaustion that could close the game after opening the lobby.</p>
+
+      <h2>Tool Credits</h2>
+      <p>RipperMoonKit coordinates local setup around tools downloaded by the user. <a href="https://github.com/soulsmods/ModEngine2">ModEngine 2</a> provides the mod loader, <a href="https://www.nexusmods.com/eldenring/mods/510">Elden Ring Seamless Co-op / ERSC</a> provides the co-op DLL and launcher, and <a href="https://github.com/MoonTheRipper/elden-randomizer-coop">elden-randomizer-coop</a> helped shape the setup helper workflow.</p>
 
       <figure>
         <img src="assets/elden-ring-godrick-hud.png" alt="Elden Ring boss fight running through Apple Game Porting Toolkit with HUD visible">

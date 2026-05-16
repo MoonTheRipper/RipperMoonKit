@@ -176,6 +176,30 @@ Download without installing:
 gptk-vcrun --download-only
 ```
 
+## gptk-dotnet6
+
+Download and install Microsoft .NET 6 Desktop Runtime into one prefix:
+
+```zsh
+gptk-dotnet6 --prefix Steam
+```
+
+Install into every existing Wine prefix under `GPTK_PREFIX_ROOT`:
+
+```zsh
+gptk-dotnet6 --all
+```
+
+Archived prefixes ending in `.broken-*`, `.backup-*`, `.old-*`, or `.disabled-*` are skipped.
+
+Download without installing:
+
+```zsh
+gptk-dotnet6 --download-only
+```
+
+This is mainly for tools such as `EldenRingRandomizer.exe`, not for the base game.
+
 ## Elden Ring ERSC With Golden Pot Fix
 
 Start Steam with the DirectSound no-capture runner:

@@ -23,6 +23,11 @@ The default install does this:
 9. Downloads `SteamSetup.exe` to the configured installer path.
 10. Checks whether Apple Game Porting Toolkit or another `wine64` is available.
 
+Profile-specific helpers can install additional Windows runtimes inside Wine prefixes:
+
+- `gptk-vcrun`: Microsoft Visual C++ runtime.
+- `gptk-dotnet6`: Microsoft .NET 6 Desktop Runtime, used by Elden Ring Randomizer.
+
 ## Homebrew Formulae
 
 Default formulae:
@@ -71,6 +76,33 @@ Skip the download:
 ```zsh
 ./install.zsh --skip-steam-download
 ```
+
+## .NET 6 Desktop Runtime
+
+Elden Ring Item and Enemy Randomizer is a Windows .NET desktop app. It needs the **.NET 6 Desktop Runtime** installed inside the same Wine prefix that launches the randomizer. RipperMoonKit treats that as a tools prefix, separate from the live game/Steam prefix.
+
+RipperMoonKit provides:
+
+```zsh
+gptk-dotnet6 --prefix EldenRingToolsStaging
+```
+
+The helper downloads and caches the Windows x64 desktop runtime from Microsoft's .NET 6 channel URL:
+
+```text
+https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe
+```
+
+Override the URL or cache folder:
+
+```zsh
+RIPPERMOON_DOTNET6_DESKTOP_URL="https://example.invalid/windowsdesktop-runtime.exe" gptk-dotnet6 --prefix Steam
+RIPPERMOON_DOTNET6_DIR="$GPTK_HOME/downloads/dotnet6" gptk-dotnet6 --download-only
+```
+
+.NET 6 is end-of-life, but the randomizer is built for it. The runtime is installed only into the selected Wine prefix.
+
+For the randomizer GUI, RipperMoonKit prefers Wine Staging 11.8 when available. This avoids a GPTK/Wine 7.7 WinForms UIAutomation stack overflow seen before the randomizer window appears. Game launches still use GPTK/D3DMetal unless a profile explicitly selects a different runner.
 
 ## Installing Windows Steam
 
