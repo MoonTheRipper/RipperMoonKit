@@ -228,6 +228,20 @@ Server is running with WINEESYNC but this process is not
 
 Do not mix esync settings between Steam and ERSC inside the same Wine prefix.
 
+## Steam Runner Rule
+
+Steam must also be started with the same Wine runner expected by the Elden Ring profile. For the Golden Pot and ModEngine path, that is the DirectSound no-capture runner plus no-esync. If Steam was started from the standalone Steam tile or from a manual terminal command using the stock GPTK runner, the game can freeze when joining or opening a world.
+
+The matching failure usually repeats these lines in the logs:
+
+```text
+getsockname failed in BGetBoundAddr with error: 10022
+CSteamEngine::BMainLoop appears to have stalled
+DirectSoundCaptureDevice.lock wait timed out
+```
+
+RipperMoonKit records how it started Steam for a game profile and blocks Steam-dependent launches when an already-running Steam process does not match the profile runner/no-esync state. Close Steam, press the Elden Ring profile's **Start Steam** button, then use **Launch Modded**.
+
 ## Useful Checks
 
 Process check:

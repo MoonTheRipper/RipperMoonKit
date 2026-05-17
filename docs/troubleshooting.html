@@ -54,6 +54,7 @@
       <p>If the logs show <code>pipe: Too many open files</code>, <code>eventfd: Too many open files</code>, or <code>NtCreateFile Too many open files</code> even after the launcher reports <code>open-file limit 49152</code>, use the current ERSC profile with esync disabled.</p>
       <p>The confirmed fix is to start both Steam and ERSC from the same RipperMoonKit Elden Ring ERSC profile so both use <code>GPTK_WINEESYNC=0</code>. Stop old Wine sessions first:</p>
       <pre><code>gptk-steam --kill</code></pre>
+      <p>If the logs instead repeat <code>getsockname failed in BGetBoundAddr with error: 10022</code>, <code>CSteamEngine::BMainLoop appears to have stalled</code>, or <code>DirectSoundCaptureDevice.lock</code>, Steam was likely already running with a different Wine runner or esync state. Close Steam, start it from the Elden Ring profile, then launch ERSC or ModEngine from that same profile.</p>
       <p>Read the <a href="ersc-esync-file-descriptor-fix-2026-05-16.html">confirmed esync descriptor fix report</a>.</p>
 
       <h2>Steam Game Cannot See Steam</h2>

@@ -61,6 +61,7 @@
       <h2>Golden Pot Stability</h2>
       <p>The Golden Pot lobby workflow uses a patched GPTK runner that disables Wine DirectSound capture. That avoids the Steam Voice capture lock that caused the game screen to freeze while audio continued.</p>
       <p>The ERSC profile also starts both Steam and ERSC with esync disabled. This avoids the later <code>pipe/eventfd</code> exhaustion that could close the game after opening the lobby.</p>
+      <p>For ModEngine launches, Steam must be started from the Elden Ring profile too. If Steam is already running from the standalone Steam tile or a manual stock-GPTK command, logs can repeat <code>getsockname failed in BGetBoundAddr with error: 10022</code> and <code>CSteamEngine::BMainLoop appears to have stalled</code>. Close Steam, start Steam from the Elden Ring profile, then launch the modded profile.</p>
 
       <h2>Tool Credits</h2>
       <p>RipperMoonKit coordinates local setup around tools downloaded by the user. <a href="https://github.com/soulsmods/ModEngine2">ModEngine 2</a> provides the mod loader, <a href="https://www.nexusmods.com/eldenring/mods/510">Elden Ring Seamless Co-op / ERSC</a> provides the co-op DLL and launcher, and <a href="https://github.com/MoonTheRipper/elden-randomizer-coop">elden-randomizer-coop</a> helped shape the setup helper workflow.</p>

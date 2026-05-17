@@ -3224,14 +3224,64 @@ private final class LauncherModel: ObservableObject {
     }
 
     func previewStartSteamCommand(for profile: GameProfile, detached: Bool = false) -> String {
-        let logPath = "\(config.logsPath)/\(profile.safeName)-steam.log"
+        let writeState = steamStateWriteCommand(for: profile)
+        if detached {
+            return "\(sourceConfig); \(writeState); \(steamStartDetachedCommand(for: profile))"
+        }
         let envPart = steamEnvAssignment(for: profile)
-        let base = "\(sourceConfig); nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log >> \(logPath.shellQuoted) 2>&1 &"
-        return detached ? base : "\(sourceConfig); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log"
+        return "\(sourceConfig); \(writeState); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log"
     }
 
     func previewStopSteamCommand() -> String {
         "\(sourceConfig); \(config.gptkSteamPath.shellQuoted) --kill"
+    }
+
+    private func steamStatePath(for profile: GameProfile) -> String {
+        "\(config.gptkHome)/state/steam-\(profile.prefix.safeShellIdentifier).env"
+    }
+
+    private func steamStateWriteCommand(for profile: GameProfile) -> String {
+        let statePath = steamStatePath(for: profile)
+        let stateDir = (statePath as NSString).deletingLastPathComponent
+        let lines = [
+            "prefix=\(profile.prefix)",
+            "runner=\(profile.runnerPath)",
+            "noEsync=\(profile.noEsync ? "1" : "0")",
+            "updatedAt=\(ISO8601DateFormatter().string(from: Date()))"
+        ]
+        let payload = lines.map(\.shellQuoted).joined(separator: " ")
+        return "mkdir -p \(stateDir.shellQuoted); printf '%s\\n' \(payload) > \(statePath.shellQuoted)"
+    }
+
+    private func steamStartDetachedCommand(for profile: GameProfile) -> String {
+        let logPath = "\(config.logsPath)/\(profile.safeName)-steam.log"
+        let envPart = steamEnvAssignment(for: profile)
+        return "nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log >> \(logPath.shellQuoted) 2>&1 &"
+    }
+
+    private func steamDependencyPreflightCommand(for profile: GameProfile) -> String {
+        guard profile.requiresSteam && !profile.isSteamManaged else { return "" }
+
+        let expectedRunner = profile.runnerPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let statePath = steamStatePath(for: profile)
+        let noEsync = profile.noEsync ? "1" : "0"
+        let startSteam = "\(steamStateWriteCommand(for: profile)); \(steamStartDetachedCommand(for: profile)); sleep 8"
+
+        return """
+        steam_lines="$(ps -axww -o command= | grep -i '[s]team.exe' || true)"; \
+        if [[ -n "$steam_lines" ]]; then \
+          if [[ -n \(expectedRunner.shellQuoted) ]] && ! print -r -- "$steam_lines" | grep -Fq \(expectedRunner.shellQuoted); then \
+            echo "RipperMoonKit: Steam is already running with a different Wine runner. Close Steam, then use this profile's Start Steam button before launching."; \
+            exit 72; \
+          fi; \
+          if [[ \(noEsync.shellQuoted) == "1" ]] && { [[ ! -r \(statePath.shellQuoted) ]] || ! grep -Fq 'noEsync=1' \(statePath.shellQuoted); }; then \
+            echo "RipperMoonKit: Steam is already running without this profile's no-esync startup marker. Close Steam, then use this profile's Start Steam button before launching."; \
+            exit 73; \
+          fi; \
+        else \
+          \(startSteam); \
+        fi
+        """
     }
 
     func previewSteamManagedLaunchCommand(for profile: GameProfile, detached: Bool = false) -> String {
@@ -3281,11 +3331,14 @@ private final class LauncherModel: ObservableObject {
         let extraPart = extra.isEmpty ? "" : " \(extra)"
         let overrides = dllOverrides(for: profile)
         let launch = "cd \(profile.gameFolder.shellQuoted) && nohup env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart) >> \(logPath.shellQuoted) 2>&1 &"
+        let preflight = steamDependencyPreflightCommand(for: profile)
+        let detachedLaunch = [preflight, launch].filter { !$0.isEmpty }.joined(separator: "; ")
 
         if detached {
-            return "\(sourceConfig); \(launch)"
+            return "\(sourceConfig); \(detachedLaunch)"
         }
-        return "\(sourceConfig); cd \(profile.gameFolder.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart)"
+        let foregroundLaunch = "cd \(profile.gameFolder.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart)"
+        return "\(sourceConfig); \([preflight, foregroundLaunch].filter { !$0.isEmpty }.joined(separator: "; "))"
     }
 
     func previewModEngineLaunchCommand(for profile: GameProfile, detached: Bool = false) -> String {
@@ -3308,11 +3361,14 @@ private final class LauncherModel: ObservableObject {
 
         let overrides = dllOverrides(for: profile)
         let launch = "cd \(modEngineDir.shellQuoted) && nohup env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " ")) >> \(logPath.shellQuoted) 2>&1 &"
+        let preflight = steamDependencyPreflightCommand(for: profile)
+        let detachedLaunch = [preflight, launch].filter { !$0.isEmpty }.joined(separator: "; ")
 
         if detached {
-            return "\(sourceConfig); \(launch)"
+            return "\(sourceConfig); \(detachedLaunch)"
         }
-        return "\(sourceConfig); cd \(modEngineDir.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))"
+        let foregroundLaunch = "cd \(modEngineDir.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))"
+        return "\(sourceConfig); \([preflight, foregroundLaunch].filter { !$0.isEmpty }.joined(separator: "; "))"
     }
 
     func previewRandomizerCommand(for profile: GameProfile, detached: Bool = false) -> String {
@@ -4268,6 +4324,12 @@ private extension String {
             }
         }
         return value
+    }
+
+    var safeShellIdentifier: String {
+        let cleaned = replacingOccurrences(of: "[^A-Za-z0-9._-]+", with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-."))
+        return cleaned.isEmpty ? "default" : cleaned
     }
 
     var tomlEscaped: String {
