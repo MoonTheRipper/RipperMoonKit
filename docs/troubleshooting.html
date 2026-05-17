@@ -19,7 +19,7 @@
   <div class="page">
     <aside class="doc-tree" aria-label="Documentation tree">
       <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
-      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="elden-ring.html">Elden Ring ERSC</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="tested-games.html">Known Tested Games</a><a href="elden-ring.html">Elden Ring ERSC</a>
       <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html" aria-current="page">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
     </aside>
     <main class="content">
@@ -35,6 +35,20 @@
       <h2>Game Opens Then Exits</h2>
       <p>Install Visual C++ runtime into that profile's prefix from the GUI, or run:</p>
       <pre><code>gptk-vcrun --prefix GamePrefix</code></pre>
+
+      <h2 id="steam">Steam Download Or Web Runtime Fails</h2>
+      <p>If a Steam download ends with <code>content unavailable</code>, or Steam tries to install a Web Runtime and fails, first confirm the Steam library path is on a mounted writable drive with enough free space. Then repair the Steam prefix compatibility files:</p>
+      <pre><code>gptk-steam --repair-compat</code></pre>
+      <p>Restart Steam after repair. If the issue continues, inspect the Steam logs inside the Steam prefix before deleting downloaded data.</p>
+
+      <h2>Clair Obscur Shows NVIDIA Driver Prompt</h2>
+      <p>Some Windows games see GPTK's compatibility GPU report and show a NVIDIA driver warning. On Apple Silicon, do not install NVIDIA drivers. Use the profile's GPTK/Metal launch options, then change the game's own graphics settings from inside the game.</p>
+
+      <h2>Clair Obscur WineGStreamer Color Assertion</h2>
+      <p>If the popup references <code>winegstreamer/colorconvert.c</code>, the tested behavior was that ignoring the popup allowed the cutscene and gameplay to continue. If video playback becomes a hard blocker, capture the newest log and compare it with the <a href="tested-games.html#clair-obscur">Clair Obscur tested profile notes</a>.</p>
+
+      <h2>God Of War Ragnarök Does Not Start</h2>
+      <p>Run the PlayStation PC runtime installer inside the game's prefix first, then launch again. If it still exits, check the log for missing API/runtime lines such as GameInput, Vulkan fallback attempts, or D3D12 feature queries before changing broad runner settings.</p>
 
       <h2>Elden Ring ERSC Closes After Golden Pot</h2>
       <p>If the logs show <code>pipe: Too many open files</code>, <code>eventfd: Too many open files</code>, or <code>NtCreateFile Too many open files</code> even after the launcher reports <code>open-file limit 49152</code>, use the current ERSC profile with esync disabled.</p>

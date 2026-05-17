@@ -105,6 +105,8 @@ RipperMoonKit's Mod Manager panel can write the current-machine `config_eldenrin
 
 The panel can also run **Install ModEngine + Randomizer**. That action installs .NET 6 Desktop Runtime into the Elden Ring randomizer tools prefix, clones or updates the `elden-randomizer-coop` setup reference repo under `$GPTK_HOME/tools`, opens the download pages, scans its `inputs/` folder, installs recognized ZIPs, and writes the local ModEngine config/launch files.
 
+The panel also includes **Backup Mod State** and **Import From Friend**. Backup captures `ModEngine2`, `SeamlessCoop`, and the root helper executables into a rollback ZIP. Import From Friend accepts an exported co-op/randomizer packet, stages its bundled ZIP files, copies the shared `.randomizeopt`, and applies the shared Seamless password without printing it.
+
 RipperMoonKit does this natively instead of running `setup.bat`, because the Windows setup path calls `powershell.exe`. A normal GPTK prefix does not include Windows PowerShell, and native macOS PowerShell is not required for this workflow.
 
 The critical runtime is not PowerShell. It is Windows .NET 6 Desktop Runtime, because `EldenRingRandomizer.exe` is a .NET desktop application. RipperMoonKit installs that with:

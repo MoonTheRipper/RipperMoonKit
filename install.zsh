@@ -286,6 +286,7 @@ write_backup_readme() {
     print -r -- "- ${install_bin}/gptk-stubs"
     print -r -- "- ${install_libexec}/gptk-common.zsh"
     print -r -- "- ${install_scripts}/install-elden-mod-pack.zsh"
+    print -r -- "- ${install_scripts}/elden-mod-state.zsh"
     print -r -- ""
     print -r -- "Files listed in absent.tsv did not exist before the update and are removed during rollback if the update created them."
     print -r -- ""
@@ -320,6 +321,7 @@ create_backup() {
   backup_restore_path "${install_bin}/gptk-stubs" "home/bin/gptk-stubs" "API stubs helper"
   backup_restore_path "${install_libexec}/gptk-common.zsh" "gptk/libexec/gptk-common.zsh" "shared helper library"
   backup_restore_path "${install_scripts}/install-elden-mod-pack.zsh" "gptk/scripts/install-elden-mod-pack.zsh" "Elden Ring mod profile helper"
+  backup_restore_path "${install_scripts}/elden-mod-state.zsh" "gptk/scripts/elden-mod-state.zsh" "Elden Ring mod backup/import helper"
 
   record_protected_path "Wine prefix root" "${GPTK_PREFIX_ROOT}"
   record_protected_path "Game script root" "${GPTK_GAMES_ROOT}"
@@ -412,7 +414,8 @@ rollback_backup() {
         "${HOME:A}/bin/gptk-stubs"|\
         "${HOME:A}/.zshrc"|\
         "${GPTK_HOME:A}/libexec/gptk-common.zsh"|\
-        "${GPTK_HOME:A}/scripts/install-elden-mod-pack.zsh")
+        "${GPTK_HOME:A}/scripts/install-elden-mod-pack.zsh"|\
+        "${GPTK_HOME:A}/scripts/elden-mod-state.zsh")
           rm -rf "${destination}"
           log "✅" "Removed file that did not exist before backup: ${destination}"
           ;;
@@ -521,6 +524,7 @@ install_toolkit_files() {
   install -m 755 "${repo_dir}/bin/gptk-stubs" "${install_bin}/gptk-stubs"
   install -m 644 "${repo_dir}/libexec/gptk-common.zsh" "${install_libexec}/gptk-common.zsh"
   install -m 755 "${repo_dir}/scripts/install-elden-mod-pack.zsh" "${install_scripts}/install-elden-mod-pack.zsh"
+  install -m 755 "${repo_dir}/scripts/elden-mod-state.zsh" "${install_scripts}/elden-mod-state.zsh"
 
   if [[ ! -e "${config}" ]]; then
     install -m 644 "${repo_dir}/env.example" "${config}"

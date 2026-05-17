@@ -19,7 +19,7 @@
   <div class="page">
     <aside class="doc-tree" aria-label="Documentation tree">
       <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
-      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="elden-ring.html" aria-current="page">Elden Ring ERSC</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="tested-games.html">Known Tested Games</a><a href="elden-ring.html" aria-current="page">Elden Ring ERSC</a>
       <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
     </aside>
     <main class="content">
@@ -48,6 +48,7 @@
       <h2>ModEngine And Randomizer</h2>
       <p>For randomized Elden Ring, the final launcher is <code>Game/ModEngine2/launchmod_eldenring.bat</code>. The randomizer imports a <code>.randomizeopt</code> file and generates files under <code>ModEngine2/randomizer/</code>; ModEngine then launches <code>eldenring.exe</code>, loads <code>SeamlessCoop/ersc.dll</code>, and mounts the randomizer folder.</p>
       <p>RipperMoonKit's Mod Manager panel can clone or update the setup reference repo, open the download pages, install recognized mod ZIPs, prepare the current-machine <code>config_eldenring.toml</code> and launch bat, run the randomizer GUI, and launch the modded profile. It does not copy another Windows PC's drive letters. The copied Windows layout is only a reference for what files should exist.</p>
+      <p><strong>Backup Mod State</strong> creates a rollback ZIP of <code>ModEngine2</code>, <code>SeamlessCoop</code>, and the root helper executables before changes. <strong>Import From Friend</strong> imports an exported co-op/randomizer packet, stages its bundled ZIP files, copies the shared <code>.randomizeopt</code> into the Randomizer folder, and applies the shared Seamless password while preserving a rollback point.</p>
       <p>Confirmed behavior: if Elden Ring is launched without ModEngine, the randomized changes are not active. That means the randomized profile is isolated to the ModEngine launch path.</p>
 
       <pre><code>Game/ModEngine2/

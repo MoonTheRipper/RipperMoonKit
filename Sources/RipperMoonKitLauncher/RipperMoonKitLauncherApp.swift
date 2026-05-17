@@ -272,6 +272,98 @@ private struct Card<Content: View>: View {
     }
 }
 
+private struct SectionHelpIcon: View {
+    let text: String
+
+    var body: some View {
+        Image(systemName: "questionmark.circle")
+            .font(.system(size: 11.5, weight: .semibold))
+            .foregroundStyle(Onyx.textMute)
+            .help(text)
+    }
+}
+
+private struct CollapsibleCard<Content: View>: View {
+    let title: String
+    let icon: String
+    let storageKey: String
+    var defaultCollapsed = false
+    var help: String = ""
+    var trailing: AnyView? = nil
+    @AppStorage private var collapsed: Bool
+    @ViewBuilder let content: Content
+
+    init(title: String,
+         icon: String,
+         storageKey: String,
+         defaultCollapsed: Bool = false,
+         help: String = "",
+         trailing: AnyView? = nil,
+         @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.icon = icon
+        self.storageKey = storageKey
+        self.defaultCollapsed = defaultCollapsed
+        self.help = help
+        self.trailing = trailing
+        self.content = content()
+        _collapsed = AppStorage(wrappedValue: defaultCollapsed, storageKey)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: collapsed ? 0 : 14) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Onyx.accent)
+                Text(title)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Onyx.text)
+                Spacer(minLength: 8)
+                if !help.isEmpty {
+                    SectionHelpIcon(text: help)
+                }
+                if let trailing { trailing }
+                Button {
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        collapsed.toggle()
+                    }
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Onyx.textMute)
+                        .rotationEffect(.degrees(collapsed ? -90 : 0))
+                        .frame(width: 24, height: 24)
+                        .background(Onyx.surface2, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .strokeBorder(Onyx.hairline2, lineWidth: 0.75)
+                        }
+                }
+                .buttonStyle(.plain)
+                .help(collapsed ? "Expand \(title)" : "Collapse \(title)")
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.16)) {
+                    collapsed.toggle()
+                }
+            }
+
+            if !collapsed {
+                content
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Onyx.surface, in: RoundedRectangle(cornerRadius: Onyx.cardRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Onyx.cardRadius, style: .continuous)
+                .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+        }
+    }
+}
+
 private struct FieldLabel: View {
     let text: String
     init(_ text: String) { self.text = text }
@@ -513,6 +605,12 @@ private struct ContentView: View {
         }
         .preferredColorScheme(darkOverride.map { $0 ? .dark : .light })
         .onAppear { model.reload() }
+        .task {
+            while !Task.isCancelled {
+                await model.refreshLiveStatus()
+                try? await Task.sleep(nanoseconds: 4_000_000_000)
+            }
+        }
         .sheet(isPresented: $model.showSetupGuide) {
             SetupGuideView().environmentObject(model).frame(width: 640)
         }
@@ -546,13 +644,14 @@ private struct RMKSidebar: View {
     @Binding var selection: SidebarSelection
     @Binding var darkOverride: Bool?
     @Environment(\.colorScheme) private var scheme
+    @State private var editingPins = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Color.clear.frame(height: 30)
 
             HStack(spacing: 10) {
-                BrandMark(size: 26, glow: true)
+                BrandMark(size: 51, glow: true)
                 VStack(alignment: .leading, spacing: 1) {
                     Text("RipperMoonKit")
                         .font(.system(size: 13, weight: .bold))
@@ -572,14 +671,29 @@ private struct RMKSidebar: View {
             navItem(.backups, "Backups", "clock.arrow.circlepath")
             navItem(.settings, "Settings", "gearshape.fill")
 
-            if !model.profiles.isEmpty {
-                sectionLabel("Pinned")
-                ForEach(model.profiles.prefix(3)) { profile in
-                    pinnedRow(profile)
+            if model.profiles.isEmpty {
+                Spacer(minLength: 12)
+            } else {
+                pinnedHeader
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(model.pinnedProfiles) { profile in
+                            pinnedRow(profile)
+                        }
+                        if model.pinnedProfiles.isEmpty && !editingPins {
+                            emptyPinHint
+                        }
+                        if editingPins {
+                            addPinControl
+                        }
+                    }
+                    .padding(.vertical, 2)
                 }
+                .frame(maxHeight: .infinity)
+                .scrollIndicators(.hidden)
             }
 
-            Spacer(minLength: 12)
+            KofiSupport()
             footer
         }
         .frame(width: 224)
@@ -625,28 +739,105 @@ private struct RMKSidebar: View {
         .buttonStyle(.plain)
     }
 
-    private func pinnedRow(_ profile: GameProfile) -> some View {
-        let active = selection == .profile(profile.id)
-        return Button {
-            selection = .profile(profile.id)
-        } label: {
-            HStack(spacing: 9) {
-                CoverArt(iconPath: profile.iconPath, label: profile.name,
-                         seed: coverSeed(profile.name), corner: 5, showLabel: false)
-                    .frame(width: 20, height: 20)
-                Text(profile.name)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Onyx.text)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
+    private var pinnedHeader: some View {
+        HStack {
+            Text("Pinned")
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.6)
+                .foregroundStyle(Onyx.textMute)
+                .textCase(.uppercase)
+            Spacer()
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { editingPins.toggle() }
+            } label: {
+                Text(editingPins ? "Done" : "Edit")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(editingPins ? Onyx.accent : Onyx.textMute)
             }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 5)
-            .background(active ? Onyx.surface2 : .clear,
-                        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .padding(.horizontal, 8)
+            .buttonStyle(.plain)
+            .help(editingPins ? "Finish editing pins" : "Add or remove pinned games")
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
+    }
+
+    private func pinnedRow(_ profile: GameProfile) -> some View {
+        let active = selection == .profile(profile.id) && !editingPins
+        return HStack(spacing: 9) {
+            CoverArt(iconPath: profile.iconPath, label: profile.name,
+                     seed: coverSeed(profile.name), corner: 5, showLabel: false)
+                .frame(width: 20, height: 20)
+            Text(profile.name)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Onyx.text)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            if editingPins {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { model.unpinProfile(profile.id) }
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Onyx.accent)
+                }
+                .buttonStyle(.plain)
+                .help("Unpin \(profile.name)")
+            }
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 5)
+        .background(active ? Onyx.surface2 : .clear,
+                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if !editingPins { selection = .profile(profile.id) }
+        }
+    }
+
+    private var emptyPinHint: some View {
+        Text("Tap Edit to pin games here.")
+            .font(.system(size: 10.5))
+            .foregroundStyle(Onyx.textMute)
+            .padding(.horizontal, 19)
+            .padding(.vertical, 6)
+    }
+
+    @ViewBuilder private var addPinControl: some View {
+        if model.unpinnedProfiles.isEmpty {
+            Text("All games pinned.")
+                .font(.system(size: 10.5))
+                .foregroundStyle(Onyx.textMute)
+                .padding(.horizontal, 19)
+                .padding(.vertical, 6)
+        } else {
+            Menu {
+                ForEach(model.unpinnedProfiles) { profile in
+                    Button(profile.name) {
+                        withAnimation(.easeInOut(duration: 0.15)) { model.pinProfile(profile.id) }
+                    }
+                }
+            } label: {
+                HStack(spacing: 9) {
+                    Image(systemName: "plus.circle")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Onyx.accent)
+                        .frame(width: 20)
+                    Text("Add game")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Onyx.accent)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 5)
+                .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .padding(.horizontal, 8)
+            .padding(.top, 2)
+        }
     }
 
     private var footer: some View {
@@ -689,6 +880,55 @@ private struct RMKSidebar: View {
 }
 
 // MARK: - Topbar
+
+/// Sidebar support prompt — a plain one-liner and a bordered Ko-fi button.
+private struct KofiSupport: View {
+    private static let logo: NSImage? = {
+        guard let url = Bundle.module.url(forResource: "kofi_logo", withExtension: "png") else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
+    }()
+
+    var body: some View {
+        VStack(spacing: 9) {
+            Text("Not a big ask — but $5 helps the dev keep this app alive.")
+                .font(.system(size: 10.5))
+                .foregroundStyle(Onyx.textMute)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button {
+                if let url = URL(string: "https://ko-fi.com/moontheripper") {
+                    NSWorkspace.shared.open(url)
+                }
+            } label: {
+                Group {
+                    if let logo = KofiSupport.logo {
+                        Image(nsImage: logo).resizable().scaledToFit()
+                    } else {
+                        Text("Support on Ko-fi")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.black)
+                    }
+                }
+                .frame(height: 13)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .strokeBorder(Color.black.opacity(0.12), lineWidth: 1)
+                }
+                .shadow(color: .black.opacity(0.22), radius: 2, y: 0.5)
+            }
+            .buttonStyle(.plain)
+            .help("Support the developer on Ko-fi")
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 2)
+    }
+}
 
 private struct RMKTopbar: View {
     @EnvironmentObject private var model: LauncherModel
@@ -793,15 +1033,35 @@ private struct RMKTopbar: View {
 
     private var subtitle: String? {
         switch selection {
-        case .library:  return model.statusLine
-        case .backups:  return "\(model.backups.count) snapshots"
         case .settings: return model.config.configPath
-        case .profile:  return currentProfile?.executable
+        default:        return "Macs can't game? Cute. Reap anyway."
         }
     }
 }
 
 // MARK: - Library
+
+/// Primary banner button that crossfades between Launch and Stop with the
+/// profile's live state — shared by the Library banner and the in-profile hero.
+private struct LaunchStopButton: View {
+    var isLive: Bool
+    var launchTitle: String = "Launch"
+    var onLaunch: () -> Void
+    var onStop: () -> Void
+
+    var body: some View {
+        ZStack {
+            if isLive {
+                RMKButton(kind: .primary, icon: "stop.fill", title: "Stop", action: onStop)
+                    .transition(.opacity)
+            } else {
+                RMKButton(kind: .primary, icon: "power", title: launchTitle, action: onLaunch)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.22), value: isLive)
+    }
+}
 
 private enum LibraryFilter: String, CaseIterable {
     case all = "All", modded = "Modded", steam = "Steam", native = "Native"
@@ -812,13 +1072,16 @@ private struct LibraryScreen: View {
     @Binding var selection: SidebarSelection
     @State private var filter: LibraryFilter = .all
     @State private var query = ""
+    @State private var featuredIndex = Int.random(in: 0 ..< 999)
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 10)]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            if let featured = model.profiles.first {
-                hero(featured)
+            if let featured {
+                heroBanner(featured.profile, isLive: featured.live)
+                    .id(featured.profile.id)
+                    .transition(.opacity)
             }
             filterRow
             grid
@@ -827,11 +1090,39 @@ private struct LibraryScreen: View {
             }
         }
         .padding(EdgeInsets(top: 20, leading: 24, bottom: 40, trailing: 24))
+        .task {
+            // Auto-shuffle the spotlight every 5.5s while no game is running.
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 5_500_000_000)
+                if featured?.live == false {
+                    withAnimation(.easeInOut(duration: 0.4)) { featuredIndex += 1 }
+                }
+            }
+        }
+    }
+
+    /// Real games — everything except the Steam client.
+    private var realGames: [GameProfile] {
+        model.profiles.filter { !$0.isSteamApp }
+    }
+
+    /// The banner pick: a running game takes over; otherwise the shuffled spotlight.
+    private var featured: (profile: GameProfile, live: Bool)? {
+        if let live = realGames.first(where: { model.liveProfileIDs.contains($0.id) }) {
+            return (live, true)
+        }
+        guard !realGames.isEmpty else { return nil }
+        let index = ((featuredIndex % realGames.count) + realGames.count) % realGames.count
+        return (realGames[index], false)
+    }
+
+    private func shuffleFeatured() {
+        withAnimation(.easeInOut(duration: 0.2)) { featuredIndex += 1 }
     }
 
     private var visible: [GameProfile] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        return model.profiles.filter { p in
+        let filtered = model.profiles.filter { p in
             let matchesQuery = q.isEmpty
                 || p.name.lowercased().contains(q)
                 || p.executable.lowercased().contains(q)
@@ -844,54 +1135,78 @@ private struct LibraryScreen: View {
             }
             return matchesQuery && matchesFilter
         }
+        // The Steam client always holds the first grid slot.
+        return filtered.filter { $0.isSteamApp } + filtered.filter { !$0.isSteamApp }
     }
 
-    private func hero(_ profile: GameProfile) -> some View {
-        Button {
-            selection = .profile(profile.id)
-        } label: {
-            ZStack(alignment: .leading) {
-                CoverArt(iconPath: profile.iconPath, label: profile.name,
-                         seed: coverSeed(profile.name), corner: 22, showLabel: false)
-                LinearGradient(
-                    colors: [Onyx.bgDeep.opacity(0.95), Onyx.bgDeep.opacity(0.2), .clear],
-                    startPoint: .leading, endPoint: .trailing
-                )
-                VStack(alignment: .leading, spacing: 9) {
-                    Text("Continue")
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(1.4)
-                        .foregroundStyle(Onyx.accent)
-                        .textCase(.uppercase)
-                    Text(profile.name)
-                        .font(.system(size: 30, weight: .bold))
-                        .foregroundStyle(Onyx.text)
-                    Text(heroSubtitle(profile))
-                        .font(.system(size: 12))
-                        .foregroundStyle(Onyx.textDim)
-                    HStack(spacing: 8) {
-                        RMKButton(kind: .primary, icon: "play.fill", title: "Launch") {
-                            model.launch(profile)
-                        }
-                        RMKButton(kind: .ghost, icon: "chevron.right", title: "Open") {
-                            selection = .profile(profile.id)
-                        }
+    private func heroBanner(_ profile: GameProfile, isLive: Bool) -> some View {
+        ZStack(alignment: .leading) {
+            CoverArt(iconPath: profile.iconPath, label: profile.name,
+                     seed: coverSeed(profile.name), corner: 22, showLabel: false)
+            LinearGradient(
+                colors: [Onyx.bgDeep.opacity(0.95), Onyx.bgDeep.opacity(0.2), .clear],
+                startPoint: .leading, endPoint: .trailing
+            )
+            VStack(alignment: .leading, spacing: 9) {
+                Text(isLive ? "Now Playing" : "Spotlight")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.4)
+                    .foregroundStyle(isLive ? Onyx.good : Onyx.accent)
+                    .textCase(.uppercase)
+                Text(profile.name)
+                    .font(.system(size: 30, weight: .bold))
+                    .foregroundStyle(Onyx.text)
+                Text(heroSubtitle(profile))
+                    .font(.system(size: 12))
+                    .foregroundStyle(Onyx.textDim)
+                HStack(spacing: 8) {
+                    LaunchStopButton(
+                        isLive: isLive,
+                        launchTitle: "Launch",
+                        onLaunch: { model.launch(profile) },
+                        onStop: { model.closeGame(profile) }
+                    )
+                    RMKButton(kind: .ghost, icon: "chevron.right", title: "Open") {
+                        selection = .profile(profile.id)
                     }
-                    .padding(.top, 4)
                 }
-                .padding(22)
+                .padding(.top, 4)
             }
-            .frame(height: 180)
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(Onyx.hairline, lineWidth: 0.75)
-            }
-            .overlay(alignment: .trailing) {
-                BrandMark(size: 120).opacity(0.18).padding(.trailing, 28)
-            }
+            .padding(22)
         }
-        .buttonStyle(.plain)
+        .frame(height: 180)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .strokeBorder(isLive ? Onyx.good.opacity(0.55) : Onyx.hairline,
+                              lineWidth: isLive ? 1 : 0.75)
+        }
+        .overlay(alignment: .trailing) {
+            BrandMark(size: 120).opacity(0.16).padding(.trailing, 28)
+        }
+        .overlay(alignment: .topTrailing) {
+            heroCorner(isLive: isLive)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { selection = .profile(profile.id) }
+    }
+
+    /// Idle banner shows a manual shuffle control; a live banner has none
+    /// (the green border + "Now Playing" label carry the live state).
+    @ViewBuilder private func heroCorner(isLive: Bool) -> some View {
+        if !isLive {
+            Button { shuffleFeatured() } label: {
+                Image(systemName: "shuffle")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Onyx.text)
+                    .frame(width: 30, height: 30)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay { Circle().strokeBorder(Onyx.hairline2, lineWidth: 0.75) }
+            }
+            .buttonStyle(.plain)
+            .help("Shuffle the spotlight")
+            .padding(14)
+        }
     }
 
     private func heroSubtitle(_ p: GameProfile) -> String {
@@ -949,10 +1264,20 @@ private struct LibraryScreen: View {
     private var grid: some View {
         LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
             ForEach(visible) { profile in
-                Button { selection = .profile(profile.id) } label: {
-                    LibraryTile(profile: profile)
-                }
-                .buttonStyle(.plain)
+                LibraryTile(
+                    profile: profile,
+                    isLive: model.liveProfileIDs.contains(profile.id),
+                    onOpen: { selection = .profile(profile.id) },
+                    onTogglePower: { on in
+                        if on {
+                            model.launch(profile)
+                        } else if profile.isSteamApp {
+                            model.stopSteam()
+                        } else {
+                            model.closeGame(profile)
+                        }
+                    }
+                )
             }
             if query.isEmpty {
                 Button {
@@ -988,21 +1313,28 @@ private struct LibraryScreen: View {
 
 private struct LibraryTile: View {
     let profile: GameProfile
+    var isLive: Bool = false
+    var onOpen: () -> Void = {}
+    var onTogglePower: (Bool) -> Void = { _ in }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             CoverArt(iconPath: profile.iconPath, label: profile.name,
                      seed: coverSeed(profile.name), corner: 9)
                 .frame(height: 88)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(profile.name)
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(Onyx.text)
-                    .lineLimit(1)
-                Text(subtitle)
-                    .font(.system(size: 10))
-                    .foregroundStyle(Onyx.textMute)
-                    .lineLimit(1)
+            HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(profile.name)
+                        .font(.system(size: 12.5, weight: .semibold))
+                        .foregroundStyle(Onyx.text)
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Onyx.textMute)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                PowerToggle(isOn: isLive, label: profile.name) { onTogglePower($0) }
             }
             .padding(.horizontal, 3)
             .padding(.bottom, 3)
@@ -1011,15 +1343,44 @@ private struct LibraryTile: View {
         .background(Onyx.surface, in: RoundedRectangle(cornerRadius: Onyx.tileRadius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Onyx.tileRadius, style: .continuous)
-                .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+                .strokeBorder(isLive ? Onyx.good.opacity(0.45) : Onyx.hairline,
+                              lineWidth: 0.75)
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onOpen() }
     }
 
     private var subtitle: String {
-        if profile.isSteamApp { return "Steam client" }
+        if profile.isSteamApp { return isLive ? "Steam client · running" : "Steam client" }
         if let id = profile.steamAppID, !id.isEmpty { return "Steam · AppID \(id)" }
         if profile.requiresSteam { return "Uses Steam" }
         return profile.prefix
+    }
+}
+
+/// Power launch button used on every library tile — glows red when the app is
+/// idle, green when it is running. The glow doubles as the live indicator.
+private struct PowerToggle: View {
+    var isOn: Bool
+    var label: String = ""
+    var action: (Bool) -> Void
+
+    private var tint: Color { isOn ? Onyx.good : Onyx.accent }
+
+    var body: some View {
+        Button { action(!isOn) } label: {
+            Image(systemName: "power")
+                .font(.system(size: 11, weight: .heavy))
+                .foregroundStyle(tint)
+                .frame(width: 24, height: 24)
+                .background(Circle().fill(tint.opacity(0.16)))
+                .overlay { Circle().strokeBorder(tint.opacity(0.55), lineWidth: 1) }
+                .shadow(color: tint.opacity(0.85), radius: 5)
+                .shadow(color: tint.opacity(0.45), radius: 10)
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.18), value: isOn)
+        .help(isOn ? "Stop \(label)" : "Launch \(label)")
     }
 }
 
@@ -1146,10 +1507,15 @@ private struct GameDetailScreen: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 8) {
-                    RMKButton(kind: .primary, icon: "play.fill",
-                              title: profile.isSteamApp ? "Launch Steam" : "Launch") {
-                        model.launch(profile)
-                    }
+                    LaunchStopButton(
+                        isLive: model.liveProfileIDs.contains(profile.id),
+                        launchTitle: profile.isSteamApp ? "Launch Steam" : "Launch",
+                        onLaunch: { model.launch(profile) },
+                        onStop: {
+                            if profile.isSteamApp { model.stopSteam() }
+                            else { model.closeGame(profile) }
+                        }
+                    )
                 }
             }
             .padding(EdgeInsets(top: 24, leading: 24, bottom: 18, trailing: 24))
@@ -1247,46 +1613,69 @@ private struct GameDetailScreen: View {
             }
         }
 
-        Card(title: "Paths", icon: "folder.fill") {
+        CollapsibleCard(
+            title: "Paths",
+            icon: "folder.fill",
+            storageKey: "profile.section.paths.collapsed",
+            help: "Where the game, executable, runner, and icon live. These paths let RipperMoonKit launch the right files without hard-coding your machine."
+        ) {
             VStack(alignment: .leading, spacing: 10) {
                 if !profile.isSteamApp {
                     PathEditor(title: "Folder", path: $profile.gameFolder) {
                         model.chooseFolder(current: profile.gameFolder) { profile.gameFolder = $0 }
                     }
+                    .help("The folder containing the game's Windows executable. This is the working directory Wine/GPTK enters before launch.")
                     FieldRow(label: "Executable") {
                         OnyxField(text: $profile.executable, mono: true)
                         IconButton(systemImage: "doc.badge.gearshape", help: "Choose executable") {
                             model.chooseExecutable(for: &profile)
                         }
                     }
+                    .help("The .exe RipperMoonKit starts for this profile. For Elden Ring Seamless, this is usually ersc_launcher.exe.")
                 }
                 PathEditor(title: "Runner", path: $profile.runnerPath) {
                     model.chooseFolder(current: profile.runnerPath) { profile.runnerPath = $0 }
                 }
+                .help("Optional Wine/GPTK runner override. Leave this alone unless a game needs a specific runner build.")
             }
         }
     }
 
     // ── Launch tab ────────────────────────────────────────────────────────
     @ViewBuilder private var launchTab: some View {
-        Card(title: "Launch Options", icon: "switch.2") {
+        CollapsibleCard(
+            title: "Launch Options",
+            icon: "switch.2",
+            storageKey: "profile.section.launch-options.collapsed",
+            help: "Runtime switches passed to GPTK/Wine. These tune compatibility, logging, graphics behavior, and DLL loading for this game."
+        ) {
             VStack(alignment: .leading, spacing: 12) {
                 if profile.isSteamManaged {
                     HStack(spacing: 18) {
                         Toggle("HUD", isOn: $profile.hud)
+                            .help("Shows the Metal/GPTK performance overlay while the game runs.")
                         Toggle("No esync", isOn: $profile.noEsync)
+                            .help("Disables esync for games or launchers that hang with Wine's eventfd synchronization.")
                     }
                     .toggleStyle(.checkbox)
                 } else {
                     FlowLayout(spacing: 18) {
                         Toggle("Steam required", isOn: $profile.requiresSteam)
+                            .help("Starts or expects Steam before launch. Use this when the game checks Steam APIs or uses Steam networking.")
                         Toggle("No DXR", isOn: $profile.noDXR)
+                            .help("Disables DXR/ray tracing. This avoids unsupported D3D12 paths and often improves stability on Apple GPUs.")
                         Toggle("AVX", isOn: optionalBinding(\.avx))
+                            .help("Enables AVX-related launch handling for games that require AVX-capable CPU behavior.")
                         Toggle("MetalFX/DLSS", isOn: optionalBinding(\.metalFX))
+                            .help("Enables MetalFX integration where the runner supports it. Useful for upscaling paths exposed by GPTK.")
                         Toggle("HUD", isOn: $profile.hud)
+                            .help("Shows the Metal/GPTK performance overlay while the game runs.")
                         Toggle("No esync", isOn: $profile.noEsync)
+                            .help("Disables esync for games or launchers that hang with Wine's eventfd synchronization.")
                         Toggle("Native winmm", isOn: $profile.nativeWinmm)
+                            .help("Loads a native winmm.dll first. Elden Ring Seamless uses this path for mod DLL loading.")
                         Toggle("Native steam_api64", isOn: $profile.nativeSteamAPI)
+                            .help("Loads native steam_api64.dll first so Steam-dependent mods can call the bundled Steam API.")
                     }
                     .toggleStyle(.checkbox)
                     Rectangle().fill(Onyx.hairline).frame(height: 1)
@@ -1296,9 +1685,11 @@ private struct GameDetailScreen: View {
                             set: { profile.extraDllOverrides = $0.isEmpty ? nil : $0 }
                         ), mono: true)
                     }
+                    .help("Extra WINEDLLOVERRIDES entries for this game. Use only when a game or mod needs a specific native/builtin DLL order.")
                     FieldRow(label: "Arguments") {
                         OnyxField(text: $profile.extraArguments, mono: true)
                     }
+                    .help("Arguments appended after the executable. Useful for flags like driver checks, renderer options, or game-specific launch switches.")
                 }
             }
         }
@@ -1346,7 +1737,13 @@ private struct GameDetailScreen: View {
             }
         }
 
-        Card(title: "Validation", icon: "checkmark.seal.fill") {
+        CollapsibleCard(
+            title: "Validation",
+            icon: "checkmark.seal.fill",
+            storageKey: "profile.section.validation.collapsed",
+            defaultCollapsed: true,
+            help: "Quick checks for files this profile expects. Missing items here usually mean the path settings need correction."
+        ) {
             VStack(alignment: .leading, spacing: 10) {
                 if profile.isSteamApp {
                     ValidationRow(title: "Steam prefix",
@@ -1383,31 +1780,44 @@ private struct GameDetailScreen: View {
 
     // ── Commands tab ──────────────────────────────────────────────────────
     @ViewBuilder private var commandsTab: some View {
-        Card(title: "Resolved Commands", icon: "chevron.left.forwardslash.chevron.right") {
+        CollapsibleCard(
+            title: "Resolved Commands",
+            icon: "chevron.left.forwardslash.chevron.right",
+            storageKey: "profile.section.resolved-commands.collapsed",
+            defaultCollapsed: true,
+            help: "The exact shell commands RipperMoonKit will run after applying this profile's paths, prefix, DLL overrides, and launch flags."
+        ) {
             VStack(alignment: .leading, spacing: 12) {
                 if profile.requiresSteam && !profile.isSteamManaged {
                     CommandPreview(title: "Start Steam",
                                    command: model.previewStartSteamCommand(for: profile))
+                    .help("Starts Steam in the configured prefix before launching a game that depends on Steam services.")
                 }
                 if profile.isSteamManaged {
                     CommandPreview(title: profile.isSteamApp ? "Launch Steam" : "Launch From Steam",
                                    command: model.previewSteamManagedLaunchCommand(for: profile))
+                    .help("Launches Steam directly, or asks Steam to launch the selected AppID.")
                 } else if profile.useModEngine == true {
                     CommandPreview(title: "Launch Modded",
                                    command: model.previewModEngineLaunchCommand(for: profile))
+                    .help("Runs ModEngine2 through GPTK/Wine and points it at the selected game executable.")
                     CommandPreview(title: "Run Randomizer",
                                    command: model.previewRandomizerCommand(for: profile))
+                    .help("Starts the Elden Ring Randomizer GUI in the tools prefix so you can import options and generate mod files.")
                 } else {
                     CommandPreview(title: "Launch",
                                    command: model.previewLaunchCommand(for: profile))
+                    .help("Runs the configured executable directly through GPTK/Wine.")
                 }
                 if !profile.isSteamApp && !model.closeTargets(for: profile).isEmpty {
                     CommandPreview(title: "Close Game",
                                    command: model.previewCloseGameCommand(for: profile))
+                    .help("Terminates this game's Windows processes without closing Steam.")
                 }
                 if profile.isSteamApp || profile.requiresSteam {
                     CommandPreview(title: "Close Steam",
                                    command: model.previewStopSteamCommand())
+                    .help("Stops Steam and its helper processes when you are done using Steam-dependent games.")
                 }
             }
         }
@@ -1428,6 +1838,7 @@ private struct ModsTab: View {
             .toggleStyle(.checkbox)
             .font(.system(size: 11.5))
             .foregroundStyle(Onyx.textDim)
+            .help("Routes launch through ModEngine2 instead of starting the game executable directly.")
         )) {
             VStack(alignment: .leading, spacing: 10) {
                 modLayer(1, "Seamless Coop", "DLL",
@@ -1439,7 +1850,13 @@ private struct ModsTab: View {
             }
         }
 
-        Card(title: "Mod Configuration", icon: "wrench.adjustable.fill") {
+        CollapsibleCard(
+            title: "Mod Configuration",
+            icon: "wrench.adjustable.fill",
+            storageKey: "profile.section.mod-configuration.collapsed",
+            defaultCollapsed: true,
+            help: "Advanced ModEngine paths. These tell RipperMoonKit where the ModEngine launcher, config, batch file, Randomizer, and Seamless DLL are located."
+        ) {
             VStack(alignment: .leading, spacing: 10) {
                 PathEditor(title: "ModEngine", path: Binding(
                     get: { profile.modEngineFolder ?? "ModEngine2" },
@@ -1449,42 +1866,66 @@ private struct ModsTab: View {
                         profile.modEngineFolder = model.profileRelativePath(selected, from: profile.gameFolder)
                     }
                 }
+                .help("Folder containing modengine2_launcher.exe. Usually Game/ModEngine2.")
                 FieldRow(label: "Launch Bat") {
                     OnyxField(text: optional(\.modEngineLaunchBat, "launchmod_eldenring.bat"), mono: true)
                 }
+                .help("Optional batch file mirroring the ModEngine launch command. Useful for compatibility with setups copied from Windows.")
                 FieldRow(label: "Config") {
                     OnyxField(text: optional(\.modEngineConfig, "config_eldenring.toml"), mono: true)
                 }
+                .help("The ModEngine TOML file that lists external DLLs and mod folders.")
                 FieldRow(label: "Launcher") {
                     OnyxField(text: optional(\.modEngineLauncher, "modengine2_launcher.exe"), mono: true)
                 }
+                .help("The ModEngine executable RipperMoonKit launches.")
                 FieldRow(label: "Randomizer") {
                     OnyxField(text: optional(\.randomizerExecutable, "randomizer/EldenRingRandomizer.exe"), mono: true)
                 }
+                .help("The Randomizer GUI executable relative to the ModEngine folder.")
                 FieldRow(label: "Seamless DLL") {
                     OnyxField(text: optional(\.seamlessDllPath, "../SeamlessCoop/ersc.dll"), mono: true)
                 }
+                .help("The Seamless Co-op DLL path as written into ModEngine config. It is usually relative to ModEngine2.")
             }
         }
 
-        Card(title: "Mod Files", icon: "wrench.and.screwdriver.fill") {
+        CollapsibleCard(
+            title: "Mod Files",
+            icon: "wrench.and.screwdriver.fill",
+            storageKey: "profile.section.mod-files.collapsed",
+            help: "Install, back up, import, prepare, randomize, and launch the Elden Ring mod toolchain."
+        ) {
             FlowLayout(spacing: 8) {
                 RMKButton(kind: .primary, icon: "square.and.arrow.down.fill",
                           title: "Install ModEngine + Randomizer") {
                     model.installModEngineRandomizerProfile(for: profile)
                 }
+                .help("Installs the standard ModEngine2, Randomizer, Seamless Co-op, and related setup files for this profile.")
+                RMKButton(kind: .ghost, icon: "externaldrive.badge.timemachine", title: "Backup Mod State") {
+                    model.backupEldenModState(for: profile)
+                }
+                .help("Creates a rollback backup of ModEngine2, SeamlessCoop, and the mod helper executables.")
+                RMKButton(kind: .ghost, icon: "person.2.badge.gearshape.fill", title: "Import From Friend") {
+                    model.importFriendKit(for: profile)
+                }
+                .help("Imports a host's friend kit: bundled mod ZIPs, Randomizer options, and Seamless password.")
                 RMKButton(kind: .ghost, icon: "archivebox.fill", title: "Install Mod Zips") {
                     model.installModZips(for: profile)
                 }
+                .help("Manually install selected ModEngine, Randomizer, Seamless, or anti-cheat toggler ZIP files.")
                 RMKButton(kind: .ghost, icon: "wrench.adjustable.fill", title: "Prepare Mod Files") {
                     model.prepareModEngine(for: profile)
                 }
+                .help("Rewrites the ModEngine config and launch batch file for this Mac path.")
                 RMKButton(kind: .ghost, icon: "shuffle", title: "Run Randomizer") {
                     model.runRandomizer(for: profile)
                 }
+                .help("Opens the Randomizer GUI. Import a .randomizeopt file there, then click Randomize.")
                 RMKButton(kind: .primary, icon: "play.circle.fill", title: "Launch Modded") {
                     model.launchModEngine(profile)
                 }
+                .help("Launches Elden Ring through ModEngine2 with the current mod configuration.")
             }
         }
     }
@@ -2183,6 +2624,73 @@ private extension LauncherModel {
         tgdbAPIKeyLocal.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    // ── Pinned sidebar games ──────────────────────────────────────────────
+
+    /// Pinned profiles, in pin order, resolved against the current library.
+    var pinnedProfiles: [GameProfile] {
+        pinnedProfileIDs.compactMap { id in profiles.first { $0.id == id } }
+    }
+
+    /// Profiles not currently pinned — the candidates for the Add menu.
+    var unpinnedProfiles: [GameProfile] {
+        profiles.filter { !pinnedProfileIDs.contains($0.id) }
+    }
+
+    func pinProfile(_ id: UUID) {
+        guard !pinnedProfileIDs.contains(id) else { return }
+        pinnedProfileIDs.append(id)
+        persistPins()
+    }
+
+    func unpinProfile(_ id: UUID) {
+        pinnedProfileIDs.removeAll { $0 == id }
+        persistPins()
+    }
+
+    func persistPins() {
+        defaults.set(pinnedProfileIDs.map { $0.uuidString }, forKey: pinnedProfilesKey)
+    }
+
+    /// Polls the process list and marks profiles whose game executable is running.
+    ///
+    /// Uses `ps -axww` so long Wine command lines are not truncated (the default
+    /// `ps` width hides the `.exe` deep in a GPTK launch line). Each row is parsed
+    /// as PID + state + command so the launcher's own process and dead/zombie
+    /// entries can be excluded before matching executable names.
+    func refreshLiveStatus() async {
+        let result = await ShellExecutor.run("ps -axww -o pid=,state=,command=")
+        guard !result.output.isEmpty else { return }
+
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        var entries: [(pid: Int32, command: String)] = []
+        for line in result.output.split(separator: "\n") {
+            let fields = line.trimmingCharacters(in: .whitespaces)
+                .split(separator: " ", maxSplits: 2, omittingEmptySubsequences: true)
+            guard fields.count == 3,
+                  let pid = Int32(fields[0]), pid != ownPID,
+                  !fields[1].contains("Z") else { continue }   // skip self + zombies
+            entries.append((pid, fields[2].lowercased()))
+        }
+
+        var live: Set<UUID> = []
+        var pidMap: [UUID: [Int32]] = [:]
+        for profile in profiles {
+            var targets = closeTargets(for: profile)
+            if profile.isSteamApp { targets.append(contentsOf: ["steam.exe", "steamwebhelper"]) }
+            let needles = targets.map { $0.lowercased() }.filter { !$0.isEmpty }
+            guard !needles.isEmpty else { continue }
+            let pids = entries
+                .filter { entry in needles.contains { entry.command.contains($0) } }
+                .map(\.pid)
+            if !pids.isEmpty {
+                live.insert(profile.id)
+                pidMap[profile.id] = pids
+            }
+        }
+        if live != liveProfileIDs { liveProfileIDs = live }
+        liveProfilePIDs = pidMap
+    }
+
     /// Persists the Settings-entered TheGamesDB key to local user defaults.
     func saveTGDBKey() {
         let trimmed = tgdbAPIKeyLocal.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -2227,6 +2735,9 @@ private final class LauncherModel: ObservableObject {
     @Published var driveMaps: [DriveMap]
     @Published var toolkitSourceFolder: String
     @Published var isRunning = false
+    @Published var liveProfileIDs: Set<UUID> = []
+    /// macOS PIDs backing each live profile — used to terminate games directly.
+    var liveProfilePIDs: [UUID: [Int32]] = [:]
     @Published var commandOutput = ""
     @Published var lastResult = "Ready"
     @Published var backups: [BackupItem] = []
@@ -2234,10 +2745,12 @@ private final class LauncherModel: ObservableObject {
     @Published var removePrefixesOnUninstall = false
     @Published var showSetupGuide = false
     @Published var tgdbAPIKeyLocal: String = ""
+    @Published var pinnedProfileIDs: [UUID] = []
 
     private let defaults = UserDefaults.standard
     private let setupGuideSeenKey = "setupGuideSeen.v2"
     private let tgdbAPIKeyDefaultsKey = "tgdbAPIKey"
+    private let pinnedProfilesKey = "pinnedProfiles.v1"
 
     var defaultSelection: SidebarSelection {
         .library
@@ -2256,6 +2769,13 @@ private final class LauncherModel: ObservableObject {
         toolkitSourceFolder = defaults.string(forKey: "toolkitSourceFolder") ?? "\(loaded.home)/Desktop/RipperMoonToolKit"
         tgdbAPIKeyLocal = defaults.string(forKey: tgdbAPIKeyDefaultsKey)
             ?? (loaded.values["GPTK_TGDB_API_KEY"] ?? "")
+        let validIDs = Set(profiles.map { $0.id })
+        if let storedPins = defaults.array(forKey: pinnedProfilesKey) as? [String] {
+            pinnedProfileIDs = storedPins.compactMap(UUID.init(uuidString:)).filter { validIDs.contains($0) }
+        } else {
+            // First run with pinning: seed with the first three profiles.
+            pinnedProfileIDs = Array(profiles.prefix(3).map { $0.id })
+        }
         refreshBackups()
         showSetupGuide = shouldShowSetupGuide(config: loaded)
         persistProfiles()
@@ -2309,6 +2829,10 @@ private final class LauncherModel: ObservableObject {
             return
         }
         profiles.removeAll { $0.id == id }
+        if pinnedProfileIDs.contains(id) {
+            pinnedProfileIDs.removeAll { $0 == id }
+            persistPins()
+        }
         persistProfiles()
     }
 
@@ -2392,8 +2916,20 @@ private final class LauncherModel: ObservableObject {
     }
 
     func closeGame(_ profile: GameProfile) {
-        let profile = repairedProfile(profile)
-        runShell(title: "Close \(profile.name)", command: previewCloseGameCommand(for: profile))
+        // Prefer killing the actual macOS process tree the live poller found — a
+        // Wine `taskkill` round-trip through gptk-launch is slow and unreliable.
+        if let pids = liveProfilePIDs[profile.id], !pids.isEmpty {
+            let list = pids.map(String.init).joined(separator: " ")
+            liveProfileIDs.remove(profile.id)          // instant UI feedback
+            liveProfilePIDs[profile.id] = nil
+            runShell(
+                title: "Close \(profile.name)",
+                command: "kill \(list) 2>/dev/null; sleep 1; kill -9 \(list) 2>/dev/null; true"
+            )
+        } else {
+            let repaired = repairedProfile(profile)
+            runShell(title: "Close \(repaired.name)", command: previewCloseGameCommand(for: repaired))
+        }
     }
 
     func launch(_ profile: GameProfile) {
@@ -2432,6 +2968,40 @@ private final class LauncherModel: ObservableObject {
         runShell(
             title: "Install ModEngine + Randomizer",
             command: "\(sourceConfig); env \(toolEnv) \(config.gptkDotNet6Path.shellQuoted) --prefix \(toolsPrefix.shellQuoted); if [[ -x \(sourceScript.shellQuoted) ]]; then script=\(sourceScript.shellQuoted); else script=\(installedScript.shellQuoted); fi; zsh \"$script\" --game-dir \(profile.gameFolder.shellQuoted) --open-download-pages",
+            completion: { [weak self] in self?.reload() }
+        )
+    }
+
+    func backupEldenModState(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        let sourceScript = "\(toolkitSourceFolder)/scripts/elden-mod-state.zsh"
+        let installedScript = "\(config.gptkHome)/scripts/elden-mod-state.zsh"
+        runShell(
+            title: "Backup Elden Ring Mod State",
+            command: "\(sourceConfig); if [[ -x \(sourceScript.shellQuoted) ]]; then script=\(sourceScript.shellQuoted); else script=\(installedScript.shellQuoted); fi; zsh \"$script\" backup --game-dir \(profile.gameFolder.shellQuoted)"
+        )
+    }
+
+    func importFriendKit(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        let panel = NSOpenPanel()
+        panel.title = "Choose Friend Kit Folder Or ZIP"
+        panel.prompt = "Import Friend Kit"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [UTType(filenameExtension: "zip") ?? .zip]
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        let sourceScript = "\(toolkitSourceFolder)/scripts/elden-mod-state.zsh"
+        let installedScript = "\(config.gptkHome)/scripts/elden-mod-state.zsh"
+        let toolsPrefix = toolPrefixName(for: profile)
+        let toolEnv = toolRunnerEnvAssignment()
+        runShell(
+            title: "Import Friend Kit",
+            command: "\(sourceConfig); env \(toolEnv) \(config.gptkDotNet6Path.shellQuoted) --prefix \(toolsPrefix.shellQuoted); if [[ -x \(sourceScript.shellQuoted) ]]; then script=\(sourceScript.shellQuoted); else script=\(installedScript.shellQuoted); fi; zsh \"$script\" import-friend --game-dir \(profile.gameFolder.shellQuoted) --friend-kit \(url.path.shellQuoted) --force",
             completion: { [weak self] in self?.reload() }
         )
     }
@@ -3167,8 +3737,11 @@ private enum ShellExecutor {
 
                 do {
                     try process.run()
-                    process.waitUntilExit()
+                    // Drain the pipe *before* waiting — large output (e.g. `ps -axww`)
+                    // overruns the ~64 KB pipe buffer and would otherwise deadlock:
+                    // the child blocks on write while waitUntilExit() blocks on the child.
                     let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    process.waitUntilExit()
                     let output = String(data: data, encoding: .utf8) ?? ""
                     continuation.resume(returning: ShellResult(status: process.terminationStatus, output: output, error: nil))
                 } catch {

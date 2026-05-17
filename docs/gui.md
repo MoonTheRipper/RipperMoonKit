@@ -10,7 +10,11 @@ The launcher reads `~/.rippermoon-gptk.env`, shows a library grid of configured 
 
 ![RipperMoonKit launcher showing an Elden Ring ERSC profile](assets/rippermoonkit-gui.png)
 
+![RipperMoonKit game profile view with collapsible profile settings](assets/game-profile-view.png)
+
 The app is organized around a library of individual games and apps. Pick **Games & Apps** to see the grid, then open a game tile to adjust that profile's icon, folder, prefix, runner, and launch options. Steam appears in the library as its own app, while still being available as a dependency for games that need the running Steam client.
+
+Large technical sections such as resolved commands, validation, and ModEngine configuration can collapse. Section help and hover tooltips explain what each setting does and why it matters.
 
 ## Build
 
@@ -177,6 +181,10 @@ mods = [
 ```
 
 The launch bat uses the current Mac path converted to Wine's default `Z:\...` view. It does not preserve another Windows machine's drive letters such as `G:`.
+
+The **Backup Mod State** action creates a rollback ZIP of `ModEngine2`, `SeamlessCoop`, and the root helper executables before risky changes.
+
+The **Import From Friend** action accepts an exported co-op/randomizer friend kit, stages the bundled ZIP files, copies the shared `.randomizeopt`, and applies the shared Seamless password without printing it.
 
 Use the panel in this order:
 

@@ -27,6 +27,7 @@ Read in this order:
 
 - [proof-of-concept.md](proof-of-concept.md): screenshots of the launcher and Elden Ring running on macOS through GPTK.
 - [game-folder-workflow.md](game-folder-workflow.md): copying an already-installed Windows game folder.
+- [tested-games.md](tested-games.md): known tested games, why their profiles exist, launch notes, and troubleshooting links.
 - [elden-ring-ersc.md](elden-ring-ersc.md): Elden Ring ERSC tested launch path.
 - [elden-ring-ersc.md#tool-credits](elden-ring-ersc.md#tool-credits): credits for ModEngine 2, Seamless Co-op/ERSC, and the setup reference repo used by the Mod Manager flow.
 - [clair-obscur-dlss-metalfx.md](clair-obscur-dlss-metalfx.md): Clair Obscur DLSS through GPTK MetalFX.

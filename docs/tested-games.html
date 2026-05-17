@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Known Tested Games On Mac With RipperMoonKit</title>
+  <meta name="description" content="Known tested Windows games and apps for RipperMoonKit on macOS with Apple Game Porting Toolkit, including Elden Ring Seamless Co-op, Clair Obscur, God of War Ragnarök, Steam, and troubleshooting notes.">
+  <meta name="keywords" content="RipperMoonKit tested games, Elden Ring Mac Seamless Co-op, Clair Obscur Mac GPTK, God of War Ragnarok Mac GPTK, Apple Game Porting Toolkit game compatibility">
+  <meta property="og:title" content="Known Tested Games On Mac With RipperMoonKit">
+  <meta property="og:description" content="Real RipperMoonKit test notes for Elden Ring Seamless Co-op, Clair Obscur, God of War Ragnarök, Steam, and GPTK troubleshooting.">
+  <meta property="og:type" content="article">
+  <meta property="og:image" content="assets/game-profile-view.png">
+  <link rel="stylesheet" href="site.css">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": "Known Tested Games With RipperMoonKit",
+    "description": "RipperMoonKit game profile notes for Windows games tested on macOS with Apple Game Porting Toolkit.",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Elden Ring + Seamless Co-op / ERSC" },
+      { "@type": "ListItem", "position": 2, "name": "Clair Obscur: Expedition 33" },
+      { "@type": "ListItem", "position": 3, "name": "God of War Ragnarok" },
+      { "@type": "ListItem", "position": 4, "name": "Steam For Windows" }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html"><img src="assets/rippermoonlogo.png" alt=""><span>RipperMoonKit</span></a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a><a href="index.html">Docs</a><a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a><a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="tested-games.html" aria-current="page">Known Tested Games</a><a href="elden-ring.html">Elden Ring ERSC</a>
+      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Known Tested Games</p>
+        <h1>What has actually been tried.</h1>
+        <p class="lead">This page records real RipperMoonKit test notes. It is not a universal compatibility promise; it explains why each profile exists, how it was launched, and what to check when the behavior changes.</p>
+      </div>
+
+      <figure>
+        <img src="assets/game-profile-view.png" alt="RipperMoonKit game profile view with collapsible settings and launch controls">
+        <figcaption>Each game keeps its own profile, runner, prefix, Steam behavior, mod stack, and troubleshooting commands.</figcaption>
+      </figure>
+
+      <div class="game-list">
+        <article class="game-entry" id="elden-ring">
+          <h3>Elden Ring + Seamless Co-op / ERSC</h3>
+          <div class="meta-row">
+            <span class="tag good">Gold</span>
+            <span class="tag">Steam prefix</span>
+            <span class="tag">ModEngine 2</span>
+            <span class="tag">Randomizer</span>
+            <span class="tag">No esync</span>
+          </div>
+          <p>Tested with an already-installed Windows game folder copied to the Mac games drive. Steam must be running in the same prefix so ERSC can see Steam API state and Spacewar/AppID 480.</p>
+          <div class="note-grid">
+            <div><strong>Why this profile exists</strong><p>ERSC, Steam networking, ModEngine, and Randomizer need repeatable DLL overrides and a stable prefix.</p></div>
+            <div><strong>How it launches</strong><p>Steam starts first, then ERSC or ModEngine launches from the Elden Ring profile with native <code>winmm</code> and <code>steam_api64</code>.</p></div>
+            <div><strong>Known fixes</strong><p>Use the no-capture DirectSound runner and no-esync path for Golden Pot stability.</p></div>
+          </div>
+          <p>Read the full <a href="elden-ring.html">Elden Ring ERSC setup</a>, <a href="ersc-esync-file-descriptor-fix-2026-05-16.html">Golden Pot esync fix</a>, and <a href="steam-voice-capture-fix-2026-05-13.md">Steam voice capture report</a>.</p>
+        </article>
+
+        <article class="game-entry" id="clair-obscur">
+          <h3>Clair Obscur: Expedition 33</h3>
+          <div class="meta-row">
+            <span class="tag good">Playable</span>
+            <span class="tag">AVX</span>
+            <span class="tag">No DXR</span>
+            <span class="tag">MetalFX/DLSS bridge</span>
+          </div>
+          <p>Tested through GPTK with AVX and D3D12 flags. A Wine C++ runtime assertion can appear from <code>winegstreamer/colorconvert.c</code>; ignoring it allowed the cutscene and game to continue in the tested setup.</p>
+          <div class="note-grid">
+            <div><strong>Why this profile exists</strong><p>The game is graphically heavy and sensitive to renderer and driver checks.</p></div>
+            <div><strong>How it launches</strong><p>Use the profile's AVX/no-DXR launch path and enable the game's own upscaling options from in-game settings.</p></div>
+            <div><strong>Troubleshooting</strong><p>If a NVIDIA driver prompt appears, it is the Windows game seeing a compatibility-reported GPU. On Apple Silicon, do not install NVIDIA drivers.</p></div>
+          </div>
+          <p>See <a href="clair-obscur-dlss-metalfx.md">Clair Obscur DLSS and MetalFX notes</a>.</p>
+        </article>
+
+        <article class="game-entry" id="god-of-war-ragnarok">
+          <h3>God of War Ragnarök</h3>
+          <div class="meta-row">
+            <span class="tag warn">Partial</span>
+            <span class="tag">PSPC runtime</span>
+            <span class="tag">GameInput stub</span>
+            <span class="tag">MetalFX</span>
+          </div>
+          <p>Tested with the PlayStation PC runtime installer run inside the game prefix. Launch work focused on the missing runtime path, GameInput/API stubs, and D3D12 behavior under GPTK.</p>
+          <div class="note-grid">
+            <div><strong>Why this profile exists</strong><p>The game has extra PlayStation PC runtime expectations that a basic Wine prefix does not provide.</p></div>
+            <div><strong>How it launches</strong><p>Install the PSPC runtime first, then launch the game executable with the profile-specific compatibility flags.</p></div>
+            <div><strong>Troubleshooting</strong><p>If it exits early, check logs for missing API/runtime messages before changing graphics flags.</p></div>
+          </div>
+          <p>See <a href="gowr.md">God of War Ragnarök launch notes</a>.</p>
+        </article>
+
+        <article class="game-entry" id="steam">
+          <h3>Steam For Windows</h3>
+          <div class="meta-row">
+            <span class="tag good">Dependency</span>
+            <span class="tag">Library app</span>
+            <span class="tag">Web runtime sensitive</span>
+          </div>
+          <p>Steam is both a standalone app profile and a dependency for games that need Steam APIs. Downloads, Steam Web Runtime updates, and Steam-managed games should stay in the Steam prefix.</p>
+          <div class="note-grid">
+            <div><strong>Why this profile exists</strong><p>Many Windows games check Steam state even when their game files are copied locally.</p></div>
+            <div><strong>How it launches</strong><p>Start Steam from the library, or let a game profile start it first when required.</p></div>
+            <div><strong>Troubleshooting</strong><p>For webhelper or content unavailable issues, repair Steam compatibility and check the Steam logs.</p></div>
+          </div>
+          <p>See <a href="steam.md">Steam setup</a> and <a href="troubleshooting.html#steam">Steam troubleshooting</a>.</p>
+        </article>
+      </div>
+
+      <h2>How To Add More Results</h2>
+      <p>A useful test report includes the game name, Mac model, runner, prefix, required toggles, launch command, logs for failures, and whether the game was copied from an already-installed Windows folder or installed directly under Wine.</p>
+
+      <div class="next-links">
+        <a class="button-link primary" href="troubleshooting.html">Troubleshooting</a>
+        <a class="button-link" href="gui.html">Launcher Guide</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

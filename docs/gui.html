@@ -19,7 +19,7 @@
   <div class="page">
     <aside class="doc-tree" aria-label="Documentation tree">
       <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
-      <strong>Use The App</strong><a href="gui.html" aria-current="page">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="elden-ring.html">Elden Ring ERSC</a>
+      <strong>Use The App</strong><a href="gui.html" aria-current="page">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="tested-games.html">Known Tested Games</a><a href="elden-ring.html">Elden Ring ERSC</a>
       <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
     </aside>
     <main class="content">
@@ -30,12 +30,17 @@
       </div>
 
       <figure>
-        <img src="assets/rippermoonkit-gui.png" alt="RipperMoonKit launcher profile for Elden Ring ERSC">
-        <figcaption>A profile page for Elden Ring ERSC.</figcaption>
+        <img src="assets/rippermoonkit-gui.png" alt="RipperMoonKit macOS launcher library and profile interface">
+        <figcaption>The launcher keeps Windows games, Steam, and helper apps in one library.</figcaption>
+      </figure>
+
+      <figure>
+        <img src="assets/game-profile-view.png" alt="RipperMoonKit game profile view with launch, mod, path, and command settings">
+        <figcaption>Each game profile has its own paths, launch options, mod tools, resolved commands, and troubleshooting state.</figcaption>
       </figure>
 
       <h2>Library</h2>
-      <p>The sidebar opens a library view with a grid of games and apps. Steam appears as its own app tile, and it can still be started automatically by profiles that depend on Steam.</p>
+      <p>The sidebar opens a library view with a grid of games and apps. Steam appears as its own app tile, and it can still be started automatically by profiles that depend on Steam. Profile pages now collapse large advanced sections so new users can stay focused while technical users can still inspect exact commands.</p>
 
       <h2>Profiles</h2>
       <p>Use <strong>Add Game</strong> to create a profile. Set the display name, icon, prefix, game folder, executable, and any game-specific runner. The square icon in the page header belongs to the selected game.</p>
@@ -56,6 +61,7 @@
 
       <h2>Elden Ring Mod Manager</h2>
       <p>The Randomizer writes files that are mounted by ModEngine at launch time. If the same game folder is launched without ModEngine, randomization disappears. That is expected and keeps the randomized profile separate from the normal game path.</p>
+      <p><strong>Backup Mod State</strong> captures the active ModEngine, Seamless Co-op, and helper executable footprint before risky changes. <strong>Import From Friend</strong> accepts an exported co-op/randomizer friend kit, stages the bundled ZIPs, copies the shared <code>.randomizeopt</code>, and applies the shared Seamless password without printing it.</p>
       <p>The installer removes macOS archive sidecars such as <code>._Something.xml</code>, <code>.DS_Store</code>, and <code>__MACOSX</code> after extracting ZIPs. Those files are binary metadata, not Randomizer definitions, and can otherwise cause XML encoding errors.</p>
 
       <h2>Tool Credits</h2>

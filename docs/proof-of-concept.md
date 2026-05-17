@@ -18,6 +18,10 @@ RipperMoonKit does not include game files, saves, Steam data, or Apple runtime f
 
 The launcher keeps each game in its own profile. A profile can have its own icon, game folder, Windows prefix, runner, launch options, and Steam requirement.
 
+![RipperMoonKit game profile view showing collapsible settings and mod tools](assets/game-profile-view.png)
+
+The game profile view keeps common launch actions visible while larger technical sections such as resolved commands and ModEngine configuration can collapse.
+
 ## Gameplay With GPTK HUD
 
 ![Elden Ring running on macOS through Apple Game Porting Toolkit with HUD visible](assets/elden-ring-grace-hud.png)

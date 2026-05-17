@@ -1,5 +1,7 @@
 # RipperMoonToolKit
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/I2I61WTJ6V)
+
 RipperMoonToolKit is a manual Apple Game Porting Toolkit 3 launcher setup for Apple Silicon Macs. It keeps Wine prefixes on internal storage, keeps large game libraries on external storage, and launches Windows Steam or standalone Windows game folders through reusable zsh commands.
 
 This repository is source and documentation only. It intentionally does not include Wine prefixes, installed games, Steam data, saves, logs, Apple runtime files, or any machine-specific directories.

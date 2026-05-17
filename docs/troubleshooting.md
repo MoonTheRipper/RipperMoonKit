@@ -55,6 +55,28 @@ For ERSC, also check:
 ls -lt "$ER_GAME_DIR/SeamlessCoop/crashdumps/reports" | head
 ```
 
+## Steam Download Or Web Runtime Fails
+
+If a Steam download ends with `content unavailable`, or Steam tries to install a Web Runtime and fails, confirm the Steam library path is on a mounted writable drive with enough free space. Then repair Steam compatibility files:
+
+```zsh
+gptk-steam --repair-compat
+```
+
+Restart Steam after repair. If the issue continues, inspect the Steam logs inside the Steam prefix before deleting downloaded data.
+
+## Clair Obscur Shows NVIDIA Driver Prompt
+
+Some Windows games see GPTK's compatibility GPU report and show a NVIDIA driver warning. On Apple Silicon, do not install NVIDIA drivers. Use the profile's GPTK/Metal launch options, then change the game's own graphics settings from inside the game.
+
+## Clair Obscur WineGStreamer Color Assertion
+
+If the popup references `winegstreamer/colorconvert.c`, the tested behavior was that ignoring the popup allowed the cutscene and gameplay to continue. If video playback becomes a hard blocker, capture the newest log and compare it with [tested-games.md#clair-obscur-expedition-33](tested-games.md#clair-obscur-expedition-33).
+
+## God Of War Ragnarok Does Not Start
+
+Run the PlayStation PC runtime installer inside the game's prefix first, then launch again. If it still exits, check the log for missing API/runtime lines such as GameInput, Vulkan fallback attempts, or D3D12 feature queries before changing broad runner settings.
+
 ## Game Runs For A Few Minutes Then Closes
 
 Look for file descriptor exhaustion:

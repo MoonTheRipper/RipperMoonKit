@@ -373,8 +373,12 @@ BAT
 game_dir="${game_dir:A}"
 [[ -f "${game_dir}/eldenring.exe" ]] || die "eldenring.exe not found in ${game_dir}"
 
-ensure_profile_repo
-inputs_dir="${inputs_dir:-${profile_repo}/inputs}"
+if [[ -z "${inputs_dir}" ]]; then
+  ensure_profile_repo
+  inputs_dir="${profile_repo}/inputs"
+elif [[ "${open_pages}" == "1" ]]; then
+  ensure_profile_repo
+fi
 modengine_dir="${game_dir}/ModEngine2"
 
 log "🎮" "Game folder: ${game_dir}"

@@ -3,14 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RipperMoonKit - Apple Game Porting Toolkit Launcher for Mac</title>
-  <meta name="description" content="RipperMoonKit is a native macOS launcher for Apple Game Porting Toolkit workflows, with Steam support, per-game profiles, mod stacks, external drive mapping, and rollback-safe updates.">
-  <meta name="keywords" content="RipperMoonKit, Apple Game Porting Toolkit launcher, GPTK launcher, Elden Ring Mac, Seamless Coop Mac, Steam Windows games macOS, Game Porting Toolkit 3">
+  <title>RipperMoonKit - Apple Game Porting Toolkit Launcher For Windows Games On Mac</title>
+  <meta name="description" content="RipperMoonKit is a native macOS launcher for Apple Game Porting Toolkit workflows: Steam support, per-game profiles, Elden Ring Seamless Co-op, ModEngine, Randomizer, external drives, tested game notes, and rollback-safe updates.">
+  <meta name="keywords" content="RipperMoonKit, Apple Game Porting Toolkit launcher, GPTK launcher, Windows games on Mac, Elden Ring Mac, Seamless Coop Mac, ModEngine Mac, Elden Ring Randomizer Mac, Steam Windows games macOS, Game Porting Toolkit 3">
   <meta property="og:title" content="RipperMoonKit">
   <meta property="og:description" content="A native macOS launcher for Apple Game Porting Toolkit game profiles, Steam workflows, mod stacks, and rollback-safe updates.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="docs/assets/rippermoonkit-gui.png">
   <link rel="icon" href="docs/assets/rippermoonlogo.png">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "RipperMoonKit",
+    "applicationCategory": "GameApplication",
+    "operatingSystem": "macOS",
+    "description": "A native macOS launcher for Apple Game Porting Toolkit workflows, Steam support, per-game Windows game profiles, Elden Ring Seamless Co-op, ModEngine, Randomizer, external drives, and rollback-safe updates.",
+    "softwareHelp": "docs/index.html",
+    "downloadUrl": "https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg",
+    "codeRepository": "https://github.com/MoonTheRipper/RipperMoonKit",
+    "license": "https://opensource.org/licenses/MIT"
+  }
+  </script>
   <style>
     /* ── Onyx theme — black / white / scarlet, subtle Tahoe cues ──────────── */
     :root {
@@ -145,7 +159,7 @@
       background: var(--surface); border: 0.5px solid var(--hairline-2);
       color: var(--accent);
     }
-    .nav-links { display: flex; gap: 2px; margin-left: auto; }
+    .nav-links { display: flex; gap: 2px; margin-left: auto; min-width: 0; }
     .nav-links a {
       font-size: 12.5px; color: var(--text-dim); font-weight: 540;
       letter-spacing: -0.1px; text-decoration: none;
@@ -281,10 +295,13 @@
     .table {
       background: var(--surface); border: 0.5px solid var(--hairline);
       border-radius: 18px; overflow: hidden; margin-top: 22px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .trow {
       display: grid; grid-template-columns: 36px 2fr 1.1fr 1.2fr 1.3fr 0.8fr;
       gap: 14px; padding: 12px 18px; align-items: center;
+      min-width: 760px;
     }
     .thead {
       background: var(--surface-2); border-bottom: 0.5px solid var(--hairline);
@@ -360,6 +377,34 @@
     .req-row .v { color: var(--text); }
     .req-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 14px; border-top: 0.5px solid var(--hairline); }
 
+    .support-card {
+      display: flex; align-items: center; justify-content: space-between; gap: 22px;
+      background: var(--surface); border: 0.5px solid var(--hairline);
+      border-radius: 22px; padding: 28px; position: relative; overflow: hidden;
+      box-shadow: inset 0 1px 0 0 var(--hairline-2);
+    }
+    .support-card::after {
+      content: ""; position: absolute; width: 340px; height: 340px; border-radius: 50%;
+      filter: blur(110px); background: #00b9fe; opacity: 0.12;
+      right: -130px; top: -150px; pointer-events: none;
+    }
+    .support-copy { position: relative; max-width: 650px; }
+    .support-copy h2 { font-size: clamp(1.55rem, 3vw, 2rem); }
+    .support-copy p { color: var(--text-dim); margin: 10px 0 0; font-size: 14px; line-height: 1.5; }
+    .support-actions { position: relative; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .kofi-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      min-height: 42px; padding: 7px 16px 7px 12px;
+      border-radius: 999px; background: #00b9fe; color: #fff;
+      text-decoration: none; font-size: 14px; font-weight: 700;
+      box-shadow: 0 10px 28px -16px #00b9fe;
+    }
+    .kofi-btn:hover { transform: translateY(-1px); }
+    .kofi-logo {
+      width: 25px; height: 25px; object-fit: contain;
+      border-radius: 6px;
+    }
+
     /* Footer */
     footer {
       display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
@@ -372,19 +417,64 @@
     footer a:hover { color: var(--text); }
 
     /* ── Responsive ──────────────────────────────────────────────────────── */
-    @media (max-width: 900px) {
-      .features { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 980px) {
+      .wrap, .nav-inner { width: min(100% - 32px, 1200px); }
+      .nav-inner { flex-wrap: wrap; align-items: flex-start; }
+      .nav-links {
+        order: 4;
+        width: 100%;
+        margin-left: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 2px 0 4px;
+        scrollbar-width: thin;
+      }
+      .nav-links a { flex: 0 0 auto; }
+      .nav .btn.btn-primary { margin-left: auto; }
+      .features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .install-grid { grid-template-columns: 1fr; gap: 24px; }
-      .hero-logo { opacity: 0.18; }
-    }
-    @media (max-width: 680px) {
-      .nav-links { display: none; }
-      .features { grid-template-columns: 1fr; }
-      h1 { letter-spacing: -1.4px; }
-      .trow { grid-template-columns: 30px 1.4fr 0.7fr; }
-      .trow .col-runner, .trow .col-flags, .trow .col-notes { display: none; }
-      .install-card { padding: 24px; }
+      .hero-logo { opacity: 0.14; right: 8px; }
       .preview-frame { transform: none; }
+    }
+
+    @media (max-width: 680px) {
+      .nav-inner { gap: 10px; }
+      .brand-name { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .pill { display: none; }
+      .toggle { margin-left: auto; }
+      .nav .btn.btn-primary {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+        margin-left: 0;
+      }
+      .hero { padding: 42px 0 28px; }
+      .hero-logo { display: none; }
+      .hero-cta { align-items: stretch; }
+      .hero-cta .btn { justify-content: center; flex: 1 1 160px; }
+      .ship { width: 100%; margin-left: 0; }
+      .preview { padding: 12px 0 38px; }
+      .preview-frame { border-radius: 16px; }
+      .features { grid-template-columns: 1fr; }
+      .support-card { align-items: flex-start; flex-direction: column; }
+      .support-actions, .kofi-btn { width: 100%; justify-content: center; }
+      h1 { letter-spacing: -1.4px; }
+      section { padding: 34px 0; }
+      .install-card { padding: 24px; }
+      .req-row { flex-direction: column; gap: 2px; }
+      .req-row .k { width: auto; }
+      footer { align-items: flex-start; flex-direction: column; gap: 9px; }
+      footer .spacer { display: none; }
+    }
+
+    @media (max-width: 430px) {
+      .wrap, .nav-inner { width: min(100% - 22px, 1200px); }
+      h1 { font-size: clamp(2.1rem, 14vw, 3.2rem); }
+      h2 { font-size: clamp(1.45rem, 9vw, 2rem); }
+      .btn { width: 100%; justify-content: center; }
+      .hero-cta .btn { flex-basis: 100%; }
+      .card, .install-card, .support-card { border-radius: 16px; padding: 18px; }
+      .term-body { font-size: 10.5px; }
     }
   </style>
 </head>
@@ -400,7 +490,7 @@
           <img src="docs/assets/rippermoonlogo.png" alt="RipperMoonKit">
           <span class="brand-name">RipperMoonKit</span>
         </a>
-        <span class="pill mono">v1.0.0</span>
+        <span class="pill mono">v1.2.0</span>
         <div class="nav-links">
           <a href="#features">Features</a>
           <a href="#games">Games</a>
@@ -440,7 +530,7 @@
         </a>
         <span class="ship">
           <span class="pulse"></span>
-          <span><strong>v1.0.0</strong> · MIT-licensed · open source</span>
+          <span><strong>v1.2.0</strong> · MIT-licensed · open source</span>
         </span>
       </div>
     </header>
@@ -448,7 +538,7 @@
     <!-- ── App preview ──────────────────────────────────────────────────── -->
     <section class="wrap preview">
       <div class="preview-frame">
-        <img src="docs/assets/rippermoonkit-gui.png" alt="RipperMoonKit launcher showing an Elden Ring game profile on macOS" loading="lazy">
+        <img src="docs/assets/rippermoonkit-gui.png" alt="RipperMoonKit macOS launcher showing a Windows game library, Steam support, and game profiles" loading="lazy">
       </div>
     </section>
 
@@ -521,7 +611,7 @@
           <div class="game">Elden Ring + Seamless Coop</div>
           <div class="mono col-runner">gptk-dsound-nocap</div>
           <div class="mono col-flags">winmm · noEsync · MetalFX</div>
-          <div class="col-notes">Mod Engine 2 verified</div>
+          <div class="col-notes">ModEngine 2, Randomizer, ERSC</div>
           <div class="status-cell"><span class="badge badge-gold"><span class="badge-dot" style="background:var(--good)"></span>Gold</span></div>
         </div>
         <div class="trow tbody">
@@ -529,7 +619,7 @@
           <div class="game">Clair Obscur: Expedition 33</div>
           <div class="mono col-runner">gptk-baseline</div>
           <div class="mono col-flags">AVX · noDxr</div>
-          <div class="col-notes">Steam launch only</div>
+          <div class="col-notes">Cutscenes play; color assertion noted</div>
           <div class="status-cell"><span class="badge badge-gold"><span class="badge-dot" style="background:var(--good)"></span>Gold</span></div>
         </div>
         <div class="trow tbody">
@@ -545,7 +635,7 @@
           <div class="game">God of War Ragnarök</div>
           <div class="mono col-runner">gptk-dsound-nocap</div>
           <div class="mono col-flags">MetalFX/DLSS · HUD</div>
-          <div class="col-notes">Cutscene stutter on M1</div>
+          <div class="col-notes">PSPC runtime and stubs needed</div>
           <div class="status-cell"><span class="badge badge-silver"><span class="badge-dot" style="background:var(--warn)"></span>Silver</span></div>
         </div>
         <div class="trow tbody">
@@ -564,6 +654,12 @@
           <div class="col-notes">Needs API stubs</div>
           <div class="status-cell"><span class="badge badge-bronze"><span class="badge-dot" style="background:var(--text-mute)"></span>Bronze</span></div>
         </div>
+      </div>
+      <div class="hero-cta" style="margin-top:18px">
+        <a class="btn" href="docs/tested-games.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Read tested game notes
+        </a>
       </div>
     </section>
 
@@ -639,6 +735,28 @@
           <div class="card-title">Elden Ring example →</div>
           <div class="card-desc">The ERSC + ModEngine + Randomizer proof of concept.</div>
         </a>
+        <a class="card" style="text-decoration:none" href="docs/tested-games.html">
+          <div class="card-title">Known tested games →</div>
+          <div class="card-desc">Game-specific notes for Steam, Elden Ring, Clair Obscur, God of War, and runtime fixes.</div>
+        </a>
+      </div>
+    </section>
+
+    <!-- ── Support ──────────────────────────────────────────────────────── -->
+    <section class="wrap" id="support">
+      <div class="support-card">
+        <div class="support-copy">
+          <h2>Support the developer.</h2>
+          <p>
+            It's not a big ask, really. $5 would help keep this project alive.
+          </p>
+        </div>
+        <div class="support-actions">
+          <a class="kofi-btn" href="https://ko-fi.com/I2I61WTJ6V" rel="noopener">
+            <img class="kofi-logo" src="docs/assets/kofi_logo.webp" alt="">
+            <span>Support on Ko-fi</span>
+          </a>
+        </div>
       </div>
     </section>
 
@@ -647,6 +765,7 @@
       <img src="docs/assets/rippermoonlogo.png" alt="">
       <span>RipperMoonKit · MIT · 2026 · Not affiliated with Apple, FromSoftware, or Valve.</span>
       <span class="spacer"></span>
+      <a href="https://ko-fi.com/I2I61WTJ6V">Ko-fi</a>
       <a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
       <a href="https://github.com/MoonTheRipper/RipperMoonKit/issues">Issues</a>
       <a href="docs/index.html">Docs</a>
@@ -689,6 +808,15 @@
         });
       }
     })();
+  </script>
+  <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
+  <script>
+    kofiWidgetOverlay.draw('moontheripper', {
+      'type': 'floating-chat',
+      'floating-chat.donateButton.text': 'Support me',
+      'floating-chat.donateButton.background-color': '#00b9fe',
+      'floating-chat.donateButton.text-color': '#fff'
+    });
   </script>
 </body>
 </html>
