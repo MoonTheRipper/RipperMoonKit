@@ -26,7 +26,7 @@ log() {
 
 create_app_icon() {
   local resources_dir="$1"
-  local source="${repo_dir}/Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg"
+  local source="${repo_dir}/Sources/RipperMoonKitLauncher/Resources/rippermoonlogo.png"
   local work
   local iconset
   local base
@@ -48,7 +48,7 @@ create_app_icon() {
   base="${work}/RipperMoonKitLogo-square.png"
   mkdir -p "${iconset}"
 
-  sips -s format png -c 1080 1080 "${source}" --out "${base}" >> "${log_file}" 2>&1
+  sips -s format png -z 1024 1024 "${source}" --out "${base}" >> "${log_file}" 2>&1
 
   for name size in \
     icon_16x16.png 16 \
@@ -66,9 +66,9 @@ create_app_icon() {
   done
 
   iconutil -c icns "${iconset}" -o "${resources_dir}/RipperMoonKitLogo.icns" >> "${log_file}" 2>&1
-  cp -p "${source}" "${resources_dir}/RipperMoonKitLogo.jpg"
+  cp -p "${source}" "${resources_dir}/rippermoonlogo.png"
   rm -rf "${work}"
-  log "🎨" "Created app icon from RipperMoonKitLogo."
+  log "🎨" "Created app icon from rippermoonlogo."
 }
 
 log "🚀" "Building RipperMoonKitLauncher."

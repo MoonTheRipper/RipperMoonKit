@@ -265,6 +265,35 @@ Toolkit Source
 
 It also includes a Drive Mappings editor. Users can add any drive letter except `C`, choose a host folder, and save the result back to `GPTK_DRIVE_MAPS` in `~/.rippermoon-gptk.env`.
 
+## Cover Art
+
+RipperMoonKit can fetch real box art for a profile from [TheGamesDB](https://thegamesdb.net), a free community game-art database. The placeholder gradient on a tile is replaced once a cover is set.
+
+### Add an API key
+
+Cover lookup needs a TheGamesDB API key. Settings has a **Cover Art · TheGamesDB** card with:
+
+```text
+API Key   editable field
+Save Key  persists the key to local app storage
+```
+
+Get a free key at [thegamesdb.net](https://thegamesdb.net), paste it into the field, and click **Save Key**. The status line reads *Cover search ready* once a key is set, or *No key set — cover search is disabled* when it is empty.
+
+The key is stored locally on each machine — it is never written into the repository or an exported build. On first run the field is seeded from the optional `GPTK_TGDB_API_KEY` value in `~/.rippermoon-gptk.env`; after that the in-app Settings value is the source of truth.
+
+### Find a cover
+
+Open a game profile, go to the **App** tab, and click the photo button next to the **Icon** field. The **Find Cover Art** sheet searches TheGamesDB by the profile name, shows matching box art with release years, and sets the chosen image as the profile icon.
+
+Downloaded covers are cached under:
+
+```text
+$GPTK_HOME/covers
+```
+
+The selected cover is used everywhere the profile icon appears — the library tile, the library hero banner, the game detail header, and the sidebar.
+
 ## Next GUI Work
 
 Planned app work:

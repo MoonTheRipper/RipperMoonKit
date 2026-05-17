@@ -4,397 +4,691 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RipperMoonKit - Apple Game Porting Toolkit Launcher for Mac</title>
-  <meta name="description" content="RipperMoonKit is a clean macOS launcher for Apple Game Porting Toolkit workflows, with Steam support, game profiles, external drive paths, and an Elden Ring ERSC proof of concept.">
+  <meta name="description" content="RipperMoonKit is a native macOS launcher for Apple Game Porting Toolkit workflows, with Steam support, per-game profiles, mod stacks, external drive mapping, and rollback-safe updates.">
   <meta name="keywords" content="RipperMoonKit, Apple Game Porting Toolkit launcher, GPTK launcher, Elden Ring Mac, Seamless Coop Mac, Steam Windows games macOS, Game Porting Toolkit 3">
   <meta property="og:title" content="RipperMoonKit">
-  <meta property="og:description" content="A macOS launcher kit for Apple Game Porting Toolkit game profiles, Steam workflows, and copied Windows game folders.">
+  <meta property="og:description" content="A native macOS launcher for Apple Game Porting Toolkit game profiles, Steam workflows, mod stacks, and rollback-safe updates.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="docs/assets/rippermoonkit-gui.png">
+  <link rel="icon" href="docs/assets/rippermoonlogo.png">
   <style>
+    /* ── Onyx theme — black / white / scarlet, subtle Tahoe cues ──────────── */
     :root {
       color-scheme: light dark;
-      --bg: #f7f7f4;
-      --fg: #171714;
-      --muted: #66645d;
-      --line: #d9d7cf;
-      --accent: #8c1d2c;
+      --bg:        oklch(0.99 0 0);
+      --bg-deep:   oklch(0.96 0 0);
+      --surface:   oklch(1 0 0);
+      --surface-2: oklch(0.97 0 0);
+      --chrome:    oklch(0.995 0 0 / 0.78);
+      --hairline:  oklch(0 0 0 / 0.08);
+      --hairline-2:oklch(0 0 0 / 0.14);
+      --text:      oklch(0.15 0 0);
+      --text-dim:  oklch(0.42 0 0);
+      --text-mute: oklch(0.60 0 0);
+      --accent:    oklch(0.48 0.22 27);
+      --accent-2:  oklch(0.40 0.18 22);
+      --accent-ink:oklch(0.99 0 0);
+      --good:      oklch(0.50 0.12 155);
+      --warn:      oklch(0.62 0.13 70);
+      --glow:      oklch(0.48 0.22 27 / 0.16);
+      --logo-shadow: none;
     }
+
+    :root[data-theme="dark"],
+    :root:not([data-theme]) {
+      /* default-dark fallback handled by media query below */
+    }
+
+    .onyx-dark {
+      --bg:        oklch(0.14 0 0);
+      --bg-deep:   oklch(0.10 0 0);
+      --surface:   oklch(0.18 0 0);
+      --surface-2: oklch(0.22 0 0);
+      --chrome:    oklch(0.16 0 0 / 0.78);
+      --hairline:  oklch(1 0 0 / 0.07);
+      --hairline-2:oklch(1 0 0 / 0.13);
+      --text:      oklch(0.98 0 0);
+      --text-dim:  oklch(0.72 0 0);
+      --text-mute: oklch(0.55 0 0);
+      --accent:    oklch(0.60 0.22 27);
+      --accent-2:  oklch(0.50 0.18 22);
+      --accent-ink:oklch(0.99 0 0);
+      --good:      oklch(0.74 0.08 155);
+      --warn:      oklch(0.78 0.08 75);
+      --glow:      oklch(0.60 0.22 27 / 0.22);
+      --logo-shadow: drop-shadow(0 0 10px oklch(0.60 0.22 27 / 0.35));
+    }
+
+    :root[data-theme="dark"] { color-scheme: dark; }
+    :root[data-theme="light"] { color-scheme: light; }
 
     @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #141412;
-        --fg: #f4f1ea;
-        --muted: #aba79e;
-        --line: #36342f;
-        --accent: #ff6b7f;
+      :root:not([data-theme]) {
+        color-scheme: dark;
+        --bg:        oklch(0.14 0 0);
+        --bg-deep:   oklch(0.10 0 0);
+        --surface:   oklch(0.18 0 0);
+        --surface-2: oklch(0.22 0 0);
+        --chrome:    oklch(0.16 0 0 / 0.78);
+        --hairline:  oklch(1 0 0 / 0.07);
+        --hairline-2:oklch(1 0 0 / 0.13);
+        --text:      oklch(0.98 0 0);
+        --text-dim:  oklch(0.72 0 0);
+        --text-mute: oklch(0.55 0 0);
+        --accent:    oklch(0.60 0.22 27);
+        --accent-2:  oklch(0.50 0.18 22);
+        --accent-ink:oklch(0.99 0 0);
+        --good:      oklch(0.74 0.08 155);
+        --warn:      oklch(0.78 0.08 75);
+        --glow:      oklch(0.60 0.22 27 / 0.22);
+        --logo-shadow: drop-shadow(0 0 10px oklch(0.60 0.22 27 / 0.35));
       }
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
+
+    html, body { margin: 0; }
 
     body {
-      margin: 0;
       background: var(--bg);
-      color: var(--fg);
-      font: 17px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+      color: var(--text);
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
     }
 
-    .hero-header,
-    main,
-    footer {
-      width: min(1080px, calc(100% - 40px));
+    a { color: inherit; }
+
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+    /* Accent washes behind the page chrome */
+    .wash {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(160px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .wash-1 {
+      width: 800px; height: 800px;
+      background: radial-gradient(circle, var(--accent), transparent 55%);
+      opacity: 0.10; top: -380px; left: 40%;
+    }
+    .wash-2 {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, var(--accent-2), transparent 55%);
+      opacity: 0.08; top: 220px; left: -260px;
+    }
+
+    .page { position: relative; z-index: 1; }
+    .wrap { width: min(1200px, calc(100% - 48px)); margin: 0 auto; }
+
+    /* ── Nav ─────────────────────────────────────────────────────────────── */
+    .nav {
+      position: sticky; top: 0; z-index: 20;
+      background: var(--chrome);
+      -webkit-backdrop-filter: blur(28px) saturate(1.7);
+      backdrop-filter: blur(28px) saturate(1.7);
+      border-bottom: 0.5px solid var(--hairline);
+    }
+    .nav-inner {
+      width: min(1200px, calc(100% - 48px));
       margin: 0 auto;
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 0;
     }
-
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      border-bottom: 1px solid var(--line);
-      background: color-mix(in srgb, var(--bg), transparent 8%);
-      backdrop-filter: blur(18px);
-    }
-
-    .topbar-inner {
-      width: min(1080px, calc(100% - 40px));
-      min-height: 68px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      color: var(--fg);
-      text-decoration: none;
-      font-weight: 760;
-    }
-
-    .brand img {
-      width: 38px;
-      height: 38px;
-      object-fit: cover;
-      border-radius: 8px;
-    }
-
-    .topnav {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .topnav a {
-      min-height: 38px;
-      display: inline-flex;
-      align-items: center;
-      padding: 0 12px;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      color: var(--muted);
-      text-decoration: none;
-      font-weight: 650;
-    }
-
-    .topnav a:hover {
-      border-color: var(--line);
-      color: var(--fg);
-      background: color-mix(in srgb, var(--bg), var(--fg) 4%);
-    }
-
-    .hero-header {
-      padding: 64px 0 36px;
-      display: grid;
-      gap: 22px;
-      grid-template-columns: 92px 1fr;
-      align-items: center;
-    }
-
-    .brand-icon {
-      width: 92px;
-      height: 92px;
-      object-fit: cover;
-      border-radius: 18px;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(2.4rem, 8vw, 5.6rem);
-      line-height: 0.95;
-      letter-spacing: 0;
-    }
-
-    p {
-      margin: 0 0 18px;
-      color: var(--muted);
-      max-width: 720px;
-    }
-
-    a {
-      color: inherit;
-    }
-
-    nav {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin: 28px 0 44px;
-    }
-
-    .download {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      min-height: 48px;
-      padding: 0 18px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      text-decoration: none;
-      font-weight: 650;
-      background: color-mix(in srgb, var(--bg), var(--fg) 4%);
-    }
-
-    .download:hover {
-      border-color: var(--accent);
+    .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand img { width: 28px; height: 28px; object-fit: contain; filter: var(--logo-shadow); }
+    .brand-name { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+    .pill {
+      font-size: 10px; font-weight: 660; padding: 2.5px 8px; border-radius: 999px;
+      background: var(--surface); border: 0.5px solid var(--hairline-2);
       color: var(--accent);
     }
+    .nav-links { display: flex; gap: 2px; margin-left: auto; }
+    .nav-links a {
+      font-size: 12.5px; color: var(--text-dim); font-weight: 540;
+      letter-spacing: -0.1px; text-decoration: none;
+      padding: 6px 10px; border-radius: 8px;
+    }
+    .nav-links a:hover { color: var(--text); background: var(--surface-2); }
 
-    svg {
-      width: 21px;
-      height: 21px;
-      flex: 0 0 auto;
+    /* Theme toggle */
+    .toggle {
+      width: 32px; height: 19px; border-radius: 999px;
+      background: var(--surface-2); border: 0.5px solid var(--hairline-2);
+      position: relative; cursor: pointer; padding: 0; flex: 0 0 auto;
+      transition: background .18s;
+    }
+    .toggle::after {
+      content: ""; position: absolute; top: 1.5px; left: 1.5px;
+      width: 15px; height: 15px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      transition: left .18s;
+    }
+    .toggle[aria-pressed="true"] { background: var(--accent); border-color: transparent; }
+    .toggle[aria-pressed="true"]::after { left: 14px; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 7px 13px; border-radius: 999px;
+      font-size: 12.5px; font-weight: 590; letter-spacing: -0.05px;
+      border: 0.5px solid var(--hairline-2); cursor: pointer;
+      text-decoration: none; color: var(--text); background: var(--surface-2);
+      transition: transform .12s, opacity .12s;
+      white-space: nowrap;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn svg { width: 14px; height: 14px; }
+    .btn-primary {
+      background: var(--accent); color: var(--accent-ink);
+      border-color: transparent;
+      box-shadow: 0 4px 14px -4px var(--glow);
+    }
+    .btn-lg { padding: 11px 18px; font-size: 14px; }
+
+    /* ── Hero ────────────────────────────────────────────────────────────── */
+    .hero { padding: 64px 0 40px; position: relative; }
+    .eyebrow {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 22px;
+      font-size: 11px; font-weight: 580; letter-spacing: 1.2px;
+      text-transform: uppercase; color: var(--text-dim);
+    }
+    .eyebrow svg { width: 14px; height: 14px; color: var(--accent); }
+    h1 {
+      font-size: clamp(2.6rem, 7vw, 4.75rem);
+      font-weight: 760; letter-spacing: -2.4px; line-height: 0.95;
+      margin: 0; max-width: 14ch;
+    }
+    h1 .dim { color: var(--text-dim); }
+    .hero p {
+      font-size: 17.5px; color: var(--text-dim); line-height: 1.45;
+      max-width: 620px; margin: 22px 0 0;
+    }
+    .hero-cta { display: flex; gap: 12px; margin-top: 30px; align-items: center; flex-wrap: wrap; }
+    .ship {
+      display: flex; align-items: center; gap: 6px; margin-left: 4px;
+      font-size: 11.5px; color: var(--text-dim); font-weight: 540;
+    }
+    .ship strong { color: var(--text); }
+    .hero-logo {
+      position: absolute; right: 0; top: 40px;
+      width: clamp(140px, 22vw, 260px); opacity: 0.42;
+      pointer-events: none; filter: var(--logo-shadow);
     }
 
-    ul {
-      margin: 0;
-      padding-left: 1.2em;
-      color: var(--muted);
+    /* Pulse dot */
+    .pulse { position: relative; width: 7px; height: 7px; display: inline-block; flex: 0 0 auto; }
+    .pulse::before, .pulse::after {
+      content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--good);
+    }
+    .pulse::before { animation: rmk-pulse 1.8s ease-out infinite; }
+    @keyframes rmk-pulse {
+      0% { transform: scale(1); opacity: 0.8; }
+      80%, 100% { transform: scale(2.6); opacity: 0; }
     }
 
-    li + li {
-      margin-top: 8px;
+    /* ── App preview ─────────────────────────────────────────────────────── */
+    .preview { padding: 20px 0 60px; }
+    .preview-frame {
+      border-radius: 22px; overflow: hidden;
+      border: 0.5px solid var(--hairline-2);
+      box-shadow: 0 60px 120px -50px var(--glow), 0 24px 60px -30px rgba(0,0,0,0.5);
+      transform: perspective(2400px) rotateX(2deg);
+      transform-origin: center top;
+      background: var(--bg-deep);
     }
+    .preview-frame img { display: block; width: 100%; height: auto; }
 
-    code {
-      font-family: "SF Mono", Menlo, monospace;
-      font-size: 0.92em;
-    }
-
-    section {
-      padding: 38px 0;
-      border-top: 1px solid var(--line);
-    }
-
+    /* ── Sections ────────────────────────────────────────────────────────── */
+    section { padding: 44px 0; position: relative; }
     h2 {
-      margin: 0 0 14px;
-      font-size: clamp(1.7rem, 4vw, 3rem);
-      line-height: 1.05;
-      letter-spacing: 0;
+      font-size: clamp(1.8rem, 4vw, 2.4rem);
+      font-weight: 720; letter-spacing: -1px; line-height: 1.05; margin: 0;
+    }
+    .section-lead {
+      font-size: 14.5px; color: var(--text-dim); max-width: 540px;
+      margin: 10px 0 0;
     }
 
-    .lead {
-      font-size: clamp(1.1rem, 2.2vw, 1.35rem);
+    /* Feature grid */
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 30px; }
+    .card {
+      background: var(--surface); border: 0.5px solid var(--hairline);
+      border-radius: 18px; padding: 22px; position: relative; overflow: hidden;
+      box-shadow: inset 0 1px 0 0 var(--hairline-2);
     }
+    .card-glow {
+      position: absolute; width: 200px; height: 200px; border-radius: 50%;
+      filter: blur(60px); background: var(--accent); opacity: 0.08;
+      top: -80px; right: -60px;
+    }
+    .card-icon {
+      width: 38px; height: 38px; border-radius: 11px;
+      background: var(--surface-2); border: 0.5px solid var(--hairline-2);
+      color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 14px; position: relative;
+    }
+    .card-icon svg { width: 20px; height: 20px; }
+    .card-title { font-size: 15px; font-weight: 660; letter-spacing: -0.2px; margin-bottom: 5px; }
+    .card-desc { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
 
-    .proof {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 24px;
+    /* Compatibility table */
+    .compat-head { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+    .compat-head span { font-size: 12px; color: var(--text-mute); margin-bottom: 4px; }
+    .table {
+      background: var(--surface); border: 0.5px solid var(--hairline);
+      border-radius: 18px; overflow: hidden; margin-top: 22px;
+    }
+    .trow {
+      display: grid; grid-template-columns: 36px 2fr 1.1fr 1.2fr 1.3fr 0.8fr;
+      gap: 14px; padding: 12px 18px; align-items: center;
+    }
+    .thead {
+      background: var(--surface-2); border-bottom: 0.5px solid var(--hairline);
+      font-size: 10.5px; color: var(--text-mute); font-weight: 620;
+      letter-spacing: 0.6px; text-transform: uppercase;
+    }
+    .trow + .trow.tbody { border-top: 0.5px solid var(--hairline); }
+    .tbody { font-size: 12px; color: var(--text-dim); }
+    .tbody .game { color: var(--text); font-weight: 580; }
+    .cover {
+      width: 28px; height: 28px; border-radius: 7px; flex: 0 0 auto;
+      display: flex; align-items: center; justify-content: center;
+      font: 700 8px/1 ui-monospace, Menlo, monospace; color: #fff;
+      letter-spacing: 0.5px;
+      background:
+        radial-gradient(circle at var(--wx, 40%) 30%, oklch(0.55 0.18 25 / 0.55), transparent 70%),
+        linear-gradient(var(--ang, 120deg), oklch(0.34 0.02 25), oklch(0.22 0.01 25));
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 8px; border-radius: 999px;
+      font-size: 10px; font-weight: 660; letter-spacing: 0.5px; text-transform: uppercase;
+      border: 0.5px solid var(--hairline);
+    }
+    .badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+    .badge-gold   { background: color-mix(in oklab, var(--good) 14%, transparent); color: var(--good); }
+    .badge-silver { background: color-mix(in oklab, var(--warn) 14%, transparent); color: var(--warn); }
+    .badge-bronze { background: var(--surface-2); color: var(--text-dim); }
+    .status-cell { text-align: right; }
+
+    /* Install card */
+    .install-card {
+      background: var(--surface); border: 0.5px solid var(--hairline);
+      border-radius: 22px; padding: 36px; position: relative; overflow: hidden;
       margin-top: 22px;
     }
-
-    .wide {
-      grid-column: 1 / -1;
+    .install-glow {
+      position: absolute; width: 380px; height: 380px; border-radius: 50%;
+      filter: blur(120px); background: var(--accent); opacity: 0.10;
+      top: -150px; right: -100px;
     }
-
-    figure {
-      margin: 0;
+    .install-grid {
+      position: relative; display: grid; grid-template-columns: 1.2fr 1fr; gap: 36px;
     }
+    .install-grid h2 { font-size: clamp(1.5rem, 3vw, 1.9rem); }
+    .install-grid p { font-size: 13.5px; color: var(--text-dim); line-height: 1.5; margin: 10px 0 18px; max-width: 460px; }
 
-    figure img {
-      display: block;
-      width: 100%;
-      height: auto;
-      border-radius: 8px;
-      border: 1px solid var(--line);
-      background: #000;
+    /* Terminal */
+    .term {
+      border-radius: 12px; overflow: hidden;
+      border: 0.5px solid var(--hairline-2); background: var(--bg-deep);
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
     }
-
-    figcaption {
-      margin-top: 10px;
-      color: var(--muted);
-      font-size: 0.95rem;
+    .term-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 11px; background: var(--surface);
+      border-bottom: 0.5px solid var(--hairline);
     }
+    .lights { display: flex; gap: 7px; }
+    .lights span { width: 11px; height: 11px; border-radius: 50%; box-shadow: inset 0 0 0 0.5px rgba(0,0,0,0.18); }
+    .term-title { font-size: 10.5px; color: var(--text-mute); margin-left: 4px; letter-spacing: 0.4px; }
+    .term-body { padding: 12px 13px; font-size: 11.4px; line-height: 1.6; color: var(--text-dim); }
+    .term-body .c { color: var(--accent); }
+    .term-body .t { color: var(--text); }
+    .term-body .g { color: var(--good); }
 
-    .links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 14px 22px;
-      margin-top: 8px;
+    .req-label {
+      font-size: 11px; color: var(--text-mute); font-weight: 620;
+      letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 14px;
     }
+    .req-row { display: flex; align-items: baseline; gap: 12px; font-size: 13px; margin-bottom: 12px; }
+    .req-row .k { width: 64px; color: var(--text-mute); font-weight: 580; flex: 0 0 auto; }
+    .req-row .v { color: var(--text); }
+    .req-actions { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 14px; border-top: 0.5px solid var(--hairline); }
 
-    .links a {
-      color: var(--accent);
-      font-weight: 650;
-      text-decoration-thickness: 1px;
-      text-underline-offset: 4px;
-    }
-
-    @media (max-width: 760px) {
-      .topbar-inner {
-        min-height: auto;
-        padding: 12px 0;
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      .topnav {
-        margin-left: 0;
-      }
-
-      .hero-header {
-        grid-template-columns: 72px 1fr;
-      }
-
-      .brand-icon {
-        width: 72px;
-        height: 72px;
-        border-radius: 14px;
-      }
-
-      .proof {
-        grid-template-columns: 1fr;
-      }
-    }
-
+    /* Footer */
     footer {
-      margin-top: 56px;
-      padding: 22px 0 44px;
-      border-top: 1px solid var(--line);
-      color: var(--muted);
-      font-size: 0.92rem;
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 32px 0 50px; font-size: 11.5px; color: var(--text-mute);
+      border-top: 0.5px solid var(--hairline);
+    }
+    footer img { width: 22px; height: 22px; object-fit: contain; }
+    footer .spacer { flex: 1; }
+    footer a { color: var(--text-dim); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    /* ── Responsive ──────────────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .features { grid-template-columns: repeat(2, 1fr); }
+      .install-grid { grid-template-columns: 1fr; gap: 24px; }
+      .hero-logo { opacity: 0.18; }
+    }
+    @media (max-width: 680px) {
+      .nav-links { display: none; }
+      .features { grid-template-columns: 1fr; }
+      h1 { letter-spacing: -1.4px; }
+      .trow { grid-template-columns: 30px 1.4fr 0.7fr; }
+      .trow .col-runner, .trow .col-flags, .trow .col-notes { display: none; }
+      .install-card { padding: 24px; }
+      .preview-frame { transform: none; }
     }
   </style>
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <a class="brand" href="index.html">
-        <img src="Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt="">
-        <span>RipperMoonKit</span>
-      </a>
-      <nav class="topnav" aria-label="Top navigation">
-        <a href="docs/index.html">Docs</a>
-        <a href="docs/installation.html">Installation</a>
-        <a href="docs/commands.html">Commands</a>
-        <a href="docs/faq.html">Q&amp;A</a>
-        <a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download</a>
-      </nav>
-    </div>
-  </header>
+  <div class="wash wash-1"></div>
+  <div class="wash wash-2"></div>
 
-  <header class="hero-header">
-    <img class="brand-icon" src="Sources/RipperMoonKitLauncher/Resources/RipperMoonKitLogo.jpg" alt="RipperMoonKit app icon">
-    <h1>RipperMoonKit</h1>
-  </header>
-
-  <main>
-    <p class="lead">
-      A clean macOS launcher for Apple Game Porting Toolkit game profiles,
-      copied Windows game folders, Steam support, external drives, and rollback-safe updates.
-    </p>
-
-    <nav aria-label="Downloads">
-      <a class="download" href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="currentColor" d="M5 3h10l4 4v14H5V3Zm9 1.8V8h3.2L14 4.8ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z"/>
-        </svg>
-        Download DMG
-      </a>
-      <a class="download" href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-source.zip">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="currentColor" d="M4 4h16v4h-2V6H6v12h12v-2h2v4H4V4Zm8 4h2v3h3v2h-3v3h-2v-3H9v-2h3V8Z"/>
-        </svg>
-        Source ZIP
-      </a>
+  <div class="page">
+    <!-- ── Nav ──────────────────────────────────────────────────────────── -->
+    <nav class="nav">
+      <div class="nav-inner">
+        <a class="brand" href="index.html">
+          <img src="docs/assets/rippermoonlogo.png" alt="RipperMoonKit">
+          <span class="brand-name">RipperMoonKit</span>
+        </a>
+        <span class="pill mono">v1.0.0</span>
+        <div class="nav-links">
+          <a href="#features">Features</a>
+          <a href="#games">Games</a>
+          <a href="#install">Install</a>
+          <a href="docs/index.html">Docs</a>
+          <a href="https://github.com/MoonTheRipper/RipperMoonKit/releases">Changelog</a>
+        </div>
+        <button class="toggle" id="themeToggle" aria-pressed="false" aria-label="Toggle light mode"></button>
+        <a class="btn btn-primary" href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>
+          Download for macOS
+        </a>
+      </div>
     </nav>
 
-    <section>
-      <h2>Proof Of Concept</h2>
+    <!-- ── Hero ─────────────────────────────────────────────────────────── -->
+    <header class="wrap hero">
+      <img class="hero-logo" src="docs/assets/rippermoonlogo.png" alt="">
+      <div class="eyebrow">
+        <svg viewBox="0 0 24 24"><defs><mask id="m"><rect width="24" height="24" fill="#fff"/><circle cx="16" cy="12" r="9" fill="#000"/></mask></defs><circle cx="12" cy="12" r="9" fill="currentColor" mask="url(#m)"/></svg>
+        For Apple Game Porting Toolkit · macOS Apple Silicon
+      </div>
+      <h1>Reap the wine prefix.<br><span class="dim">Run Windows games clean on macOS.</span></h1>
       <p>
-        The screenshots below show the current launcher profile and Elden Ring running on macOS
-        through Apple Game Porting Toolkit 3. The example uses an unofficial copied Windows game
-        folder, Steam support, and an ERSC profile.
+        A native macOS launcher built on Apple's Game Porting Toolkit. Stage your library,
+        manage Wine prefixes, snapshot before every update, and never lose a save to a
+        botched rollback again.
       </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>
+          Download DMG
+        </a>
+        <a class="btn btn-lg" href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-source.zip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-4 6 4 6"/><path d="M16 6l4 6-4 6"/></svg>
+          Source ZIP
+        </a>
+        <span class="ship">
+          <span class="pulse"></span>
+          <span><strong>v1.0.0</strong> · MIT-licensed · open source</span>
+        </span>
+      </div>
+    </header>
 
-      <div class="proof">
-        <figure class="wide">
-          <img src="docs/assets/rippermoonkit-gui.png" alt="RipperMoonKit launcher showing an Elden Ring ERSC game profile on macOS" loading="lazy">
-          <figcaption>RipperMoonKit keeps each game in its own profile, with its own icon, prefix, game folder, runner, and launch options.</figcaption>
-        </figure>
-
-        <figure>
-          <img src="docs/assets/elden-ring-grace-hud.png" alt="Elden Ring running on macOS through Game Porting Toolkit with the performance HUD visible" loading="lazy">
-          <figcaption>Elden Ring running through GPTK with the HUD visible, showing the toolkit path is active during gameplay.</figcaption>
-        </figure>
-
-        <figure>
-          <img src="docs/assets/elden-ring-godrick-hud.png" alt="Elden Ring boss fight running on macOS through Game Porting Toolkit with the HUD visible" loading="lazy">
-          <figcaption>A second gameplay capture from the same setup, included as a practical proof of concept rather than a benchmark.</figcaption>
-        </figure>
+    <!-- ── App preview ──────────────────────────────────────────────────── -->
+    <section class="wrap preview">
+      <div class="preview-frame">
+        <img src="docs/assets/rippermoonkit-gui.png" alt="RipperMoonKit launcher showing an Elden Ring game profile on macOS" loading="lazy">
       </div>
     </section>
 
-    <section>
-      <h2>What It Helps With</h2>
-      <ul>
-        <li>Create separate launch profiles for each game or app.</li>
-        <li>Use your own Apple Game Porting Toolkit 3 download from Apple.</li>
-        <li>Map external drives without editing hidden config files by hand.</li>
-        <li>Start or stop Steam separately from the game you are running.</li>
-        <li>Launch randomized Elden Ring through ModEngine while keeping the normal non-ModEngine path separate.</li>
-        <li>Keep saves, prefixes, Steam data, games, and GPTK runtimes outside the repository.</li>
-      </ul>
-    </section>
-
-    <section>
-      <h2>Community Tools</h2>
-      <p>
-        The Elden Ring Mod Manager coordinates local setup around user-downloaded tools.
-        ModEngine 2 provides the mod loader path, ERSC provides the co-op flow, and the
-        elden-randomizer-coop setup reference helped shape the repeatable macOS workflow.
+    <!-- ── Features ─────────────────────────────────────────────────────── -->
+    <section class="wrap" id="features">
+      <h2>A toolkit, not another store.</h2>
+      <p class="section-lead">
+        Drop your games on an external drive, map them to Wine prefixes, and launch with the
+        exact GPTK flags each title needs.
       </p>
-      <div class="links">
-        <a href="https://github.com/soulsmods/ModEngine2">ModEngine 2</a>
-        <a href="https://www.nexusmods.com/eldenring/mods/510">Elden Ring Seamless Co-op / ERSC</a>
-        <a href="https://github.com/MoonTheRipper/elden-randomizer-coop">elden-randomizer-coop</a>
+      <div class="features">
+        <div class="card">
+          <div class="card-glow"></div>
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6"/><path d="M19 3v4h-4"/><circle cx="12" cy="14" r="6"/><path d="M12 11.5V14l2 1.5"/></svg>
+          </div>
+          <div class="card-title">Update safeguards</div>
+          <div class="card-desc">Every toolkit update snapshots your prefix tree. One-click rollback if a runner breaks your save.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 16l9 5 9-5"/></svg>
+          </div>
+          <div class="card-title">Mod stack manager</div>
+          <div class="card-desc">ModEngine 2, Seamless Coop, Randomizer — toggle layers, see the resolved load order.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-4 6 4 6"/><path d="M16 6l4 6-4 6"/></svg>
+          </div>
+          <div class="card-title">Resolved commands</div>
+          <div class="card-desc">See the exact shell line you'd type. Copy it, debug it, ship it to a friend.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="13" width="18" height="6.5" rx="1.5"/><path d="M5 13L7 5h10l2 8"/><circle cx="7" cy="16.25" r="0.7" fill="currentColor"/></svg>
+          </div>
+          <div class="card-title">Drive mappings</div>
+          <div class="card-desc">Map S: X: I: to your external root. Your prefixes stay portable across machines.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12a4 4 0 0 1 4 4v2a3 3 0 0 1-5.6 1.5L15 13H9l-1.4 3.5A3 3 0 0 1 2 14v-2a4 4 0 0 1 4-4z"/><path d="M8 10.5v2.5M6.75 11.75h2.5"/></svg>
+          </div>
+          <div class="card-title">Per-game profiles</div>
+          <div class="card-desc">winver, DLL overrides, MetalFX, AVX, esync — saved per game, never shared.</div>
+        </div>
+        <div class="card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 21L18 5"/><path d="M3.2 18l5.3-2.5"/><path d="M18 5Q9.5 1 2.5 7Q10 5 17 8.5Z" fill="currentColor" stroke-width="0.8"/></svg>
+          </div>
+          <div class="card-title">Clean uninstall</div>
+          <div class="card-desc">Remove the toolkit, the prefixes, or both. No ghost files left under ~/Library.</div>
+        </div>
       </div>
     </section>
 
-    <section>
-      <h2>Start Here</h2>
-      <p>
-        New users should begin with the quickstart, then open the GUI guide or the Elden Ring example
-        depending on what they want to run first.
-      </p>
-      <div class="links">
-        <a href="docs/installation.html">Installation</a>
-        <a href="docs/gui.html">Launcher Guide</a>
-        <a href="docs/elden-ring.html">Elden Ring ERSC Example</a>
-        <a href="docs/index.html">All Documentation</a>
+    <!-- ── Compatibility ────────────────────────────────────────────────── -->
+    <section class="wrap" id="games">
+      <div class="compat-head">
+        <h2>Field-tested.</h2>
+        <span>Profiles maintained by the community. Submit a PR with your own.</span>
+      </div>
+      <div class="table">
+        <div class="trow thead">
+          <div></div><div>Game</div><div class="col-runner">Runner</div><div class="col-flags">Flags</div><div class="col-notes">Notes</div><div class="status-cell">Status</div>
+        </div>
+        <div class="trow tbody">
+          <div class="cover" style="--ang:120deg;--wx:30%">ER</div>
+          <div class="game">Elden Ring + Seamless Coop</div>
+          <div class="mono col-runner">gptk-dsound-nocap</div>
+          <div class="mono col-flags">winmm · noEsync · MetalFX</div>
+          <div class="col-notes">Mod Engine 2 verified</div>
+          <div class="status-cell"><span class="badge badge-gold"><span class="badge-dot" style="background:var(--good)"></span>Gold</span></div>
+        </div>
+        <div class="trow tbody">
+          <div class="cover" style="--ang:60deg;--wx:70%">CL</div>
+          <div class="game">Clair Obscur: Expedition 33</div>
+          <div class="mono col-runner">gptk-baseline</div>
+          <div class="mono col-flags">AVX · noDxr</div>
+          <div class="col-notes">Steam launch only</div>
+          <div class="status-cell"><span class="badge badge-gold"><span class="badge-dot" style="background:var(--good)"></span>Gold</span></div>
+        </div>
+        <div class="trow tbody">
+          <div class="cover" style="--ang:150deg;--wx:45%">CR</div>
+          <div class="game">Crusader Kings III</div>
+          <div class="mono col-runner">gptk-dsound</div>
+          <div class="mono col-flags">noEsync · steam_api64</div>
+          <div class="col-notes">Native, very stable</div>
+          <div class="status-cell"><span class="badge badge-gold"><span class="badge-dot" style="background:var(--good)"></span>Gold</span></div>
+        </div>
+        <div class="trow tbody">
+          <div class="cover" style="--ang:30deg;--wx:60%">GO</div>
+          <div class="game">God of War Ragnarök</div>
+          <div class="mono col-runner">gptk-dsound-nocap</div>
+          <div class="mono col-flags">MetalFX/DLSS · HUD</div>
+          <div class="col-notes">Cutscene stutter on M1</div>
+          <div class="status-cell"><span class="badge badge-silver"><span class="badge-dot" style="background:var(--warn)"></span>Silver</span></div>
+        </div>
+        <div class="trow tbody">
+          <div class="cover" style="--ang:100deg;--wx:35%">V</div>
+          <div class="game">V Rising</div>
+          <div class="mono col-runner">gptk-baseline</div>
+          <div class="mono col-flags">noEsync</div>
+          <div class="col-notes">Hosted servers OK</div>
+          <div class="status-cell"><span class="badge badge-gold"><span class="badge-dot" style="background:var(--good)"></span>Gold</span></div>
+        </div>
+        <div class="trow tbody">
+          <div class="cover" style="--ang:75deg;--wx:55%">DI</div>
+          <div class="game">Dispatch</div>
+          <div class="mono col-runner">gptk-baseline</div>
+          <div class="mono col-flags">DLL overrides</div>
+          <div class="col-notes">Needs API stubs</div>
+          <div class="status-cell"><span class="badge badge-bronze"><span class="badge-dot" style="background:var(--text-mute)"></span>Bronze</span></div>
+        </div>
       </div>
     </section>
-  </main>
 
-  <footer>
-    <span>Documentation and source: </span>
-    <a href="https://github.com/MoonTheRipper/RipperMoonKit">github.com/MoonTheRipper/RipperMoonKit</a>
-  </footer>
+    <!-- ── Install ──────────────────────────────────────────────────────── -->
+    <section class="wrap" id="install">
+      <div class="install-card">
+        <div class="install-glow"></div>
+        <div class="install-grid">
+          <div>
+            <h2>One install script.</h2>
+            <p>
+              Drop the toolkit on any Apple Silicon Mac running Sonoma or later. The installer
+              wires up GPTK, Wine, and your prefix tree.
+            </p>
+            <div class="term">
+              <div class="term-bar">
+                <div class="lights">
+                  <span style="background:#ff5f57"></span>
+                  <span style="background:#febc2e"></span>
+                  <span style="background:#28c840"></span>
+                </div>
+                <span class="term-title">install.zsh</span>
+              </div>
+              <div class="term-body">
+                <div><span class="c">$ </span><span class="t">git clone https://github.com/MoonTheRipper/RipperMoonKit.git</span></div>
+                <div><span class="c">$ </span><span class="t">cd RipperMoonKit &amp;&amp; ./install.zsh</span></div>
+                <div class="g">→ Fetching gptk-dsound-nocap-20260513…</div>
+                <div class="g">✓ Installed to ~/GPTK</div>
+                <div class="g">✓ Mapped S: X: I: drives</div>
+                <div class="g">→ Open the app to add games.</div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="req-label">Requirements</div>
+            <div class="req-row"><span class="k">macOS</span><span class="v">Sonoma 14.4 or Sequoia 15+</span></div>
+            <div class="req-row"><span class="k">CPU</span><span class="v">Apple Silicon (M1/M2/M3/M4)</span></div>
+            <div class="req-row"><span class="k">RAM</span><span class="v">16 GB recommended</span></div>
+            <div class="req-row"><span class="k">Disk</span><span class="v">~80 GB for GPTK + prefixes</span></div>
+            <div class="req-row"><span class="k">Steam</span><span class="v">Required for most titles</span></div>
+            <div class="req-actions">
+              <a class="btn btn-primary" href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>
+                Download .dmg
+              </a>
+              <a class="btn" href="https://github.com/MoonTheRipper/RipperMoonKit">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l-4 6 4 6"/><path d="M16 6l4 6-4 6"/></svg>
+                View on GitHub
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Start here ───────────────────────────────────────────────────── -->
+    <section class="wrap">
+      <h2>Start here.</h2>
+      <p class="section-lead">
+        New users should begin with installation, then open the launcher guide or the Elden Ring
+        example depending on what they want to run first.
+      </p>
+      <div class="features" style="margin-top:24px">
+        <a class="card" style="text-decoration:none" href="docs/installation.html">
+          <div class="card-title">Installation →</div>
+          <div class="card-desc">Set up GPTK, Wine, and the toolkit paths on a fresh Mac.</div>
+        </a>
+        <a class="card" style="text-decoration:none" href="docs/gui.html">
+          <div class="card-title">Launcher guide →</div>
+          <div class="card-desc">Tour the app — profiles, mod stacks, backups, settings.</div>
+        </a>
+        <a class="card" style="text-decoration:none" href="docs/elden-ring.html">
+          <div class="card-title">Elden Ring example →</div>
+          <div class="card-desc">The ERSC + ModEngine + Randomizer proof of concept.</div>
+        </a>
+      </div>
+    </section>
+
+    <!-- ── Footer ───────────────────────────────────────────────────────── -->
+    <footer class="wrap">
+      <img src="docs/assets/rippermoonlogo.png" alt="">
+      <span>RipperMoonKit · MIT · 2026 · Not affiliated with Apple, FromSoftware, or Valve.</span>
+      <span class="spacer"></span>
+      <a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      <a href="https://github.com/MoonTheRipper/RipperMoonKit/issues">Issues</a>
+      <a href="docs/index.html">Docs</a>
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var toggle = document.getElementById('themeToggle');
+      var stored = null;
+      try { stored = localStorage.getItem('rmk-theme'); } catch (e) {}
+
+      function prefersDark() {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+      function isDark() {
+        var theme = root.getAttribute('data-theme');
+        return theme ? theme === 'dark' : prefersDark();
+      }
+      function apply(theme) {
+        if (theme) root.setAttribute('data-theme', theme);
+        else root.removeAttribute('data-theme');
+        document.body.classList.toggle('onyx-dark', isDark());
+        // toggle is "light mode on" when pressed
+        toggle.setAttribute('aria-pressed', String(!isDark()));
+      }
+
+      apply(stored);
+
+      toggle.addEventListener('click', function () {
+        var next = isDark() ? 'light' : 'dark';
+        try { localStorage.setItem('rmk-theme', next); } catch (e) {}
+        apply(next);
+      });
+
+      if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+          if (!root.getAttribute('data-theme')) apply(null);
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

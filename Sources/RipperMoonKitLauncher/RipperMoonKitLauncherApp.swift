@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+// MARK: - App
+
 @main
 struct RipperMoonKitLauncherApp: App {
     @StateObject private var model = LauncherModel()
@@ -10,9 +12,10 @@ struct RipperMoonKitLauncherApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(model)
-                .frame(minWidth: 1040, minHeight: 680)
+                .frame(minWidth: 1080, minHeight: 680)
         }
-        .windowStyle(.titleBar)
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentMinSize)
     }
 }
 
@@ -23,118 +26,935 @@ private enum SidebarSelection: Hashable {
     case settings
 }
 
-private struct ContentView: View {
-    @EnvironmentObject private var model: LauncherModel
-    @State private var selection: SidebarSelection?
+private let rmkAppVersion: String =
+    (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.0"
 
-    var body: some View {
-        NavigationSplitView {
-            List(selection: $selection) {
-                Section("Library") {
-                    Label("Games & Apps", systemImage: "square.grid.2x2.fill")
-                        .tag(SidebarSelection.library)
-                }
+// MARK: - Onyx theme
+//
+// Black / white / scarlet palette from the RipperMoonKit redesign. Subtle Apple
+// Tahoe cues: large radii, layered hairlines, soft scarlet accent. Every color
+// is appearance-dynamic, so the app tracks light/dark automatically.
 
-                Section("Toolkit") {
-                    Label("Backups", systemImage: "clock.arrow.circlepath")
-                        .tag(SidebarSelection.backups)
-                    Label("Settings", systemImage: "gearshape.fill")
-                        .tag(SidebarSelection.settings)
-                }
-            }
-            .navigationTitle("RipperMoonKit")
-        } detail: {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    HeaderView(profile: headerProfile)
-
-                    switch selection ?? model.defaultSelection {
-                    case .library:
-                        LibraryView(selection: $selection)
-                    case .profile(let id):
-                        if let profile = model.profileBinding(id: id) {
-                            ProfileDetailView(profile: profile)
-                        } else {
-                            EmptyStateView(title: "Profile Missing", detail: "Choose another app or add a new one.")
-                        }
-                    case .backups:
-                        BackupsView()
-                    case .settings:
-                        SettingsView()
-                    }
-                }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-            }
-            .background(Color(nsColor: .windowBackgroundColor))
+private enum Onyx {
+    private static func dyn(
+        light: (CGFloat, CGFloat, CGFloat, CGFloat),
+        dark: (CGFloat, CGFloat, CGFloat, CGFloat)
+    ) -> Color {
+        let nsColor = NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            let c = isDark ? dark : light
+            return NSColor(srgbRed: c.0, green: c.1, blue: c.2, alpha: c.3)
         }
-        .onAppear {
-            model.reload()
-            selection = selection ?? model.defaultSelection
-        }
-        .toolbar {
-            ToolbarItemGroup {
-                Button {
-                    let profile = model.addProfile()
-                    selection = .profile(profile.id)
-                } label: {
-                    Label("Add Game", systemImage: "plus")
-                }
-                .help("Add game or app")
-            }
-        }
-        .sheet(isPresented: $model.showSetupGuide) {
-            SetupGuideView()
-                .environmentObject(model)
-                .frame(width: 620)
-        }
+        return Color(nsColor: nsColor)
     }
 
-    private var headerProfile: GameProfile? {
-        guard case .profile(let id) = selection ?? model.defaultSelection else { return nil }
-        return model.profiles.first { $0.id == id }
+    static let bg        = dyn(light: (0.984, 0.984, 0.984, 1), dark: (0.102, 0.102, 0.102, 1))
+    static let bgDeep    = dyn(light: (0.937, 0.937, 0.937, 1), dark: (0.063, 0.063, 0.063, 1))
+    static let surface   = dyn(light: (1.000, 1.000, 1.000, 1), dark: (0.149, 0.149, 0.149, 1))
+    static let surface2  = dyn(light: (0.949, 0.949, 0.949, 1), dark: (0.205, 0.205, 0.205, 1))
+    static let text      = dyn(light: (0.110, 0.110, 0.110, 1), dark: (0.969, 0.969, 0.969, 1))
+    static let textDim   = dyn(light: (0.345, 0.345, 0.345, 1), dark: (0.660, 0.660, 0.660, 1))
+    static let textMute  = dyn(light: (0.560, 0.560, 0.560, 1), dark: (0.480, 0.480, 0.480, 1))
+    static let hairline  = dyn(light: (0, 0, 0, 0.08), dark: (1, 1, 1, 0.08))
+    static let hairline2 = dyn(light: (0, 0, 0, 0.14), dark: (1, 1, 1, 0.14))
+    static let accent    = dyn(light: (0.710, 0.122, 0.090, 1), dark: (0.878, 0.184, 0.137, 1))
+    static let accent2   = dyn(light: (0.560, 0.110, 0.080, 1), dark: (0.690, 0.150, 0.110, 1))
+    static let accentInk = dyn(light: (0.99, 0.99, 0.99, 1), dark: (0.99, 0.99, 0.99, 1))
+    static let good      = dyn(light: (0.180, 0.490, 0.318, 1), dark: (0.471, 0.706, 0.553, 1))
+    static let warn      = dyn(light: (0.620, 0.450, 0.160, 1), dark: (0.820, 0.660, 0.400, 1))
+    static let glow      = dyn(light: (0.710, 0.122, 0.090, 0.45), dark: (0.878, 0.184, 0.137, 0.5))
+
+    static let cardRadius: CGFloat = 16
+    static let tileRadius: CGFloat = 12
+}
+
+/// Deterministic per-game seed used to vary the placeholder cover art.
+private func coverSeed(_ name: String) -> Int {
+    name.unicodeScalars.reduce(0) { $0 &+ Int($1.value) }
+}
+
+// MARK: - Flow layout (wrapping button rows)
+
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth, x > 0 {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        return CGSize(width: maxWidth == .infinity ? max(x - spacing, 0) : maxWidth, height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX, x > bounds.minX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            view.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }
 
-private struct LibraryView: View {
-    @EnvironmentObject private var model: LauncherModel
-    @Binding var selection: SidebarSelection?
+// MARK: - Primitives
 
-    private let columns = [
-        GridItem(.adaptive(minimum: 170, maximum: 230), spacing: 14)
-    ]
+private struct BrandMark: View {
+    var size: CGFloat = 26
+    var glow: Bool = false
+
+    /// Loaded once from the package resource bundle. `Image(_:bundle:)` does not
+    /// reliably resolve a loose PNG in a flat SPM resource bundle on macOS, so the
+    /// logo is loaded by URL instead.
+    private static let logo: NSImage? = {
+        guard let url = Bundle.module.url(forResource: "rippermoonlogo", withExtension: "png") else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
+    }()
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Library")
-                        .font(.title.weight(.semibold))
-                    Text("\(model.profiles.count) games and apps")
-                        .foregroundStyle(.secondary)
-                }
+        Group {
+            if let logo = BrandMark.logo {
+                Image(nsImage: logo).resizable().scaledToFit()
+            } else {
+                Image(systemName: "moon.stars.fill")
+                    .resizable().scaledToFit()
+                    .foregroundStyle(Onyx.accent)
+            }
+        }
+        .frame(width: size, height: size)
+        .shadow(color: glow ? Onyx.glow.opacity(0.5) : .clear, radius: glow ? 7 : 0)
+    }
+}
 
+private struct PulseDot: View {
+    var color: Color
+    var size: CGFloat = 7
+    @State private var animating = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(color)
+                .scaleEffect(animating ? 2.6 : 1)
+                .opacity(animating ? 0 : 0.8)
+            Circle().fill(color)
+        }
+        .frame(width: size, height: size)
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.8).repeatForever(autoreverses: false)) {
+                animating = true
+            }
+        }
+    }
+}
+
+private struct RMKButton: View {
+    enum Kind { case primary, ghost, soft, danger }
+
+    var kind: Kind = .ghost
+    var icon: String? = nil
+    var title: String
+    var small: Bool = false
+    var disabled: Bool = false
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if let icon { Image(systemName: icon).font(.system(size: small ? 10 : 11, weight: .semibold)) }
+                Text(title)
+            }
+            .font(.system(size: small ? 11.5 : 12.5, weight: .medium))
+            .foregroundStyle(foreground)
+            .padding(.horizontal, small ? 10 : 13)
+            .padding(.vertical, small ? 5 : 7)
+            .background(background, in: Capsule(style: .continuous))
+            .overlay {
+                Capsule(style: .continuous).strokeBorder(border, lineWidth: 0.75)
+            }
+            .shadow(color: kind == .primary ? Onyx.glow.opacity(0.35) : .clear,
+                    radius: kind == .primary ? 8 : 0, y: 3)
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .opacity(disabled ? 0.4 : 1)
+    }
+
+    private var foreground: Color {
+        switch kind {
+        case .primary: return Onyx.accentInk
+        case .ghost:   return Onyx.text
+        case .soft:    return Onyx.textDim
+        case .danger:  return Onyx.accent
+        }
+    }
+    private var background: Color {
+        switch kind {
+        case .primary: return Onyx.accent
+        case .ghost:   return Onyx.surface2
+        case .soft, .danger: return .clear
+        }
+    }
+    private var border: Color {
+        switch kind {
+        case .primary: return .clear
+        case .ghost:   return Onyx.hairline2
+        case .soft:    return Onyx.hairline
+        case .danger:  return Onyx.hairline
+        }
+    }
+}
+
+private struct RMKChip: View {
+    var title: String
+    var active: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(active ? Onyx.accentInk : Onyx.textDim)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(active ? Onyx.accent : .clear, in: Capsule(style: .continuous))
+                .overlay {
+                    Capsule(style: .continuous)
+                        .strokeBorder(active ? .clear : Onyx.hairline, lineWidth: 0.75)
+                }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct Card<Content: View>: View {
+    let title: String
+    let icon: String
+    var trailing: AnyView? = nil
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Onyx.accent)
+                Text(title)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Onyx.text)
+                Spacer(minLength: 8)
+                if let trailing { trailing }
+            }
+            content
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Onyx.surface, in: RoundedRectangle(cornerRadius: Onyx.cardRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Onyx.cardRadius, style: .continuous)
+                .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+        }
+    }
+}
+
+private struct FieldLabel: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(Onyx.textDim)
+            .frame(width: 104, alignment: .leading)
+    }
+}
+
+private struct OnyxField: View {
+    @Binding var text: String
+    var placeholder: String = ""
+    var mono: Bool = false
+    var trailing: AnyView? = nil
+
+    var body: some View {
+        HStack(spacing: 8) {
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+                .font(mono ? .system(size: 12, design: .monospaced) : .system(size: 12.5))
+                .foregroundStyle(Onyx.text)
+            if let trailing { trailing }
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 7)
+        .background(Onyx.bgDeep, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+        }
+    }
+}
+
+private struct FieldRow<Content: View>: View {
+    let label: String
+    @ViewBuilder let content: Content
+    var body: some View {
+        HStack(spacing: 12) {
+            FieldLabel(label)
+            content
+        }
+    }
+}
+
+private struct IconButton: View {
+    let systemImage: String
+    var help: String = ""
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Onyx.textDim)
+                .frame(width: 28, height: 28)
+                .background(Onyx.surface2, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+                }
+        }
+        .buttonStyle(.plain)
+        .help(help)
+    }
+}
+
+private struct PathEditor: View {
+    let title: String
+    @Binding var path: String
+    let action: () -> Void
+    var body: some View {
+        FieldRow(label: title) {
+            OnyxField(text: $path, mono: true)
+            IconButton(systemImage: "folder", help: "Choose \(title)", action: action)
+        }
+    }
+}
+
+private struct ValidationRow: View {
+    let title: String
+    let isOK: Bool
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: isOK ? "checkmark.circle.fill" : "xmark.circle.fill")
+                .foregroundStyle(isOK ? Onyx.good : Onyx.accent)
+            Text(title)
+                .font(.system(size: 12.5))
+                .foregroundStyle(Onyx.text)
+            Spacer()
+            Text(isOK ? "Found" : "Missing")
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(Onyx.textMute)
+                .textCase(.uppercase)
+        }
+    }
+}
+
+/// Cover art — uses the profile icon when present, else a seeded scarlet-washed
+/// gradient with the title initials.
+private struct CoverArt: View {
+    var iconPath: String?
+    var label: String
+    var seed: Int
+    var corner: CGFloat = 12
+    var showLabel: Bool = true
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                if let image = loadedImage {
+                    Image(nsImage: image).resizable().scaledToFill()
+                } else {
+                    LinearGradient(
+                        colors: [Color(white: 0.27), Color(white: 0.15)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                    RadialGradient(
+                        colors: [Onyx.accent.opacity(0.42), .clear],
+                        center: UnitPoint(x: washX, y: 0.28),
+                        startRadius: 1, endRadius: max(geo.size.width, geo.size.height)
+                    )
+                    if showLabel && min(geo.size.width, geo.size.height) > 34 {
+                        Text(initials)
+                            .font(.system(size: min(13, geo.size.height * 0.2),
+                                          weight: .bold, design: .monospaced))
+                            .tracking(1.5)
+                            .foregroundStyle(.white.opacity(0.85))
+                    }
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
+        }
+        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+    }
+
+    private var loadedImage: NSImage? {
+        guard let path = iconPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !path.isEmpty else { return nil }
+        return NSImage(contentsOfFile: path)
+    }
+    private var washX: CGFloat { CGFloat((seed * 71) % 100) / 100 }
+    private var initials: String {
+        let words = label.split(separator: " ")
+        let letters = words.prefix(2).compactMap { $0.first }
+        return String(letters).uppercased()
+    }
+}
+
+private struct Terminal: View {
+    let title: String
+    let body0: String
+    var live: Bool = false
+
+    init(title: String, text: String, live: Bool = false) {
+        self.title = title
+        self.body0 = text
+        self.live = live
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    ForEach([Color(red: 1, green: 0.37, blue: 0.34),
+                             Color(red: 1, green: 0.74, blue: 0.18),
+                             Color(red: 0.16, green: 0.78, blue: 0.25)], id: \.self) { c in
+                        Circle().fill(c).frame(width: 10, height: 10)
+                    }
+                }
+                Text(title)
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(Onyx.textMute)
                 Spacer()
-
-                Button {
-                    let profile = model.addProfile()
-                    selection = .profile(profile.id)
-                } label: {
-                    Label("Add Game", systemImage: "plus")
+                if live {
+                    HStack(spacing: 5) {
+                        PulseDot(color: Onyx.good, size: 6)
+                        Text("LIVE").font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(Onyx.good)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity)
+            .background(Onyx.surface)
+            .overlay(alignment: .bottom) { Rectangle().fill(Onyx.hairline).frame(height: 1) }
+
+            ScrollView {
+                Text(body0.isEmpty ? "No activity yet." : body0)
+                    .font(.system(size: 11.2, design: .monospaced))
+                    .foregroundStyle(body0.isEmpty ? Onyx.textMute : Onyx.textDim)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+            }
+            .frame(minHeight: 56)
+        }
+        .background(Onyx.bgDeep)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Onyx.hairline2, lineWidth: 0.75)
+        }
+    }
+}
+
+// MARK: - Root
+
+private struct ContentView: View {
+    @EnvironmentObject private var model: LauncherModel
+    @State private var selection: SidebarSelection = .library
+    @State private var sidebarOpen = true
+    @State private var darkOverride: Bool? = nil
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Onyx.bg.ignoresSafeArea()
+
+            Circle()
+                .fill(Onyx.accent)
+                .frame(width: 460, height: 460)
+                .blur(radius: 130)
+                .opacity(0.10)
+                .offset(x: 150, y: -260)
+                .allowsHitTesting(false)
+
+            HStack(spacing: 0) {
+                if sidebarOpen {
+                    RMKSidebar(selection: $selection, darkOverride: $darkOverride)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                }
+                VStack(spacing: 0) {
+                    RMKTopbar(selection: $selection, sidebarOpen: $sidebarOpen)
+                    ScrollView { screen.padding(.bottom, 4) }
+                }
+            }
+        }
+        .preferredColorScheme(darkOverride.map { $0 ? .dark : .light })
+        .onAppear { model.reload() }
+        .sheet(isPresented: $model.showSetupGuide) {
+            SetupGuideView().environmentObject(model).frame(width: 640)
+        }
+        .animation(.easeInOut(duration: 0.22), value: sidebarOpen)
+    }
+
+    @ViewBuilder private var screen: some View {
+        switch selection {
+        case .library:
+            LibraryScreen(selection: $selection)
+        case .backups:
+            BackupsScreen()
+        case .settings:
+            SettingsScreen()
+        case .profile(let id):
+            if let binding = model.profileBinding(id: id) {
+                GameDetailScreen(profile: binding, selection: $selection)
+            } else {
+                EmptyStateView(title: "Profile Missing",
+                               detail: "Choose another app or add a new one.")
+                    .padding(24)
+            }
+        }
+    }
+}
+
+// MARK: - Sidebar
+
+private struct RMKSidebar: View {
+    @EnvironmentObject private var model: LauncherModel
+    @Binding var selection: SidebarSelection
+    @Binding var darkOverride: Bool?
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Color.clear.frame(height: 30)
+
+            HStack(spacing: 10) {
+                BrandMark(size: 26, glow: true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("RipperMoonKit")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(Onyx.text)
+                    Text("v\(rmkAppVersion) · Onyx")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(Onyx.textMute)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+
+            sectionLabel("Library")
+            navItem(.library, "Games & Apps", "square.grid.2x2.fill")
+
+            sectionLabel("Toolkit")
+            navItem(.backups, "Backups", "clock.arrow.circlepath")
+            navItem(.settings, "Settings", "gearshape.fill")
+
+            if !model.profiles.isEmpty {
+                sectionLabel("Pinned")
+                ForEach(model.profiles.prefix(3)) { profile in
+                    pinnedRow(profile)
+                }
             }
 
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
-                ForEach(model.profiles) { profile in
-                    Button {
-                        selection = .profile(profile.id)
-                    } label: {
-                        LibraryTile(profile: profile)
-                    }
-                    .buttonStyle(.plain)
-                }
+            Spacer(minLength: 12)
+            footer
+        }
+        .frame(width: 224)
+        .frame(maxHeight: .infinity)
+        .background(.regularMaterial)
+        .overlay(alignment: .trailing) {
+            Rectangle().fill(Onyx.hairline).frame(width: 1)
+        }
+    }
 
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(0.6)
+            .foregroundStyle(Onyx.textMute)
+            .textCase(.uppercase)
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 6)
+    }
+
+    private func navItem(_ target: SidebarSelection, _ label: String, _ icon: String) -> some View {
+        let active = selection == target
+        return Button {
+            selection = target
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundStyle(active ? Onyx.accentInk : Onyx.accent)
+                    .frame(width: 16)
+                Text(label)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(active ? Onyx.accentInk : Onyx.text)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
+            .background(active ? Onyx.accent : .clear,
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(.horizontal, 8)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func pinnedRow(_ profile: GameProfile) -> some View {
+        let active = selection == .profile(profile.id)
+        return Button {
+            selection = .profile(profile.id)
+        } label: {
+            HStack(spacing: 9) {
+                CoverArt(iconPath: profile.iconPath, label: profile.name,
+                         seed: coverSeed(profile.name), corner: 5, showLabel: false)
+                    .frame(width: 20, height: 20)
+                Text(profile.name)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Onyx.text)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 5)
+            .background(active ? Onyx.surface2 : .clear,
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .padding(.horizontal, 8)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var footer: some View {
+        VStack(spacing: 9) {
+            HStack(spacing: 8) {
+                Image(systemName: "moonphase.waxing.gibbous.inverse")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Onyx.accent)
+                Text("Waxing Gibbous")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Onyx.textDim)
+                Spacer()
+            }
+            Rectangle().fill(Onyx.hairline).frame(height: 1)
+            HStack(spacing: 6) {
+                Text("Appearance")
+                    .font(.system(size: 10, weight: .medium))
+                    .tracking(0.3)
+                    .foregroundStyle(Onyx.textMute)
+                    .textCase(.uppercase)
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { scheme == .dark },
+                    set: { darkOverride = $0 }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .labelsHidden()
+                .tint(Onyx.accent)
+            }
+        }
+        .padding(12)
+        .background(Onyx.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+        }
+        .padding(10)
+    }
+}
+
+// MARK: - Topbar
+
+private struct RMKTopbar: View {
+    @EnvironmentObject private var model: LauncherModel
+    @Binding var selection: SidebarSelection
+    @Binding var sidebarOpen: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Color.clear.frame(width: sidebarOpen ? 0 : 64, height: 1)
+
+            Button {
+                sidebarOpen.toggle()
+            } label: {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Onyx.textDim)
+                    .frame(width: 28, height: 28)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+                    }
+            }
+            .buttonStyle(.plain)
+
+            icon
+
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 7) {
+                    if breadcrumb != nil {
+                        Text(breadcrumb!)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(Onyx.textMute)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(Onyx.textMute)
+                    }
+                    Text(title)
+                        .font(.system(size: 14.5, weight: .semibold))
+                        .foregroundStyle(Onyx.text)
+                }
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Onyx.textMute)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            RMKButton(kind: .ghost, icon: "arrow.clockwise", title: "Refresh", small: true) {
+                model.reload()
+            }
+            Button {
+                let profile = model.addProfile()
+                selection = .profile(profile.id)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Onyx.accentInk)
+                    .frame(width: 30, height: 30)
+                    .background(Onyx.accent, in: Circle())
+                    .shadow(color: Onyx.glow.opacity(0.4), radius: 7, y: 3)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .frame(minHeight: 58)
+        .background(.regularMaterial)
+        .overlay(alignment: .bottom) { Rectangle().fill(Onyx.hairline).frame(height: 1) }
+    }
+
+    private var currentProfile: GameProfile? {
+        guard case .profile(let id) = selection else { return nil }
+        return model.profiles.first { $0.id == id }
+    }
+
+    @ViewBuilder private var icon: some View {
+        if let profile = currentProfile {
+            CoverArt(iconPath: profile.iconPath, label: profile.name,
+                     seed: coverSeed(profile.name), corner: 7, showLabel: false)
+                .frame(width: 26, height: 26)
+        } else {
+            BrandMark(size: 24, glow: true)
+        }
+    }
+
+    private var breadcrumb: String? {
+        if case .profile = selection { return "Library" }
+        return nil
+    }
+
+    private var title: String {
+        switch selection {
+        case .library:  return "RipperMoonKit"
+        case .backups:  return "Backups"
+        case .settings: return "Settings"
+        case .profile:  return currentProfile?.name ?? "Profile"
+        }
+    }
+
+    private var subtitle: String? {
+        switch selection {
+        case .library:  return model.statusLine
+        case .backups:  return "\(model.backups.count) snapshots"
+        case .settings: return model.config.configPath
+        case .profile:  return currentProfile?.executable
+        }
+    }
+}
+
+// MARK: - Library
+
+private enum LibraryFilter: String, CaseIterable {
+    case all = "All", modded = "Modded", steam = "Steam", native = "Native"
+}
+
+private struct LibraryScreen: View {
+    @EnvironmentObject private var model: LauncherModel
+    @Binding var selection: SidebarSelection
+    @State private var filter: LibraryFilter = .all
+    @State private var query = ""
+
+    private let columns = [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 10)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            if let featured = model.profiles.first {
+                hero(featured)
+            }
+            filterRow
+            grid
+            if !query.isEmpty && visible.isEmpty {
+                emptyState
+            }
+        }
+        .padding(EdgeInsets(top: 20, leading: 24, bottom: 40, trailing: 24))
+    }
+
+    private var visible: [GameProfile] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        return model.profiles.filter { p in
+            let matchesQuery = q.isEmpty
+                || p.name.lowercased().contains(q)
+                || p.executable.lowercased().contains(q)
+            let matchesFilter: Bool
+            switch filter {
+            case .all:    matchesFilter = true
+            case .modded: matchesFilter = p.supportsModEngine
+            case .steam:  matchesFilter = p.requiresSteam || p.isSteamApp || p.isSteamLibraryGame
+            case .native: matchesFilter = !p.requiresSteam && !p.isSteamApp && !p.isSteamLibraryGame
+            }
+            return matchesQuery && matchesFilter
+        }
+    }
+
+    private func hero(_ profile: GameProfile) -> some View {
+        Button {
+            selection = .profile(profile.id)
+        } label: {
+            ZStack(alignment: .leading) {
+                CoverArt(iconPath: profile.iconPath, label: profile.name,
+                         seed: coverSeed(profile.name), corner: 22, showLabel: false)
+                LinearGradient(
+                    colors: [Onyx.bgDeep.opacity(0.95), Onyx.bgDeep.opacity(0.2), .clear],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                VStack(alignment: .leading, spacing: 9) {
+                    Text("Continue")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(1.4)
+                        .foregroundStyle(Onyx.accent)
+                        .textCase(.uppercase)
+                    Text(profile.name)
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundStyle(Onyx.text)
+                    Text(heroSubtitle(profile))
+                        .font(.system(size: 12))
+                        .foregroundStyle(Onyx.textDim)
+                    HStack(spacing: 8) {
+                        RMKButton(kind: .primary, icon: "play.fill", title: "Launch") {
+                            model.launch(profile)
+                        }
+                        RMKButton(kind: .ghost, icon: "chevron.right", title: "Open") {
+                            selection = .profile(profile.id)
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+                .padding(22)
+            }
+            .frame(height: 180)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+            }
+            .overlay(alignment: .trailing) {
+                BrandMark(size: 120).opacity(0.18).padding(.trailing, 28)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func heroSubtitle(_ p: GameProfile) -> String {
+        if p.isSteamApp { return "Steam client" }
+        if p.supportsModEngine { return "Modded · ModEngine 2 ready" }
+        if p.requiresSteam { return "Uses Steam · \(p.prefix)" }
+        return "\(p.prefix) · \(p.winver)"
+    }
+
+    private var filterRow: some View {
+        HStack(spacing: 14) {
+            Text("Library")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Onyx.text)
+            Text(query.isEmpty
+                 ? "\(model.profiles.count) games & apps"
+                 : "\(visible.count) of \(model.profiles.count)")
+                .font(.system(size: 11.5))
+                .foregroundStyle(Onyx.textMute)
+            Spacer()
+            searchField
+            HStack(spacing: 6) {
+                ForEach(LibraryFilter.allCases, id: \.self) { f in
+                    RMKChip(title: f.rawValue, active: filter == f) { filter = f }
+                }
+            }
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 12))
+                .foregroundStyle(Onyx.textDim)
+            TextField("Search games", text: $query)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12.5))
+                .foregroundStyle(Onyx.text)
+                .frame(width: 130)
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Onyx.textMute)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Onyx.surface2, in: Capsule(style: .continuous))
+        .overlay { Capsule(style: .continuous).strokeBorder(Onyx.hairline2, lineWidth: 0.75) }
+    }
+
+    private var grid: some View {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
+            ForEach(visible) { profile in
+                Button { selection = .profile(profile.id) } label: {
+                    LibraryTile(profile: profile)
+                }
+                .buttonStyle(.plain)
+            }
+            if query.isEmpty {
                 Button {
                     let profile = model.addProfile()
                     selection = .profile(profile.id)
@@ -145,346 +965,312 @@ private struct LibraryView: View {
             }
         }
     }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").font(.system(size: 20))
+                .foregroundStyle(Onyx.textMute)
+            Text("No games match “\(query)”")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Onyx.text)
+            Text("Try a different name, or clear the search.")
+                .font(.system(size: 11.5))
+                .foregroundStyle(Onyx.textMute)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 36)
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Onyx.hairline2, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+        }
+    }
 }
 
 private struct LibraryTile: View {
     let profile: GameProfile
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ProfileIconView(profile: profile, size: 64, appFallback: false)
-
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 7) {
+            CoverArt(iconPath: profile.iconPath, label: profile.name,
+                     seed: coverSeed(profile.name), corner: 9)
+                .frame(height: 88)
+            VStack(alignment: .leading, spacing: 2) {
                 Text(profile.name)
-                    .font(.headline)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Onyx.text)
+                    .lineLimit(1)
                 Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Onyx.textMute)
+                    .lineLimit(1)
             }
-
-            Spacer(minLength: 0)
+            .padding(.horizontal, 3)
+            .padding(.bottom, 3)
         }
-        .frame(maxWidth: .infinity, minHeight: 154, alignment: .topLeading)
-        .padding(14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .padding(7)
+        .background(Onyx.surface, in: RoundedRectangle(cornerRadius: Onyx.tileRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(.primary.opacity(0.08))
+            RoundedRectangle(cornerRadius: Onyx.tileRadius, style: .continuous)
+                .strokeBorder(Onyx.hairline, lineWidth: 0.75)
         }
     }
 
     private var subtitle: String {
-        if profile.isSteamApp {
-            return "Steam client"
-        }
-        if let steamAppID = profile.steamAppID, !steamAppID.isEmpty {
-            return "Steam game · AppID \(steamAppID)"
-        }
-        if profile.requiresSteam {
-            return "Uses Steam · \(profile.prefix)"
-        }
-        return "\(profile.prefix) · \(profile.executable)"
+        if profile.isSteamApp { return "Steam client" }
+        if let id = profile.steamAppID, !id.isEmpty { return "Steam · AppID \(id)" }
+        if profile.requiresSteam { return "Uses Steam" }
+        return profile.prefix
     }
 }
 
 private struct AddGameTile: View {
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             Image(systemName: "plus")
-                .font(.system(size: 28, weight: .semibold))
-                .frame(width: 64, height: 64)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 32, height: 32)
+                .background(Onyx.surface, in: Circle())
+                .overlay { Circle().strokeBorder(Onyx.hairline, lineWidth: 0.75) }
             Text("Add Game")
-                .font(.headline)
+                .font(.system(size: 11, weight: .medium))
         }
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity, minHeight: 154)
-        .padding(14)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .foregroundStyle(Onyx.textDim)
+        .frame(maxWidth: .infinity, minHeight: 138)
+        .background(Onyx.surface.opacity(0.4),
+                    in: RoundedRectangle(cornerRadius: Onyx.tileRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [6, 5]))
-                .foregroundStyle(.secondary.opacity(0.3))
+            RoundedRectangle(cornerRadius: Onyx.tileRadius, style: .continuous)
+                .strokeBorder(Onyx.hairline2, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
         }
     }
 }
 
-private struct HeaderView: View {
-    @EnvironmentObject private var model: LauncherModel
-    let profile: GameProfile?
-
+private struct EmptyStateView: View {
+    let title: String
+    let detail: String
     var body: some View {
-        HStack(spacing: 16) {
-            ProfileIconView(profile: profile, size: 72, appFallback: true)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(profile?.name ?? "RipperMoonKit")
-                    .font(.largeTitle.weight(.semibold))
-                Text(model.statusLine)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Button {
-                model.reload()
-            } label: {
-                Label("Refresh", systemImage: "arrow.clockwise")
-            }
-            .buttonStyle(.bordered)
+        Card(title: title, icon: "questionmark.folder.fill") {
+            Text(detail)
+                .font(.system(size: 12.5))
+                .foregroundStyle(Onyx.textDim)
         }
     }
 }
 
-private struct ProfileSidebarRow: View {
-    let profile: GameProfile
+// MARK: - Game Detail
 
-    var body: some View {
-        HStack(spacing: 8) {
-            ProfileIconView(profile: profile, size: 24, appFallback: false)
-            Text(profile.name)
-                .lineLimit(1)
+private enum GameTab: String, CaseIterable {
+    case app = "App", mods = "Mods", launch = "Launch", commands = "Commands"
+    var icon: String {
+        switch self {
+        case .app: return "gamecontroller.fill"
+        case .mods: return "square.3.layers.3d"
+        case .launch: return "play.fill"
+        case .commands: return "chevron.left.forwardslash.chevron.right"
         }
     }
 }
 
-private struct ProfileIconView: View {
-    let profile: GameProfile?
-    let size: CGFloat
-    let appFallback: Bool
-
-    var body: some View {
-        Group {
-            if let image = profileImage {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else if appFallback {
-                Image("RipperMoonKitLogo", bundle: .module)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                Image(systemName: profile?.systemImage ?? "app.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .padding(size * 0.22)
-                    .foregroundStyle(.secondary)
-                    .background(.quaternary)
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: max(4, size * 0.12), style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: max(4, size * 0.12), style: .continuous)
-                .strokeBorder(.primary.opacity(0.08))
-        }
-        .accessibilityHidden(true)
-    }
-
-    private var profileImage: NSImage? {
-        guard let path = profile?.iconPath?.trimmingCharacters(in: .whitespacesAndNewlines), !path.isEmpty else {
-            return nil
-        }
-        return NSImage(contentsOfFile: path)
-    }
-}
-
-private struct ProfileDetailView: View {
+private struct GameDetailScreen: View {
     @EnvironmentObject private var model: LauncherModel
     @Binding var profile: GameProfile
+    @Binding var selection: SidebarSelection
+    @State private var tab: GameTab = .app
     @State private var confirmDelete = false
+    @State private var showCoverSearch = false
+
+    private var tabs: [GameTab] {
+        profile.supportsModEngine ? GameTab.allCases : [.app, .launch, .commands]
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Panel("App Settings", systemImage: profile.systemImage) {
-                Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
-                    GridRow {
-                        FieldLabel("Name")
-                        TextField("Name", text: $profile.name)
-                            .textFieldStyle(.roundedBorder)
-                    }
+        VStack(spacing: 0) {
+            hero
+            tabBar
+            VStack(alignment: .leading, spacing: 14) {
+                switch tab {
+                case .app:      appTab
+                case .mods:     ModsTab(profile: $profile)
+                case .launch:   launchTab
+                case .commands: commandsTab
+                }
+            }
+            .padding(EdgeInsets(top: 18, leading: 24, bottom: 36, trailing: 24))
+        }
+        .onChange(of: profile) { _, _ in model.persistProfiles() }
+        .sheet(isPresented: $showCoverSearch) {
+            CoverSearchSheet(profile: $profile)
+                .environmentObject(model)
+                .frame(width: 580, height: 560)
+        }
+        .confirmationDialog("Delete this app profile?", isPresented: $confirmDelete) {
+            Button("Delete", role: .destructive) {
+                model.deleteProfile(id: profile.id)
+                selection = .library
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
 
-                    GridRow {
-                        FieldLabel("Icon")
-                        HStack(spacing: 10) {
-                            ProfileIconView(profile: profile, size: 36, appFallback: false)
-                            TextField("Icon image path", text: iconPathBinding)
-                                .textFieldStyle(.roundedBorder)
-                            Button {
-                                model.chooseIcon(for: &profile)
-                            } label: {
-                                Image(systemName: "photo")
-                            }
-                            .buttonStyle(.bordered)
-                            .help("Choose icon image")
-                            Button {
-                                profile.iconPath = nil
-                            } label: {
-                                Image(systemName: "xmark.circle")
-                            }
-                            .buttonStyle(.bordered)
-                            .help("Clear icon")
-                            .disabled((profile.iconPath ?? "").isEmpty)
-                        }
+    // ── Hero ──────────────────────────────────────────────────────────────
+    private var hero: some View {
+        ZStack(alignment: .bottomLeading) {
+            CoverArt(iconPath: profile.iconPath, label: profile.name,
+                     seed: coverSeed(profile.name), corner: 0, showLabel: false)
+            LinearGradient(colors: [.clear, Onyx.bg], startPoint: .top, endPoint: .bottom)
+            HStack(alignment: .bottom, spacing: 18) {
+                CoverArt(iconPath: profile.iconPath, label: profile.name,
+                         seed: coverSeed(profile.name), corner: 18)
+                    .frame(width: 92, height: 92)
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 9) {
+                        Text(tagText)
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(0.8)
+                            .textCase(.uppercase)
+                            .foregroundStyle(Onyx.accent)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3)
+                            .background(Onyx.surface, in: Capsule())
+                            .overlay { Capsule().strokeBorder(Onyx.hairline2, lineWidth: 0.75) }
+                        Text(profile.prefix)
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(Onyx.textDim)
                     }
-
-                    GridRow {
-                        FieldLabel("Prefix")
-                        TextField("Prefix", text: $profile.prefix)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 260)
-                    }
-
-                    GridRow {
-                        FieldLabel("Winver")
-                        Picker("Winver", selection: $profile.winver) {
-                            Text("win10").tag("win10")
-                            Text("win11").tag("win11")
-                            Text("win7").tag("win7")
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 220)
+                    Text(profile.name)
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundStyle(Onyx.text)
+                    Text("\(profile.executable.isEmpty ? "—" : profile.executable) · prefix: \(profile.prefix) · winver: \(profile.winver)")
+                        .font(.system(size: 11.5, design: .monospaced))
+                        .foregroundStyle(Onyx.textDim)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 8) {
+                    RMKButton(kind: .primary, icon: "play.fill",
+                              title: profile.isSteamApp ? "Launch Steam" : "Launch") {
+                        model.launch(profile)
                     }
                 }
             }
+            .padding(EdgeInsets(top: 24, leading: 24, bottom: 18, trailing: 24))
+        }
+        .frame(height: 220)
+        .clipped()
+    }
 
-            Panel("Paths", systemImage: "folder.fill") {
+    private var tagText: String {
+        if profile.isSteamApp { return "Steam" }
+        if profile.supportsModEngine { return "Modded" }
+        if profile.requiresSteam { return "Steam Game" }
+        return "Game"
+    }
+
+    // ── Tab bar ───────────────────────────────────────────────────────────
+    private var tabBar: some View {
+        HStack(spacing: 6) {
+            ForEach(tabs, id: \.self) { item in
+                let active = tab == item
+                Button { tab = item } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: item.icon).font(.system(size: 11))
+                        Text(item.rawValue).font(.system(size: 12.5, weight: .medium))
+                    }
+                    .foregroundStyle(active ? Onyx.text : Onyx.textMute)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 11)
+                    .overlay(alignment: .bottom) {
+                        Rectangle()
+                            .fill(active ? Onyx.accent : .clear)
+                            .frame(height: 2)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 24)
+        .overlay(alignment: .bottom) { Rectangle().fill(Onyx.hairline).frame(height: 1) }
+    }
+
+    // ── App tab ───────────────────────────────────────────────────────────
+    private var iconPathBinding: Binding<String> {
+        Binding(
+            get: { profile.iconPath ?? "" },
+            set: { profile.iconPath = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+        )
+    }
+
+    @ViewBuilder private var appTab: some View {
+        Card(title: "App Settings", icon: "gamecontroller.fill") {
+            VStack(alignment: .leading, spacing: 12) {
+                FieldRow(label: "Name") { OnyxField(text: $profile.name) }
+                FieldRow(label: "Icon") {
+                    CoverArt(iconPath: profile.iconPath, label: profile.name,
+                             seed: coverSeed(profile.name), corner: 7)
+                        .frame(width: 30, height: 30)
+                    OnyxField(text: iconPathBinding, mono: true, trailing: AnyView(
+                        HStack(spacing: 6) {
+                            Button { showCoverSearch = true } label: {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                    .foregroundStyle(Onyx.accent)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Find cover art on TheGamesDB")
+                            Button { model.chooseIcon(for: &profile) } label: {
+                                Image(systemName: "photo").foregroundStyle(Onyx.textMute)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Choose an image file")
+                            Button { profile.iconPath = nil } label: {
+                                Image(systemName: "xmark.circle").foregroundStyle(Onyx.textMute)
+                            }
+                            .buttonStyle(.plain)
+                            .help("Clear icon")
+                        }
+                    ))
+                }
+                FieldRow(label: "Prefix") {
+                    OnyxField(text: $profile.prefix)
+                    Spacer()
+                }
+                FieldRow(label: "Winver") {
+                    Picker("", selection: $profile.winver) {
+                        Text("win10").tag("win10")
+                        Text("win11").tag("win11")
+                        Text("win7").tag("win7")
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(width: 220)
+                    Spacer()
+                }
+            }
+        }
+
+        Card(title: "Paths", icon: "folder.fill") {
+            VStack(alignment: .leading, spacing: 10) {
                 if !profile.isSteamApp {
                     PathEditor(title: "Folder", path: $profile.gameFolder) {
                         model.chooseFolder(current: profile.gameFolder) { profile.gameFolder = $0 }
                     }
-
-                    HStack(spacing: 10) {
-                        FieldLabel("Executable")
-                        TextField("Executable", text: $profile.executable)
-                            .textFieldStyle(.roundedBorder)
-                        Button {
+                    FieldRow(label: "Executable") {
+                        OnyxField(text: $profile.executable, mono: true)
+                        IconButton(systemImage: "doc.badge.gearshape", help: "Choose executable") {
                             model.chooseExecutable(for: &profile)
-                        } label: {
-                            Image(systemName: "doc.badge.gearshape")
                         }
-                        .buttonStyle(.bordered)
-                        .help("Choose executable")
                     }
                 }
-
                 PathEditor(title: "Runner", path: $profile.runnerPath) {
                     model.chooseFolder(current: profile.runnerPath) { profile.runnerPath = $0 }
                 }
             }
+        }
+    }
 
-            if profile.supportsModEngine {
-                Panel("Mod Manager", systemImage: "slider.horizontal.3") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Toggle("Use ModEngine launch", isOn: Binding(
-                            get: { profile.useModEngine ?? false },
-                            set: { profile.useModEngine = $0 }
-                        ))
-                        .toggleStyle(.checkbox)
-
-                        PathEditor(title: "ModEngine", path: Binding(
-                            get: { profile.modEngineFolder ?? "ModEngine2" },
-                            set: { profile.modEngineFolder = $0.isEmpty ? nil : $0 }
-                        )) {
-                            model.chooseFolder(current: model.modEngineDirectory(for: profile)) { selected in
-                                profile.modEngineFolder = model.profileRelativePath(selected, from: profile.gameFolder)
-                            }
-                        }
-
-                        Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 12) {
-                            GridRow {
-                                FieldLabel("Launch Bat")
-                                TextField("launchmod_eldenring.bat", text: Binding(
-                                    get: { profile.modEngineLaunchBat ?? "launchmod_eldenring.bat" },
-                                    set: { profile.modEngineLaunchBat = $0.isEmpty ? nil : $0 }
-                                ))
-                                .textFieldStyle(.roundedBorder)
-                            }
-
-                            GridRow {
-                                FieldLabel("Config")
-                                TextField("config_eldenring.toml", text: Binding(
-                                    get: { profile.modEngineConfig ?? "config_eldenring.toml" },
-                                    set: { profile.modEngineConfig = $0.isEmpty ? nil : $0 }
-                                ))
-                                .textFieldStyle(.roundedBorder)
-                            }
-
-                            GridRow {
-                                FieldLabel("Launcher")
-                                TextField("modengine2_launcher.exe", text: Binding(
-                                    get: { profile.modEngineLauncher ?? "modengine2_launcher.exe" },
-                                    set: { profile.modEngineLauncher = $0.isEmpty ? nil : $0 }
-                                ))
-                                .textFieldStyle(.roundedBorder)
-                            }
-
-                            GridRow {
-                                FieldLabel("Randomizer")
-                                TextField("randomizer/EldenRingRandomizer.exe", text: Binding(
-                                    get: { profile.randomizerExecutable ?? "randomizer/EldenRingRandomizer.exe" },
-                                    set: { profile.randomizerExecutable = $0.isEmpty ? nil : $0 }
-                                ))
-                                .textFieldStyle(.roundedBorder)
-                            }
-
-                            GridRow {
-                                FieldLabel("Seamless DLL")
-                                TextField("../SeamlessCoop/ersc.dll", text: Binding(
-                                    get: { profile.seamlessDllPath ?? "../SeamlessCoop/ersc.dll" },
-                                    set: { profile.seamlessDllPath = $0.isEmpty ? nil : $0 }
-                                ))
-                                .textFieldStyle(.roundedBorder)
-                            }
-                        }
-
-                        HStack(spacing: 12) {
-                            Button {
-                                model.installModEngineRandomizerProfile(for: profile)
-                            } label: {
-                                Label("Install ModEngine + Randomizer", systemImage: "square.and.arrow.down.fill")
-                            }
-                            .buttonStyle(.borderedProminent)
-
-                            Button {
-                                model.installModZips(for: profile)
-                            } label: {
-                                Label("Install Mod Zips", systemImage: "archivebox.fill")
-                            }
-                            .buttonStyle(.bordered)
-
-                            Button {
-                                model.prepareModEngine(for: profile)
-                            } label: {
-                                Label("Prepare Mod Files", systemImage: "wrench.adjustable.fill")
-                            }
-                            .buttonStyle(.bordered)
-
-                            Button {
-                                model.runRandomizer(for: profile)
-                            } label: {
-                                Label("Run Randomizer", systemImage: "shuffle")
-                            }
-                            .buttonStyle(.bordered)
-
-                            Button {
-                                model.launchModEngine(profile)
-                            } label: {
-                                Label("Launch Modded", systemImage: "play.circle.fill")
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-                    }
-                }
-            }
-
-            Panel("Launch Options", systemImage: "switch.2") {
+    // ── Launch tab ────────────────────────────────────────────────────────
+    @ViewBuilder private var launchTab: some View {
+        Card(title: "Launch Options", icon: "switch.2") {
+            VStack(alignment: .leading, spacing: 12) {
                 if profile.isSteamManaged {
                     HStack(spacing: 18) {
                         Toggle("HUD", isOn: $profile.hud)
@@ -492,397 +1278,554 @@ private struct ProfileDetailView: View {
                     }
                     .toggleStyle(.checkbox)
                 } else {
-                    HStack(spacing: 18) {
+                    FlowLayout(spacing: 18) {
                         Toggle("Steam required", isOn: $profile.requiresSteam)
                         Toggle("No DXR", isOn: $profile.noDXR)
-                        Toggle("AVX", isOn: Binding(
-                            get: { profile.avx ?? false },
-                            set: { profile.avx = $0 }
-                        ))
-                        Toggle("MetalFX/DLSS", isOn: Binding(
-                            get: { profile.metalFX ?? false },
-                            set: { profile.metalFX = $0 }
-                        ))
+                        Toggle("AVX", isOn: optionalBinding(\.avx))
+                        Toggle("MetalFX/DLSS", isOn: optionalBinding(\.metalFX))
                         Toggle("HUD", isOn: $profile.hud)
                         Toggle("No esync", isOn: $profile.noEsync)
-                    }
-                    .toggleStyle(.checkbox)
-
-                    HStack(spacing: 18) {
                         Toggle("Native winmm", isOn: $profile.nativeWinmm)
                         Toggle("Native steam_api64", isOn: $profile.nativeSteamAPI)
                     }
                     .toggleStyle(.checkbox)
-
-                    HStack(spacing: 10) {
-                        FieldLabel("DLL overrides")
-                        TextField("e.g. GameInput=n", text: Binding(
+                    Rectangle().fill(Onyx.hairline).frame(height: 1)
+                    FieldRow(label: "DLL overrides") {
+                        OnyxField(text: Binding(
                             get: { profile.extraDllOverrides ?? "" },
                             set: { profile.extraDllOverrides = $0.isEmpty ? nil : $0 }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                        .help("Extra WINEDLLOVERRIDES entries appended after built-in overrides, semicolon-separated")
+                        ), mono: true)
                     }
-
-                    HStack(spacing: 10) {
-                        FieldLabel("Arguments")
-                        TextField("Extra arguments", text: $profile.extraArguments)
-                            .textFieldStyle(.roundedBorder)
+                    FieldRow(label: "Arguments") {
+                        OnyxField(text: $profile.extraArguments, mono: true)
                     }
                 }
             }
-
-            Panel("Actions", systemImage: "play.circle.fill") {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 12) {
-                        if profile.requiresSteam && !profile.isSteamManaged {
-                            Button {
-                                model.startSteam(for: profile)
-                            } label: {
-                                Label("Start Steam", systemImage: "play.fill")
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
-
-                        Button {
-                            model.launch(profile)
-                        } label: {
-                            Label(profile.isSteamApp ? "Launch Steam" : "Launch", systemImage: profile.isSteamManaged ? "play.fill" : "gamecontroller.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        if !profile.isSteamApp {
-                            Button {
-                                model.closeGame(profile)
-                            } label: {
-                                Label("Close Game", systemImage: "xmark.circle.fill")
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.closeTargets(for: profile).isEmpty)
-                        }
-
-                        if profile.isSteamApp || profile.requiresSteam {
-                            Button(role: .destructive) {
-                                model.stopSteam()
-                            } label: {
-                                Label("Close Steam", systemImage: "power")
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                    }
-
-                    HStack(spacing: 12) {
-                        Button {
-                            model.installVCRuntime(for: profile)
-                        } label: {
-                            Label("Install VC++ Runtime", systemImage: "shippingbox.fill")
-                        }
-                        .buttonStyle(.bordered)
-
-                        if profile.supportsModEngine {
-                            Button {
-                                model.installDotNet6(for: profile)
-                            } label: {
-                                Label("Install .NET 6", systemImage: "curlybraces")
-                            }
-                            .buttonStyle(.bordered)
-                        }
-
-                        Button {
-                            model.installStubs(for: profile)
-                        } label: {
-                            Label("Install API Stubs", systemImage: "puzzlepiece.fill")
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button {
-                            model.openLogsFolder()
-                        } label: {
-                            Label("Logs", systemImage: "doc.text.magnifyingglass")
-                        }
-                        .buttonStyle(.bordered)
-
-                        Spacer()
-
-                        Button(role: .destructive) {
-                            confirmDelete = true
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(profile.isRequiredLibraryProfile)
-                    }
-                }
-            }
-
-            Panel("Validation", systemImage: "checkmark.seal.fill") {
-                VStack(alignment: .leading, spacing: 10) {
-                    if profile.isSteamApp {
-                        ValidationRow(title: "Steam prefix", isOK: FileManager.default.fileExists(atPath: model.prefixPath(for: profile)))
-                        ValidationRow(title: "steam.exe", isOK: model.steamExecutableExists(in: profile))
-                    } else if profile.isSteamLibraryGame {
-                        ValidationRow(title: "Steam AppID \(profile.steamAppID ?? "")", isOK: true)
-                        ValidationRow(title: "Install folder", isOK: FileManager.default.fileExists(atPath: profile.gameFolder))
-                    } else if profile.useModEngine == true {
-                        ForEach(model.modEngineValidationItems(for: profile), id: \.title) { item in
-                            ValidationRow(title: item.title, isOK: item.isOK)
-                        }
-                    } else {
-                        ValidationRow(title: profile.executable, isOK: model.fileExists(profile.executable, in: profile))
-                        ForEach(profile.requiredFiles, id: \.self) { item in
-                            ValidationRow(title: item, isOK: model.fileExists(item, in: profile))
-                        }
-                    }
-                    ValidationRow(title: "Runner folder", isOK: profile.runnerPath.isEmpty || FileManager.default.fileExists(atPath: profile.runnerPath))
-                }
-            }
-
-            Panel("Commands", systemImage: "chevron.left.forwardslash.chevron.right") {
-                VStack(alignment: .leading, spacing: 12) {
-                    if profile.requiresSteam && !profile.isSteamManaged {
-                        CommandPreview(title: "Start Steam", command: model.previewStartSteamCommand(for: profile))
-                    }
-                    if profile.isSteamManaged {
-                        CommandPreview(title: profile.isSteamApp ? "Launch Steam" : "Launch From Steam", command: model.previewSteamManagedLaunchCommand(for: profile))
-                    } else if profile.useModEngine == true {
-                        CommandPreview(title: "Launch Modded", command: model.previewModEngineLaunchCommand(for: profile))
-                        CommandPreview(title: "Run Randomizer", command: model.previewRandomizerCommand(for: profile))
-                    } else {
-                        CommandPreview(title: "Launch", command: model.previewLaunchCommand(for: profile))
-                    }
-                    if !profile.isSteamApp && !model.closeTargets(for: profile).isEmpty {
-                        CommandPreview(title: "Close Game", command: model.previewCloseGameCommand(for: profile))
-                    }
-                    if profile.isSteamApp || profile.requiresSteam {
-                        CommandPreview(title: "Close Steam", command: model.previewStopSteamCommand())
-                    }
-                }
-            }
-
-            CommandOutputView()
         }
-        .onChange(of: profile) { _, _ in
-            model.persistProfiles()
-        }
-        .confirmationDialog("Delete this app profile?", isPresented: $confirmDelete) {
-            Button("Delete", role: .destructive) {
-                model.deleteProfile(id: profile.id)
+
+        Card(title: "Actions", icon: "play.circle.fill") {
+            FlowLayout(spacing: 8) {
+                if profile.requiresSteam && !profile.isSteamManaged {
+                    RMKButton(kind: .primary, icon: "play.fill", title: "Start Steam") {
+                        model.startSteam(for: profile)
+                    }
+                }
+                RMKButton(kind: .primary, icon: "gamecontroller.fill",
+                          title: profile.isSteamApp ? "Launch Steam" : "Launch") {
+                    model.launch(profile)
+                }
+                if !profile.isSteamApp {
+                    RMKButton(kind: .ghost, icon: "xmark.circle.fill", title: "Close Game",
+                              disabled: model.closeTargets(for: profile).isEmpty) {
+                        model.closeGame(profile)
+                    }
+                }
+                if profile.isSteamApp || profile.requiresSteam {
+                    RMKButton(kind: .ghost, icon: "power", title: "Close Steam") {
+                        model.stopSteam()
+                    }
+                }
+                RMKButton(kind: .ghost, icon: "shippingbox.fill", title: "Install VC++ Runtime") {
+                    model.installVCRuntime(for: profile)
+                }
+                if profile.supportsModEngine {
+                    RMKButton(kind: .ghost, icon: "curlybraces", title: "Install .NET 6") {
+                        model.installDotNet6(for: profile)
+                    }
+                }
+                RMKButton(kind: .ghost, icon: "puzzlepiece.fill", title: "Install API Stubs") {
+                    model.installStubs(for: profile)
+                }
+                RMKButton(kind: .ghost, icon: "doc.text.magnifyingglass", title: "Logs") {
+                    model.openLogsFolder()
+                }
+                RMKButton(kind: .danger, icon: "trash", title: "Delete",
+                          disabled: profile.isRequiredLibraryProfile) {
+                    confirmDelete = true
+                }
             }
-            Button("Cancel", role: .cancel) {}
+        }
+
+        Card(title: "Validation", icon: "checkmark.seal.fill") {
+            VStack(alignment: .leading, spacing: 10) {
+                if profile.isSteamApp {
+                    ValidationRow(title: "Steam prefix",
+                                  isOK: FileManager.default.fileExists(atPath: model.prefixPath(for: profile)))
+                    ValidationRow(title: "steam.exe", isOK: model.steamExecutableExists(in: profile))
+                } else if profile.isSteamLibraryGame {
+                    ValidationRow(title: "Steam AppID \(profile.steamAppID ?? "")", isOK: true)
+                    ValidationRow(title: "Install folder",
+                                  isOK: FileManager.default.fileExists(atPath: profile.gameFolder))
+                } else if profile.useModEngine == true {
+                    ForEach(model.modEngineValidationItems(for: profile), id: \.title) { item in
+                        ValidationRow(title: item.title, isOK: item.isOK)
+                    }
+                } else {
+                    ValidationRow(title: profile.executable,
+                                  isOK: model.fileExists(profile.executable, in: profile))
+                    ForEach(profile.requiredFiles, id: \.self) { item in
+                        ValidationRow(title: item, isOK: model.fileExists(item, in: profile))
+                    }
+                }
+                ValidationRow(title: "Runner folder",
+                              isOK: profile.runnerPath.isEmpty
+                                  || FileManager.default.fileExists(atPath: profile.runnerPath))
+            }
         }
     }
 
-    private var iconPathBinding: Binding<String> {
+    private func optionalBinding(_ keyPath: WritableKeyPath<GameProfile, Bool?>) -> Binding<Bool> {
         Binding(
-            get: { profile.iconPath ?? "" },
-            set: { profile.iconPath = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+            get: { profile[keyPath: keyPath] ?? false },
+            set: { profile[keyPath: keyPath] = $0 }
         )
+    }
+
+    // ── Commands tab ──────────────────────────────────────────────────────
+    @ViewBuilder private var commandsTab: some View {
+        Card(title: "Resolved Commands", icon: "chevron.left.forwardslash.chevron.right") {
+            VStack(alignment: .leading, spacing: 12) {
+                if profile.requiresSteam && !profile.isSteamManaged {
+                    CommandPreview(title: "Start Steam",
+                                   command: model.previewStartSteamCommand(for: profile))
+                }
+                if profile.isSteamManaged {
+                    CommandPreview(title: profile.isSteamApp ? "Launch Steam" : "Launch From Steam",
+                                   command: model.previewSteamManagedLaunchCommand(for: profile))
+                } else if profile.useModEngine == true {
+                    CommandPreview(title: "Launch Modded",
+                                   command: model.previewModEngineLaunchCommand(for: profile))
+                    CommandPreview(title: "Run Randomizer",
+                                   command: model.previewRandomizerCommand(for: profile))
+                } else {
+                    CommandPreview(title: "Launch",
+                                   command: model.previewLaunchCommand(for: profile))
+                }
+                if !profile.isSteamApp && !model.closeTargets(for: profile).isEmpty {
+                    CommandPreview(title: "Close Game",
+                                   command: model.previewCloseGameCommand(for: profile))
+                }
+                if profile.isSteamApp || profile.requiresSteam {
+                    CommandPreview(title: "Close Steam",
+                                   command: model.previewStopSteamCommand())
+                }
+            }
+        }
+        ActivityCard()
     }
 }
 
-private struct BackupsView: View {
+private struct ModsTab: View {
     @EnvironmentObject private var model: LauncherModel
-    @State private var selectedBackup: BackupItem.ID?
+    @Binding var profile: GameProfile
+
+    var body: some View {
+        Card(title: "Mod Stack", icon: "square.3.layers.3d", trailing: AnyView(
+            Toggle("Launch through ModEngine", isOn: Binding(
+                get: { profile.useModEngine ?? false },
+                set: { profile.useModEngine = $0 }
+            ))
+            .toggleStyle(.checkbox)
+            .font(.system(size: 11.5))
+            .foregroundStyle(Onyx.textDim)
+        )) {
+            VStack(alignment: .leading, spacing: 10) {
+                modLayer(1, "Seamless Coop", "DLL",
+                         profile.seamlessDllPath ?? "../SeamlessCoop/ersc.dll")
+                modLayer(2, "Elden Ring Randomizer", "EXE",
+                         profile.randomizerExecutable ?? "randomizer/EldenRingRandomizer.exe")
+                modLayer(3, "ModEngine 2", "Loader",
+                         "\(profile.modEngineLauncher ?? "modengine2_launcher.exe") · \(profile.modEngineConfig ?? "config_eldenring.toml")")
+            }
+        }
+
+        Card(title: "Mod Configuration", icon: "wrench.adjustable.fill") {
+            VStack(alignment: .leading, spacing: 10) {
+                PathEditor(title: "ModEngine", path: Binding(
+                    get: { profile.modEngineFolder ?? "ModEngine2" },
+                    set: { profile.modEngineFolder = $0.isEmpty ? nil : $0 }
+                )) {
+                    model.chooseFolder(current: model.modEngineDirectory(for: profile)) { selected in
+                        profile.modEngineFolder = model.profileRelativePath(selected, from: profile.gameFolder)
+                    }
+                }
+                FieldRow(label: "Launch Bat") {
+                    OnyxField(text: optional(\.modEngineLaunchBat, "launchmod_eldenring.bat"), mono: true)
+                }
+                FieldRow(label: "Config") {
+                    OnyxField(text: optional(\.modEngineConfig, "config_eldenring.toml"), mono: true)
+                }
+                FieldRow(label: "Launcher") {
+                    OnyxField(text: optional(\.modEngineLauncher, "modengine2_launcher.exe"), mono: true)
+                }
+                FieldRow(label: "Randomizer") {
+                    OnyxField(text: optional(\.randomizerExecutable, "randomizer/EldenRingRandomizer.exe"), mono: true)
+                }
+                FieldRow(label: "Seamless DLL") {
+                    OnyxField(text: optional(\.seamlessDllPath, "../SeamlessCoop/ersc.dll"), mono: true)
+                }
+            }
+        }
+
+        Card(title: "Mod Files", icon: "wrench.and.screwdriver.fill") {
+            FlowLayout(spacing: 8) {
+                RMKButton(kind: .primary, icon: "square.and.arrow.down.fill",
+                          title: "Install ModEngine + Randomizer") {
+                    model.installModEngineRandomizerProfile(for: profile)
+                }
+                RMKButton(kind: .ghost, icon: "archivebox.fill", title: "Install Mod Zips") {
+                    model.installModZips(for: profile)
+                }
+                RMKButton(kind: .ghost, icon: "wrench.adjustable.fill", title: "Prepare Mod Files") {
+                    model.prepareModEngine(for: profile)
+                }
+                RMKButton(kind: .ghost, icon: "shuffle", title: "Run Randomizer") {
+                    model.runRandomizer(for: profile)
+                }
+                RMKButton(kind: .primary, icon: "play.circle.fill", title: "Launch Modded") {
+                    model.launchModEngine(profile)
+                }
+            }
+        }
+    }
+
+    private func optional(_ keyPath: WritableKeyPath<GameProfile, String?>,
+                          _ fallback: String) -> Binding<String> {
+        Binding(
+            get: { profile[keyPath: keyPath] ?? fallback },
+            set: { profile[keyPath: keyPath] = $0.isEmpty ? nil : $0 }
+        )
+    }
+
+    private func modLayer(_ n: Int, _ name: String, _ type: String, _ desc: String) -> some View {
+        HStack(spacing: 12) {
+            Text("\(n)")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(Onyx.accentInk)
+                .frame(width: 26, height: 26)
+                .background(Onyx.accent, in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Text(name)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Onyx.text)
+                    Text(type)
+                        .font(.system(size: 9.5, design: .monospaced))
+                        .foregroundStyle(Onyx.textDim)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Onyx.surface2, in: Capsule())
+                        .overlay { Capsule().strokeBorder(Onyx.hairline, lineWidth: 0.75) }
+                }
+                Text(desc)
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(Onyx.textMute)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+    }
+}
+
+private struct CommandPreview: View {
+    let title: String
+    let command: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(Onyx.textDim)
+            Text(command)
+                .font(.system(size: 11.5, design: .monospaced))
+                .foregroundStyle(Onyx.text)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(11)
+                .background(Onyx.bgDeep, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(Onyx.hairline2, lineWidth: 0.75)
+                }
+        }
+    }
+}
+
+private struct ActivityCard: View {
+    @EnvironmentObject private var model: LauncherModel
+    var body: some View {
+        Card(title: "Activity", icon: "waveform.path.ecg", trailing: AnyView(
+            HStack(spacing: 6) {
+                if model.isRunning { ProgressView().controlSize(.small) }
+                Text(model.lastResult)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Onyx.textMute)
+            }
+        )) {
+            Terminal(title: "rippermoon.log", text: model.commandOutput, live: model.isRunning)
+                .frame(minHeight: 150)
+        }
+    }
+}
+
+// MARK: - Backups
+
+private struct BackupsScreen: View {
+    @EnvironmentObject private var model: LauncherModel
+    @State private var selected: BackupItem.ID?
     @State private var confirmRollback = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Panel("Update Safeguards", systemImage: "externaldrive.badge.timemachine") {
-                HStack(spacing: 12) {
-                    Button {
+            Card(title: "Update Safeguards", icon: "externaldrive.badge.timemachine") {
+                HStack(spacing: 14) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 20))
+                        .foregroundStyle(Onyx.accent)
+                        .frame(width: 42, height: 42)
+                        .background(Onyx.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .strokeBorder(Onyx.hairline2, lineWidth: 0.75)
+                        }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Update Safeguards")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Onyx.text)
+                        Text("\(model.backups.count) snapshots · Auto-snapshot before every update")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Onyx.textDim)
+                    }
+                    Spacer()
+                    RMKButton(kind: .primary, icon: "plus.circle.fill", title: "Create Backup") {
                         model.createBackupOnly()
-                    } label: {
-                        Label("Create Backup", systemImage: "plus.circle.fill")
                     }
-                    .buttonStyle(.borderedProminent)
-
-                    Button {
+                    RMKButton(kind: .ghost, icon: "arrow.clockwise", title: "Refresh") {
                         model.refreshBackups()
-                    } label: {
-                        Label("Refresh", systemImage: "arrow.clockwise")
                     }
-                    .buttonStyle(.bordered)
-
-                    Button {
+                    RMKButton(kind: .danger, icon: "arrow.uturn.backward",
+                              title: "Rollback", disabled: selected == nil) {
                         confirmRollback = true
-                    } label: {
-                        Label("Rollback", systemImage: "arrow.uturn.backward.circle.fill")
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(selectedBackup == nil)
                 }
             }
 
-            Panel("Backups", systemImage: "archivebox.fill") {
-                List(model.backups, selection: $selectedBackup) { backup in
-                    HStack {
-                        Image(systemName: "clock.arrow.circlepath")
-                            .foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(backup.name)
-                                .font(.headline)
-                            Text(backup.path)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+            Card(title: "Snapshots", icon: "archivebox.fill") {
+                if model.backups.isEmpty {
+                    Text("No snapshots yet. Create a backup before your next update.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Onyx.textMute)
+                        .padding(.vertical, 8)
+                } else {
+                    VStack(spacing: 1) {
+                        ForEach(Array(model.backups.enumerated()), id: \.element.id) { index, backup in
+                            snapshotRow(backup, index: index)
                         }
-                        Spacer()
                     }
-                    .tag(backup.id)
                 }
-                .frame(minHeight: 220)
             }
         }
+        .padding(EdgeInsets(top: 20, leading: 24, bottom: 40, trailing: 24))
         .confirmationDialog("Rollback selected backup?", isPresented: $confirmRollback) {
             Button("Rollback", role: .destructive) {
-                if let selectedBackup {
-                    model.rollbackBackup(id: selectedBackup)
-                }
+                if let selected { model.rollbackBackup(id: selected) }
             }
             Button("Cancel", role: .cancel) {}
         }
     }
-}
 
-private struct SettingsView: View {
-    @EnvironmentObject private var model: LauncherModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Panel("Paths", systemImage: "folder.fill") {
-                PathEditor(title: "GPTK Home", path: $model.pathSettings.gptkHome) {
-                    model.chooseFolder(current: model.pathSettings.gptkHome) { model.pathSettings.gptkHome = $0 }
-                }
-                PathEditor(title: "Prefix Root", path: $model.pathSettings.prefixRoot) {
-                    model.chooseFolder(current: model.pathSettings.prefixRoot) { model.pathSettings.prefixRoot = $0 }
-                }
-                PathEditor(title: "Games Root", path: $model.pathSettings.gamesRoot) {
-                    model.chooseFolder(current: model.pathSettings.gamesRoot) { model.pathSettings.gamesRoot = $0 }
-                }
-                PathEditor(title: "External Root", path: $model.pathSettings.externalRoot) {
-                    model.chooseFolder(current: model.pathSettings.externalRoot) { model.pathSettings.externalRoot = $0 }
-                }
-                PathEditor(title: "Steam Library", path: $model.pathSettings.steamLibrary) {
-                    model.chooseFolder(current: model.pathSettings.steamLibrary) { model.pathSettings.steamLibrary = $0 }
-                }
-                PathEditor(title: "Toolkit Source", path: $model.toolkitSourceFolder) {
-                    model.chooseFolder(current: model.toolkitSourceFolder) { model.toolkitSourceFolder = $0 }
-                }
-
-                HStack {
-                    Spacer()
-                    Button {
-                        model.savePathSettings()
-                    } label: {
-                        Label("Save Paths", systemImage: "square.and.arrow.down.fill")
+    private func snapshotRow(_ backup: BackupItem, index: Int) -> some View {
+        let isSel = selected == backup.id
+        let phase = Double(model.backups.count - index) / Double(max(model.backups.count, 1))
+        return Button {
+            selected = backup.id
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: moonSymbol(phase))
+                    .font(.system(size: 13))
+                    .foregroundStyle(index == 0 ? Onyx.accent : Onyx.textDim)
+                    .frame(width: 26, height: 26)
+                    .background(index == 0 ? Onyx.surface2 : .clear,
+                                in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                VStack(alignment: .leading, spacing: 1) {
+                    HStack(spacing: 8) {
+                        Text(backup.name)
+                            .font(.system(size: 13, weight: .medium, design: .monospaced))
+                            .foregroundStyle(Onyx.text)
+                        if index == 0 {
+                            Text("CURRENT")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(Onyx.good)
+                                .padding(.horizontal, 6).padding(.vertical, 1.5)
+                                .background(Onyx.surface2, in: Capsule())
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
+                    Text(backup.path)
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(Onyx.textMute)
+                        .lineLimit(1)
                 }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Onyx.textMute)
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(isSel ? Onyx.surface2 : .clear,
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
 
-            Panel("Drive Mappings", systemImage: "externaldrive.connected.to.line.below.fill") {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach($model.driveMaps) { $drive in
-                        HStack(spacing: 10) {
-                            TextField("Letter", text: $drive.letter)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 64)
-                            TextField("Path", text: $drive.path)
-                                .textFieldStyle(.roundedBorder)
-                            Button {
-                                model.chooseFolder(current: drive.path) { drive.path = $0 }
-                            } label: {
-                                Image(systemName: "folder")
-                            }
-                            .buttonStyle(.bordered)
-                            Button(role: .destructive) {
-                                model.removeDriveMap(id: drive.id)
-                            } label: {
-                                Image(systemName: "minus.circle")
-                            }
-                            .buttonStyle(.bordered)
-                        }
-                    }
-
-                    HStack {
-                        Button {
-                            model.addDriveMap()
-                        } label: {
-                            Label("Add Drive", systemImage: "plus.circle.fill")
-                        }
-                        .buttonStyle(.bordered)
-
-                        Spacer()
-
-                        Button {
-                            model.saveDriveMaps()
-                        } label: {
-                            Label("Save Drives", systemImage: "square.and.arrow.down.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }
-                }
-            }
-
-            Panel("Maintenance", systemImage: "wrench.and.screwdriver.fill") {
-                VStack(alignment: .leading, spacing: 14) {
-                    HStack(spacing: 12) {
-                        Button {
-                            model.installToolkit()
-                        } label: {
-                            Label("Install Toolkit", systemImage: "square.and.arrow.down.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        Button {
-                            model.installDependencies()
-                        } label: {
-                            Label("Install GPTK", systemImage: "externaldrive.fill.badge.plus")
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button {
-                            model.updateFromGitHub()
-                        } label: {
-                            Label("Update From GitHub", systemImage: "arrow.down.circle.fill")
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button {
-                            model.installVCRuntimeGlobally()
-                        } label: {
-                            Label("Install VC++ Runtime", systemImage: "shippingbox.fill")
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button {
-                            model.installStubsGlobally()
-                        } label: {
-                            Label("Install API Stubs", systemImage: "puzzlepiece.fill")
-                        }
-                        .buttonStyle(.bordered)
-                    }
-
-                    Divider()
-
-                    HStack(spacing: 18) {
-                        Toggle("Remove config", isOn: $model.removeConfigOnUninstall)
-                        Toggle("Remove Wine prefixes and saves", isOn: $model.removePrefixesOnUninstall)
-                    }
-                    .toggleStyle(.checkbox)
-
-                    Button(role: .destructive) {
-                        model.uninstallToolkit()
-                    } label: {
-                        Label("Uninstall Toolkit", systemImage: "trash.fill")
-                    }
-                    .buttonStyle(.bordered)
-                }
-            }
-
-            CommandOutputView()
+    private func moonSymbol(_ phase: Double) -> String {
+        switch phase {
+        case ..<0.2:  return "moonphase.new.moon.inverse"
+        case ..<0.4:  return "moonphase.waxing.crescent.inverse"
+        case ..<0.6:  return "moonphase.first.quarter.inverse"
+        case ..<0.8:  return "moonphase.waxing.gibbous.inverse"
+        default:      return "moonphase.full.moon.inverse"
         }
     }
 }
+
+// MARK: - Settings
+
+private struct SettingsScreen: View {
+    @EnvironmentObject private var model: LauncherModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Card(title: "Paths", icon: "folder.fill") {
+                VStack(alignment: .leading, spacing: 9) {
+                    PathEditor(title: "GPTK Home", path: $model.pathSettings.gptkHome) {
+                        model.chooseFolder(current: model.pathSettings.gptkHome) { model.pathSettings.gptkHome = $0 }
+                    }
+                    PathEditor(title: "Prefix Root", path: $model.pathSettings.prefixRoot) {
+                        model.chooseFolder(current: model.pathSettings.prefixRoot) { model.pathSettings.prefixRoot = $0 }
+                    }
+                    PathEditor(title: "Games Root", path: $model.pathSettings.gamesRoot) {
+                        model.chooseFolder(current: model.pathSettings.gamesRoot) { model.pathSettings.gamesRoot = $0 }
+                    }
+                    PathEditor(title: "External Root", path: $model.pathSettings.externalRoot) {
+                        model.chooseFolder(current: model.pathSettings.externalRoot) { model.pathSettings.externalRoot = $0 }
+                    }
+                    PathEditor(title: "Steam Library", path: $model.pathSettings.steamLibrary) {
+                        model.chooseFolder(current: model.pathSettings.steamLibrary) { model.pathSettings.steamLibrary = $0 }
+                    }
+                    PathEditor(title: "Toolkit Source", path: $model.toolkitSourceFolder) {
+                        model.chooseFolder(current: model.toolkitSourceFolder) { model.toolkitSourceFolder = $0 }
+                    }
+                    HStack {
+                        Spacer()
+                        RMKButton(kind: .primary, icon: "square.and.arrow.down.fill", title: "Save Paths") {
+                            model.savePathSettings()
+                        }
+                    }
+                }
+            }
+
+            Card(title: "Drive Mappings", icon: "externaldrive.connected.to.line.below.fill",
+                 trailing: AnyView(
+                    RMKButton(kind: .ghost, icon: "plus", title: "Add Drive", small: true) {
+                        model.addDriveMap()
+                    }
+                 )) {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach($model.driveMaps) { $drive in
+                        HStack(spacing: 9) {
+                            Text("\(drive.letter):")
+                                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                                .foregroundStyle(Onyx.accent)
+                                .frame(width: 38, height: 30)
+                                .background(Onyx.bgDeep, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+                                }
+                            OnyxField(text: $drive.path, mono: true)
+                            IconButton(systemImage: "folder", help: "Choose folder") {
+                                model.chooseFolder(current: drive.path) { drive.path = $0 }
+                            }
+                            IconButton(systemImage: "minus.circle", help: "Remove drive") {
+                                model.removeDriveMap(id: drive.id)
+                            }
+                        }
+                    }
+                    HStack {
+                        Spacer()
+                        RMKButton(kind: .primary, icon: "square.and.arrow.down.fill", title: "Save Drives") {
+                            model.saveDriveMaps()
+                        }
+                    }
+                }
+            }
+
+            Card(title: "Maintenance", icon: "wrench.and.screwdriver.fill") {
+                VStack(alignment: .leading, spacing: 14) {
+                    FlowLayout(spacing: 8) {
+                        RMKButton(kind: .primary, icon: "square.and.arrow.down.fill", title: "Install Toolkit") {
+                            model.installToolkit()
+                        }
+                        RMKButton(kind: .ghost, icon: "externaldrive.fill.badge.plus", title: "Install GPTK") {
+                            model.installDependencies()
+                        }
+                        RMKButton(kind: .ghost, icon: "arrow.down.circle.fill", title: "Update From GitHub") {
+                            model.updateFromGitHub()
+                        }
+                        RMKButton(kind: .ghost, icon: "shippingbox.fill", title: "Install VC++ Runtime") {
+                            model.installVCRuntimeGlobally()
+                        }
+                        RMKButton(kind: .ghost, icon: "puzzlepiece.fill", title: "Install API Stubs") {
+                            model.installStubsGlobally()
+                        }
+                    }
+                    Rectangle().fill(Onyx.hairline).frame(height: 1)
+                    HStack(spacing: 18) {
+                        Toggle("Remove config", isOn: $model.removeConfigOnUninstall)
+                        Toggle("Remove Wine prefixes and saves", isOn: $model.removePrefixesOnUninstall)
+                        Spacer()
+                        RMKButton(kind: .danger, icon: "trash", title: "Uninstall Toolkit") {
+                            model.uninstallToolkit()
+                        }
+                    }
+                    .toggleStyle(.checkbox)
+                }
+            }
+
+            Card(title: "Cover Art · TheGamesDB", icon: "photo.on.rectangle.angled") {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Cover-art search uses TheGamesDB. Add your own API key — a free key is available at thegamesdb.net.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Onyx.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
+                    FieldRow(label: "API Key") {
+                        OnyxField(text: $model.tgdbAPIKeyLocal,
+                                  placeholder: "TheGamesDB API key", mono: true)
+                    }
+                    HStack(spacing: 8) {
+                        Image(systemName: model.tgdbAPIKey.isEmpty
+                              ? "exclamationmark.circle.fill" : "checkmark.circle.fill")
+                            .foregroundStyle(model.tgdbAPIKey.isEmpty ? Onyx.warn : Onyx.good)
+                        Text(model.tgdbAPIKey.isEmpty
+                             ? "No key set — cover search is disabled"
+                             : "Cover search ready")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Onyx.textMute)
+                        Spacer()
+                        RMKButton(kind: .primary, icon: "square.and.arrow.down.fill",
+                                  title: "Save Key") {
+                            model.saveTGDBKey()
+                        }
+                    }
+                }
+            }
+
+            ActivityCard()
+        }
+        .padding(EdgeInsets(top: 20, leading: 24, bottom: 40, trailing: 24))
+    }
+}
+
+// MARK: - Setup guide
 
 private struct SetupGuideView: View {
     @EnvironmentObject private var model: LauncherModel
@@ -890,17 +1833,14 @@ private struct SetupGuideView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 14) {
-                Image("RipperMoonKitLogo", bundle: .module)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 56, height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
+                BrandMark(size: 52, glow: true)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("First Run Setup")
-                        .font(.title2.weight(.semibold))
+                        .font(.system(size: 19, weight: .bold))
+                        .foregroundStyle(Onyx.text)
                     Text("Initialize the toolkit paths and Apple Game Porting Toolkit before launching games.")
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Onyx.textDim)
                 }
             }
 
@@ -910,193 +1850,371 @@ private struct SetupGuideView: View {
                 SetupRow(title: "D3DMetal runtime", isOK: model.config.hasD3DMetalRuntime)
                 SetupRow(title: "Config file", isOK: model.config.exists)
             }
+            .padding(14)
+            .background(Onyx.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+            }
 
-            HStack(spacing: 12) {
-                Button {
+            FlowLayout(spacing: 8) {
+                RMKButton(kind: .primary, icon: "square.and.arrow.down.fill", title: "Install Toolkit") {
                     model.installToolkit()
-                } label: {
-                    Label("Install Toolkit", systemImage: "square.and.arrow.down.fill")
                 }
-                .buttonStyle(.borderedProminent)
-
-                Button {
+                RMKButton(kind: .ghost, icon: "externaldrive.fill.badge.plus", title: "Install GPTK") {
                     model.installDependencies()
-                } label: {
-                    Label("Install GPTK", systemImage: "externaldrive.fill.badge.plus")
                 }
-                .buttonStyle(.bordered)
-
-                Button {
+                RMKButton(kind: .ghost, icon: "safari.fill", title: "Apple GPTK Page") {
                     model.openGPTKPage()
-                } label: {
-                    Label("Apple GPTK Page", systemImage: "safari.fill")
                 }
-                .buttonStyle(.bordered)
             }
 
             HStack {
                 Spacer()
-                Button {
+                RMKButton(kind: .primary, title: "Done") {
                     model.dismissSetupGuide()
-                } label: {
-                    Text("Done")
                 }
-                .keyboardShortcut(.defaultAction)
             }
         }
         .padding(24)
+        .background(Onyx.bg)
     }
 }
 
 private struct SetupRow: View {
     let title: String
     let isOK: Bool
-
-    var body: some View {
-        HStack {
-            Image(systemName: isOK ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                .foregroundStyle(isOK ? .green : .orange)
-            Text(title)
-            Spacer()
-            Text(isOK ? "Ready" : "Needs setup")
-                .foregroundStyle(.secondary)
-        }
-    }
-}
-
-private struct Panel<Content: View>: View {
-    private let title: String
-    private let systemImage: String
-    @ViewBuilder private let content: Content
-
-    init(_ title: String, systemImage: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.systemImage = systemImage
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label(title, systemImage: systemImage)
-                .font(.headline)
-                .symbolRenderingMode(.hierarchical)
-
-            content
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(.primary.opacity(0.08))
-        }
-    }
-}
-
-private struct EmptyStateView: View {
-    let title: String
-    let detail: String
-
-    var body: some View {
-        Panel(title, systemImage: "questionmark.folder.fill") {
-            Text(detail)
-                .foregroundStyle(.secondary)
-        }
-    }
-}
-
-private struct FieldLabel: View {
-    let text: String
-
-    init(_ text: String) {
-        self.text = text
-    }
-
-    var body: some View {
-        Text(text)
-            .font(.callout.weight(.medium))
-            .foregroundStyle(.secondary)
-            .frame(width: 112, alignment: .leading)
-    }
-}
-
-private struct PathEditor: View {
-    let title: String
-    @Binding var path: String
-    let action: () -> Void
-
     var body: some View {
         HStack(spacing: 10) {
-            FieldLabel(title)
-            TextField(title, text: $path)
-                .textFieldStyle(.roundedBorder)
-            Button {
-                action()
-            } label: {
-                Image(systemName: "folder")
-            }
-            .buttonStyle(.bordered)
-            .help("Choose \(title)")
-        }
-    }
-}
-
-private struct ValidationRow: View {
-    let title: String
-    let isOK: Bool
-
-    var body: some View {
-        HStack {
-            Image(systemName: isOK ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .foregroundStyle(isOK ? .green : .red)
+            Image(systemName: isOK ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                .foregroundStyle(isOK ? Onyx.good : Onyx.accent)
             Text(title)
+                .font(.system(size: 12.5))
+                .foregroundStyle(Onyx.text)
             Spacer()
-            Text(isOK ? "Found" : "Missing")
-                .foregroundStyle(.secondary)
+            Text(isOK ? "Ready" : "Needs setup")
+                .font(.system(size: 11))
+                .foregroundStyle(Onyx.textMute)
         }
     }
 }
 
-private struct CommandPreview: View {
-    let title: String
-    let command: String
+// MARK: - TheGamesDB
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.callout.weight(.medium))
-            Text(command)
-                .font(.system(.caption, design: .monospaced))
-                .textSelection(.enabled)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
-        }
+/// Minimal TheGamesDB client — used to fetch box-art covers for game profiles.
+/// The API key is supplied by the caller; it is never embedded in source.
+private enum TheGamesDB {
+    struct Match: Identifiable, Hashable {
+        let id: Int
+        let title: String
+        let year: String?
+        let thumbURL: URL?
+        let fullURL: URL?
     }
-}
 
-private struct CommandOutputView: View {
-    @EnvironmentObject private var model: LauncherModel
-
-    var body: some View {
-        Panel("Activity", systemImage: "waveform.path.ecg") {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    ProgressView()
-                        .controlSize(.small)
-                        .opacity(model.isRunning ? 1 : 0)
-                    Text(model.lastResult)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-
-                Text(model.commandOutput.isEmpty ? "No activity yet." : model.commandOutput)
-                    .font(.system(.caption, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
-                    .padding(10)
-                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+    enum ServiceError: LocalizedError {
+        case noKey, badResponse, http(Int)
+        var errorDescription: String? {
+            switch self {
+            case .noKey:        return "No TheGamesDB API key. Add one in Settings › Cover Art."
+            case .badResponse:  return "TheGamesDB returned an unexpected response."
+            case .http(let c):  return "TheGamesDB request failed (HTTP \(c))."
             }
+        }
+    }
+
+    private struct SearchResponse: Decodable {
+        struct GamesBlock: Decodable { let games: [Game] }
+        struct Game: Decodable { let id: Int; let gameTitle: String; let releaseDate: String? }
+        struct IncludeBlock: Decodable { let boxart: Boxart }
+        struct Boxart: Decodable { let baseUrl: BaseURL; let data: [String: [Art]] }
+        struct BaseURL: Decodable { let thumb: String; let original: String }
+        struct Art: Decodable { let type: String; let side: String?; let filename: String }
+        let data: GamesBlock
+        let include: IncludeBlock?
+    }
+
+    /// Searches games by name and resolves a front box-art image for each result.
+    static func search(name: String, apiKey: String) async throws -> [Match] {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+        guard !apiKey.isEmpty else { throw ServiceError.noKey }
+
+        var comps = URLComponents(string: "https://api.thegamesdb.net/v1.1/Games/ByGameName")!
+        comps.queryItems = [
+            URLQueryItem(name: "apikey", value: apiKey),
+            URLQueryItem(name: "name", value: trimmed),
+            URLQueryItem(name: "include", value: "boxart"),
+        ]
+        guard let url = comps.url else { throw ServiceError.badResponse }
+
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse else { throw ServiceError.badResponse }
+        guard http.statusCode == 200 else { throw ServiceError.http(http.statusCode) }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let decoded = try decoder.decode(SearchResponse.self, from: data)
+        let boxart = decoded.include?.boxart
+
+        return decoded.data.games.map { game in
+            let arts = boxart?.data[String(game.id)] ?? []
+            let front = arts.first { ($0.side ?? "") == "front" && $0.type == "boxart" }
+                ?? arts.first { $0.type == "boxart" }
+            let thumb = front.flatMap { art in
+                (boxart?.baseUrl.thumb).flatMap { URL(string: $0 + art.filename) }
+            }
+            let full = front.flatMap { art in
+                (boxart?.baseUrl.original).flatMap { URL(string: $0 + art.filename) }
+            }
+            let year = game.releaseDate?.split(separator: "-").first.map(String.init)
+            return Match(id: game.id, title: game.gameTitle, year: year,
+                         thumbURL: thumb, fullURL: full)
+        }
+    }
+
+    /// Downloads raw image bytes for a resolved cover.
+    static func download(_ url: URL) async throws -> Data {
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse else { throw ServiceError.badResponse }
+        guard http.statusCode == 200 else { throw ServiceError.http(http.statusCode) }
+        return data
+    }
+}
+
+// MARK: - Cover search sheet
+
+private struct CoverSearchSheet: View {
+    @EnvironmentObject private var model: LauncherModel
+    @Environment(\.dismiss) private var dismiss
+    @Binding var profile: GameProfile
+
+    @State private var query: String
+    @State private var results: [TheGamesDB.Match] = []
+    @State private var status: Status = .start
+    @State private var applyingID: Int?
+
+    private enum Status: Equatable { case start, loading, empty, failed(String), ready }
+
+    init(profile: Binding<GameProfile>) {
+        _profile = profile
+        _query = State(initialValue: profile.wrappedValue.name)
+    }
+
+    private let columns = [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 12)]
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            searchBar
+            Rectangle().fill(Onyx.hairline).frame(height: 1)
+            content
+        }
+        .background(Onyx.bg)
+        .onAppear { if results.isEmpty { runSearch() } }
+    }
+
+    private var header: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "photo.on.rectangle.angled")
+                .font(.system(size: 16))
+                .foregroundStyle(Onyx.accent)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Find Cover Art")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Onyx.text)
+                Text("TheGamesDB")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Onyx.textMute)
+            }
+            Spacer()
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Onyx.textDim)
+                    .frame(width: 24, height: 24)
+                    .background(Onyx.surface2, in: Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+    }
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Onyx.textDim)
+                TextField("Game title", text: $query)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Onyx.text)
+                    .onSubmit { runSearch() }
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
+            .background(Onyx.bgDeep, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+            }
+            RMKButton(kind: .primary, icon: "magnifyingglass", title: "Search") { runSearch() }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+
+    @ViewBuilder private var content: some View {
+        switch status {
+        case .start:
+            stateView {
+                Text("Search for a game to pick its cover.")
+                    .font(.system(size: 12)).foregroundStyle(Onyx.textMute)
+            }
+        case .loading:
+            stateView {
+                ProgressView().controlSize(.small)
+                Text("Searching TheGamesDB…")
+                    .font(.system(size: 12)).foregroundStyle(Onyx.textMute)
+            }
+        case .empty:
+            stateView {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 20)).foregroundStyle(Onyx.textMute)
+                Text("No matches for “\(query)”.")
+                    .font(.system(size: 12)).foregroundStyle(Onyx.textMute)
+            }
+        case .failed(let message):
+            stateView {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.system(size: 20)).foregroundStyle(Onyx.warn)
+                Text(message)
+                    .font(.system(size: 12)).foregroundStyle(Onyx.textMute)
+                    .multilineTextAlignment(.center)
+            }
+        case .ready:
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(results) { resultTile($0) }
+                }
+                .padding(16)
+            }
+        }
+    }
+
+    private func stateView<C: View>(@ViewBuilder _ content: () -> C) -> some View {
+        VStack(spacing: 10) { content() }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(24)
+    }
+
+    private func resultTile(_ match: TheGamesDB.Match) -> some View {
+        Button { apply(match) } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                ZStack {
+                    Rectangle().fill(Onyx.surface2)
+                    AsyncImage(url: match.thumbURL) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                        case .failure:
+                            Image(systemName: "photo").foregroundStyle(Onyx.textMute)
+                        default:
+                            ProgressView().controlSize(.small)
+                        }
+                    }
+                    if applyingID == match.id {
+                        Color.black.opacity(0.5)
+                        ProgressView().controlSize(.small)
+                    }
+                }
+                .frame(height: 150)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                Text(match.title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Onyx.text)
+                    .lineLimit(1)
+                Text(match.year ?? "Unknown year")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Onyx.textMute)
+            }
+            .padding(8)
+            .background(Onyx.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(applyingID != nil || match.fullURL == nil)
+    }
+
+    private func runSearch() {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { status = .start; return }
+        status = .loading
+        Task {
+            do {
+                let found = try await TheGamesDB.search(name: q, apiKey: model.tgdbAPIKey)
+                results = found
+                status = found.isEmpty ? .empty : .ready
+            } catch {
+                status = .failed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func apply(_ match: TheGamesDB.Match) {
+        guard match.fullURL != nil else { return }
+        applyingID = match.id
+        Task {
+            await model.saveCover(match, for: profile.id)
+            applyingID = nil
+            dismiss()
+        }
+    }
+}
+
+private extension LauncherModel {
+    /// The effective TheGamesDB key — the key entered in Settings, stored locally
+    /// in user defaults. Seeded once from GPTK_TGDB_API_KEY in the env file.
+    var tgdbAPIKey: String {
+        tgdbAPIKeyLocal.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Persists the Settings-entered TheGamesDB key to local user defaults.
+    func saveTGDBKey() {
+        let trimmed = tgdbAPIKeyLocal.trimmingCharacters(in: .whitespacesAndNewlines)
+        tgdbAPIKeyLocal = trimmed
+        defaults.set(trimmed, forKey: tgdbAPIKeyDefaultsKey)
+        lastResult = trimmed.isEmpty ? "TheGamesDB key cleared" : "TheGamesDB key saved"
+    }
+
+    /// Downloads a chosen cover, caches it under GPTK Home, and assigns it to a profile.
+    func saveCover(_ match: TheGamesDB.Match, for profileID: UUID) async {
+        guard let url = match.fullURL else {
+            lastResult = "That result has no cover image."
+            return
+        }
+        isRunning = true
+        defer { isRunning = false }
+        do {
+            let data = try await TheGamesDB.download(url)
+            let directory = "\(pathSettings.gptkHome)/covers"
+            try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+            let ext = url.pathExtension.isEmpty ? "jpg" : url.pathExtension
+            let destination = "\(directory)/tgdb-\(match.id).\(ext)"
+            try data.write(to: URL(fileURLWithPath: destination))
+            if let index = profiles.firstIndex(where: { $0.id == profileID }) {
+                profiles[index].iconPath = destination
+                persistProfiles()
+            }
+            commandOutput = "TheGamesDB · cover set for “\(match.title)” → \(destination)"
+            lastResult = "Cover set from TheGamesDB"
+        } catch {
+            commandOutput = "TheGamesDB · \(error.localizedDescription)"
+            lastResult = "Cover download failed"
         }
     }
 }
@@ -1115,9 +2233,11 @@ private final class LauncherModel: ObservableObject {
     @Published var removeConfigOnUninstall = false
     @Published var removePrefixesOnUninstall = false
     @Published var showSetupGuide = false
+    @Published var tgdbAPIKeyLocal: String = ""
 
     private let defaults = UserDefaults.standard
     private let setupGuideSeenKey = "setupGuideSeen.v2"
+    private let tgdbAPIKeyDefaultsKey = "tgdbAPIKey"
 
     var defaultSelection: SidebarSelection {
         .library
@@ -1134,6 +2254,8 @@ private final class LauncherModel: ObservableObject {
         pathSettings = PathSettings(config: loaded)
         driveMaps = DriveMap.parse(loaded.values["GPTK_DRIVE_MAPS"] ?? "")
         toolkitSourceFolder = defaults.string(forKey: "toolkitSourceFolder") ?? "\(loaded.home)/Desktop/RipperMoonToolKit"
+        tgdbAPIKeyLocal = defaults.string(forKey: tgdbAPIKeyDefaultsKey)
+            ?? (loaded.values["GPTK_TGDB_API_KEY"] ?? "")
         refreshBackups()
         showSetupGuide = shouldShowSetupGuide(config: loaded)
         persistProfiles()
