@@ -1702,7 +1702,7 @@ private struct GameDetailScreen: View {
                     }
                 }
                 RMKButton(kind: .primary, icon: "gamecontroller.fill",
-                          title: profile.isSteamApp ? "Launch Steam" : "Launch") {
+                          title: profile.isSteamApp ? "Launch Steam" : (profile.useModEngine == true ? "Launch Modded" : "Launch")) {
                     model.launch(profile)
                 }
                 if !profile.isSteamApp {
@@ -3259,13 +3259,28 @@ private final class LauncherModel: ObservableObject {
         return "nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log >> \(logPath.shellQuoted) 2>&1 &"
     }
 
+    private func steamWaitForUICommand(timeout: Int = 45) -> String {
+        """
+        steam_ready=0; \
+        for i in {1..\(timeout)}; do \
+          if ps -axww -o command= | grep -qi '[s]teamwebhelper.exe'; then steam_ready=1; break; fi; \
+          sleep 1; \
+        done; \
+        if [[ "$steam_ready" != "1" ]]; then \
+          echo "RipperMoonKit: Steam did not finish bringing up its UI within \(timeout) seconds. Launch Steam from this profile first, wait for the library window, then launch again."; \
+          exit 74; \
+        fi
+        """
+    }
+
     private func steamDependencyPreflightCommand(for profile: GameProfile) -> String {
         guard profile.requiresSteam && !profile.isSteamManaged else { return "" }
 
         let expectedRunner = profile.runnerPath.trimmingCharacters(in: .whitespacesAndNewlines)
         let statePath = steamStatePath(for: profile)
         let noEsync = profile.noEsync ? "1" : "0"
-        let startSteam = "\(steamStateWriteCommand(for: profile)); \(steamStartDetachedCommand(for: profile)); sleep 8"
+        let startSteam = "\(steamStateWriteCommand(for: profile)); \(steamStartDetachedCommand(for: profile))"
+        let waitForSteam = steamWaitForUICommand()
 
         return """
         steam_lines="$(ps -axww -o command= | grep -i '[s]team.exe' || true)"; \
@@ -3280,7 +3295,8 @@ private final class LauncherModel: ObservableObject {
           fi; \
         else \
           \(startSteam); \
-        fi
+        fi; \
+        \(waitForSteam)
         """
     }
 

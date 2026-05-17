@@ -242,6 +242,8 @@ DirectSoundCaptureDevice.lock wait timed out
 
 RipperMoonKit records how it started Steam for a game profile and blocks Steam-dependent launches when an already-running Steam process does not match the profile runner/no-esync state. Close Steam, press the Elden Ring profile's **Start Steam** button, then use **Launch Modded**.
 
+The main **Launch** button and the library banner power button also run this sequence. They start Steam with the Elden Ring profile when needed, wait until Steam's UI helper is present, then launch either ERSC or ModEngine based on the profile's **Launch through ModEngine** setting.
+
 ## Useful Checks
 
 Process check:
