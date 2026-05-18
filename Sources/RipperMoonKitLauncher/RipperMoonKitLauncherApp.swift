@@ -48,6 +48,13 @@ private struct GitHubReleaseInfo: Decodable {
     }
 }
 
+private struct SetupCheck: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let detail: String
+    let isOK: Bool
+}
+
 private enum AppResource {
     private static let resourceBundleName = "RipperMoonKit_RipperMoonKitLauncher.bundle"
 
@@ -1839,8 +1846,17 @@ private struct GameDetailScreen: View {
                         model.startSteam(for: profile)
                     }
                 }
+                if profile.isSteamApp {
+                    RMKButton(kind: model.steamReady ? .ghost : .primary,
+                              icon: model.steamReady ? "wrench.and.screwdriver.fill" : "arrow.down.circle.fill",
+                              title: model.steamReady ? "Repair Steam" : "Install Steam") {
+                        model.installSteam()
+                    }
+                    .help("Downloads SteamSetup.exe if needed, runs it in the Steam prefix, then validates that steam.exe exists.")
+                }
                 RMKButton(kind: .primary, icon: "gamecontroller.fill",
-                          title: profile.isSteamApp ? "Launch Steam" : (profile.useModEngine == true ? "Launch Modded" : "Launch")) {
+                          title: profile.isSteamApp ? "Launch Steam" : (profile.useModEngine == true ? "Launch Modded" : "Launch"),
+                          disabled: profile.isSteamApp && !model.steamReady) {
                     model.launch(profile)
                 }
                 if profile.isSteamApp {
@@ -1938,6 +1954,11 @@ private struct GameDetailScreen: View {
                     .help("Starts Steam in the configured prefix before launching a game that depends on Steam services.")
                 }
                 if profile.isSteamManaged {
+                    if profile.isSteamApp {
+                        CommandPreview(title: model.steamReady ? "Repair Steam" : "Install Steam",
+                                       command: model.previewInstallSteamCommand())
+                        .help("Runs the Steam installer in the Steam prefix and validates steam.exe after the installer exits.")
+                    }
                     CommandPreview(title: profile.isSteamApp ? "Launch Steam" : "Launch From Steam",
                                    command: model.previewSteamManagedLaunchCommand(for: profile))
                     .help("Launches Steam directly, or asks Steam to launch the selected AppID.")
@@ -2460,11 +2481,10 @@ private struct SetupGuideView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                SetupRow(title: "Toolkit scripts", isOK: model.config.hasToolkitScripts)
-                SetupRow(title: "Toolkit source clone", isOK: model.toolkitSourceReady)
-                SetupRow(title: "GPTK Wine runner", isOK: model.config.hasWineRunner)
-                SetupRow(title: "D3DMetal runtime", isOK: model.config.hasD3DMetalRuntime)
-                SetupRow(title: "Config file", isOK: model.config.exists)
+                ForEach(model.setupChecks) { check in
+                    SetupRow(title: check.title, isOK: check.isOK)
+                        .help(check.detail)
+                }
             }
             .padding(14)
             .background(Onyx.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -2476,6 +2496,10 @@ private struct SetupGuideView: View {
             FlowLayout(spacing: 8) {
                 RMKButton(kind: .primary, icon: "play.circle.fill", title: "Start Guided Setup") {
                     model.runFirstRunSetup()
+                }
+                RMKButton(kind: .ghost, icon: "arrowshape.turn.up.forward.fill",
+                          title: model.nextSetupActionTitle) {
+                    model.runNextSetupStep()
                 }
                 RMKButton(kind: .primary, icon: "square.and.arrow.down.fill", title: "Install Toolkit") {
                     model.installToolkit()
@@ -2945,6 +2969,78 @@ private final class LauncherModel: ObservableObject {
         FileManager.default.isExecutableFile(atPath: "\(toolkitSourceFolder)/install.zsh")
     }
 
+    var steamProfile: GameProfile {
+        profiles.first(where: { $0.isSteamApp }) ?? GameProfile.steam(config: config)
+    }
+
+    var steamInstallerPath: String {
+        config.steamSetupPath
+    }
+
+    var steamInstallerReady: Bool {
+        FileManager.default.fileExists(atPath: steamInstallerPath)
+    }
+
+    var steamReady: Bool {
+        steamExecutableExists(in: steamProfile)
+    }
+
+    var setupChecks: [SetupCheck] {
+        [
+            SetupCheck(
+                id: "source",
+                title: "Toolkit source clone",
+                detail: toolkitSourceFolder,
+                isOK: toolkitSourceReady
+            ),
+            SetupCheck(
+                id: "scripts",
+                title: "Toolkit scripts",
+                detail: "\(config.gptkLaunchPath) and \(config.gptkSteamPath)",
+                isOK: config.hasToolkitScripts
+            ),
+            SetupCheck(
+                id: "config",
+                title: "Config file",
+                detail: config.configPath,
+                isOK: config.exists
+            ),
+            SetupCheck(
+                id: "wine",
+                title: "GPTK Wine runner",
+                detail: config.effectiveWineHome,
+                isOK: config.hasWineRunner
+            ),
+            SetupCheck(
+                id: "d3dmetal",
+                title: "D3DMetal runtime",
+                detail: config.gptkRuntime,
+                isOK: config.hasD3DMetalRuntime
+            ),
+            SetupCheck(
+                id: "steamsetup",
+                title: "Steam installer",
+                detail: steamInstallerPath,
+                isOK: steamInstallerReady
+            ),
+            SetupCheck(
+                id: "steam",
+                title: "Windows Steam",
+                detail: steamExecutablePath(in: steamProfile),
+                isOK: steamReady
+            )
+        ]
+    }
+
+    var nextSetupActionTitle: String {
+        if !toolkitSourceReady { return "Prepare Source" }
+        if !config.hasToolkitScripts || !config.exists { return "Install Toolkit" }
+        if !config.hasLocalGPTK { return "Install GPTK" }
+        if !steamInstallerReady { return "Download Steam" }
+        if !steamReady { return "Install Steam" }
+        return "Refresh Setup"
+    }
+
     init() {
         let loaded = ToolkitConfig.load()
         config = loaded
@@ -3095,11 +3191,16 @@ private final class LauncherModel: ObservableObject {
     }
 
     func steamExecutableExists(in profile: GameProfile) -> Bool {
-        FileManager.default.fileExists(atPath: "\(prefixPath(for: profile))/drive_c/Program Files (x86)/Steam/steam.exe")
+        FileManager.default.fileExists(atPath: steamExecutablePath(in: profile))
+    }
+
+    func steamExecutablePath(in profile: GameProfile) -> String {
+        "\(prefixPath(for: profile))/drive_c/Program Files (x86)/Steam/steam.exe"
     }
 
     func startSteam(for profile: GameProfile) {
         let profile = repairedProfile(profile)
+        guard ensureSteamReady(for: profile) else { return }
         runShell(
             title: "Start Steam",
             command: previewStartSteamCommand(for: profile, detached: true),
@@ -3109,6 +3210,7 @@ private final class LauncherModel: ObservableObject {
 
     func installSpacewarFromSteam(for profile: GameProfile) {
         let profile = repairedProfile(profile)
+        guard ensureSteamReady(for: profile) else { return }
         runShell(
             title: "Install Spacewar AppID 480",
             command: previewInstallSpacewarCommand(for: profile, detached: true),
@@ -3139,6 +3241,9 @@ private final class LauncherModel: ObservableObject {
 
     func launch(_ profile: GameProfile) {
         let profile = repairedProfile(profile)
+        if (profile.requiresSteam || profile.isSteamManaged), !ensureSteamReady(for: profile) {
+            return
+        }
         runShell(
             title: "Launch \(profile.name)",
             command: launchCommand(for: profile, detached: true),
@@ -3148,6 +3253,9 @@ private final class LauncherModel: ObservableObject {
 
     func launchModEngine(_ profile: GameProfile) {
         let profile = repairedProfile(profile)
+        if profile.requiresSteam, !ensureSteamReady(for: profile) {
+            return
+        }
         runShell(
             title: "Launch \(profile.name) ModEngine",
             command: previewModEngineLaunchCommand(for: profile, detached: true),
@@ -3315,6 +3423,23 @@ private final class LauncherModel: ObservableObject {
         )
     }
 
+    func runNextSetupStep() {
+        if !toolkitSourceReady {
+            prepareToolkitSource()
+        } else if !config.hasToolkitScripts || !config.exists {
+            installToolkit()
+        } else if !config.hasLocalGPTK {
+            installDependencies()
+        } else if !steamInstallerReady {
+            downloadSteamInstaller()
+        } else if !steamReady {
+            installSteam()
+        } else {
+            reload()
+            commandOutput = setupChecks.map { "\($0.isOK ? "✅" : "❌") \($0.title): \($0.detail)" }.joined(separator: "\n")
+        }
+    }
+
     func runFirstRunSetup() {
         runShell(
             title: "Guided Setup",
@@ -3322,14 +3447,58 @@ private final class LauncherModel: ObservableObject {
             \(toolkitSourceBootstrapCommand)
             echo "➡️ Step 2/3: installing toolkit scripts and local config."
             ./install.zsh --skip-deps
-            echo "➡️ Step 3/3: connecting Apple Game Porting Toolkit 3."
+            echo "➡️ Step 3/4: connecting Apple Game Porting Toolkit 3."
             RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh
+            echo "➡️ Step 4/4: downloading and installing Windows Steam."
+            ./install.zsh --install-steam
             """,
             completion: { [weak self] in
                 self?.refreshBackups()
                 self?.reload()
             }
         )
+    }
+
+    func prepareToolkitSource() {
+        runShell(
+            title: "Prepare Source",
+            command: toolkitSourceBootstrapCommand,
+            completion: { [weak self] in self?.reload() }
+        )
+    }
+
+    func downloadSteamInstaller() {
+        runShell(
+            title: "Download Steam Installer",
+            command: "\(toolkitSourceBootstrapCommand)\n./install.zsh --no-homebrew-bootstrap --skip-gptk",
+            completion: { [weak self] in self?.reload() }
+        )
+    }
+
+    func installSteam() {
+        runShell(
+            title: steamReady ? "Repair Steam Install" : "Install Steam",
+            command: "\(toolkitSourceBootstrapCommand)\n./install.zsh --no-homebrew-bootstrap --skip-gptk --install-steam",
+            completion: { [weak self] in self?.reload() }
+        )
+    }
+
+    private func ensureSteamReady(for profile: GameProfile) -> Bool {
+        let steam = profile.isSteamApp ? profile : steamProfile
+        guard steamExecutableExists(in: steam) else {
+            lastResult = "Steam install required"
+            commandOutput = """
+            Windows Steam is not ready for \(profile.name).
+
+            Missing:
+            \(steamExecutablePath(in: steam))
+
+            Use the Steam profile's Install Steam / Repair Steam button, or run Start Guided Setup.
+            """
+            showSetupGuide = true
+            return false
+        }
+        return true
     }
 
     func checkForAvailableUpdate(force: Bool = false) async {
@@ -3612,6 +3781,10 @@ private final class LauncherModel: ObservableObject {
             return "\(sourceConfig); \(writeState); nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log --install-spacewar >> \(logPath.shellQuoted) 2>&1 &"
         }
         return "\(sourceConfig); \(writeState); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log --install-spacewar"
+    }
+
+    func previewInstallSteamCommand() -> String {
+        "\(toolkitSourceBootstrapCommand)\n./install.zsh --no-homebrew-bootstrap --skip-gptk --install-steam"
     }
 
     func previewStopSteamCommand() -> String {
@@ -4657,6 +4830,9 @@ private struct ToolkitConfig {
     }
     var gptkRuntime: String { expand(values["GPTK_RUNTIME"] ?? "$GPTK_HOME/runtime") }
     var gptkDownloadPage: String { expand(values["GPTK_DOWNLOAD_PAGE"] ?? "https://developer.apple.com/games/game-porting-toolkit/") }
+    var steamSetupPath: String {
+        expand(values["STEAM_SETUP_PATH"] ?? "$HOME/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe")
+    }
     var gptkLaunchPath: String { "\(home)/bin/gptk-launch" }
     var gptkSteamPath: String { "\(home)/bin/gptk-steam" }
     var gptkVCRunPath: String { "\(home)/bin/gptk-vcrun" }

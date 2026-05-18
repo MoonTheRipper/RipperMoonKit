@@ -46,6 +46,14 @@ hdiutil verify "dist.noindex/RipperMoonKit-Launcher.dmg"
 
 The package script must stop if signing or DMG verification fails. Do not publish a DMG that contains unsealed files in the `.app` bundle root.
 
+Run the fresh-home app smoke test from the current macOS session:
+
+```zsh
+zsh scripts/test-fresh-app-home.zsh --reset --no-launch
+```
+
+Drop `--no-launch` when you want to open the app against the disposable test home and walk through first-run setup without switching user accounts.
+
 ## Installer Smoke Test
 
 Copy-only smoke test:

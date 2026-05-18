@@ -132,12 +132,13 @@ if [[ "${kill_only}" == "1" ]]; then
 fi
 
 if [[ "${install}" == "1" ]]; then
-  [[ -n "${installer}" ]] || installer="${GPTK_EXTERNAL_ROOT}/Installers/SteamSetup.exe"
+  [[ -n "${installer}" ]] || installer="${STEAM_SETUP_PATH:-${HOME}/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe}"
   [[ -f "${installer}" ]] || gptk_die "Steam installer not found: ${installer}"
   "${launcher}" --prefix "${prefix}" --init --set-winver "${GPTK_DEFAULT_WINVER}" -- "${installer}" /S
+  [[ -f "${steam_exe}" ]] || gptk_die "Steam installer finished, but steam.exe was not created at ${steam_exe}"
 fi
 
-[[ -f "${steam_exe}" ]] || gptk_die "Steam is not installed in ${prefix_path}; run: gptk-steam --install ${GPTK_EXTERNAL_ROOT}/Installers/SteamSetup.exe"
+[[ -f "${steam_exe}" ]] || gptk_die "Steam is not installed in ${prefix_path}; run: gptk-steam --install ${STEAM_SETUP_PATH:-${HOME}/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe}"
 
 if [[ "${legacy_cef}" == "1" ]]; then
   apply_steam_compat

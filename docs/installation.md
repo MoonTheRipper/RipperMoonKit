@@ -42,7 +42,7 @@ After dragging **RipperMoonKit Launcher.app** into Applications, the user should
 4. When GPTK is missing, click the GPTK prompt, download **Apple Game Porting Toolkit 3** from Apple, and mount the downloaded DMG.
 5. Return to RipperMoonKit and continue **Start Guided Setup** so it can copy GPTK locally, create folders, install helper scripts, and write `~/.rippermoon-gptk.env`.
 6. Open **Settings > Paths** and confirm the GPTK home, prefix root, games root, external root, and Steam library paths match the machine.
-7. Open the **Steam** profile and install Windows Steam when needed. The DMG does not include Steam.
+7. Open the **Steam** profile. If it still shows **Install Steam**, click it and wait until validation finds `steam.exe`. The DMG does not include Steam.
 8. For co-op Steamworks test paths such as Elden Ring ERSC, open the **Steam** profile and click **Install Spacewar** once. Wait for AppID 480 setup to finish, then close Spacewar.
 9. Add or open a game profile, set the game folder and executable, then launch from that profile.
 

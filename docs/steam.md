@@ -4,17 +4,19 @@ Steam runs in a dedicated prefix named `Steam` by default.
 
 ## Install Steam
 
-Place `SteamSetup.exe` somewhere reachable, usually:
+The app and installer download `SteamSetup.exe` to:
 
 ```text
-$GPTK_EXTERNAL_ROOT/Installers/SteamSetup.exe
+~/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe
 ```
 
-Install:
+Install or repair Steam:
 
 ```zsh
-gptk-steam --install "$GPTK_EXTERNAL_ROOT/Installers/SteamSetup.exe"
+gptk-steam --install "$HOME/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe"
 ```
+
+The install is considered successful only when `steam.exe` exists inside the Steam prefix. In the GUI, the Steam tile shows **Install Steam** until this validation passes, then changes to **Repair Steam**.
 
 ## Start Steam
 

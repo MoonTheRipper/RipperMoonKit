@@ -88,8 +88,10 @@ which gptk-game
 If you did not use `./install.zsh --install-steam`, install Steam after bootstrap:
 
 ```zsh
-gptk-steam --install "$GPTK_EXTERNAL_ROOT/Installers/SteamSetup.exe"
+gptk-steam --install "$HOME/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe"
 ```
+
+In the GUI, use the Steam tile. It shows **Install Steam** until `steam.exe` validates inside the Steam prefix, then shows **Repair Steam**.
 
 Start Steam:
 

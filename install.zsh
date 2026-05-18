@@ -165,7 +165,7 @@ GPTK_REQUIRED_VERSION="${GPTK_REQUIRED_VERSION:-3}"
 GPTK_DOWNLOAD_PAGE="${GPTK_DOWNLOAD_PAGE:-https://developer.apple.com/games/game-porting-toolkit/}"
 GPTK_DOWNLOAD_DIR="${GPTK_DOWNLOAD_DIR:-${HOME}/Downloads}"
 STEAM_SETUP_URL="${STEAM_SETUP_URL:-https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe}"
-STEAM_SETUP_PATH="${STEAM_SETUP_PATH:-${GPTK_EXTERNAL_ROOT}/Installers/SteamSetup.exe}"
+STEAM_SETUP_PATH="${STEAM_SETUP_PATH:-${HOME}/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe}"
 RIPPERMOON_VCREDIST_X64_URL="${RIPPERMOON_VCREDIST_X64_URL:-https://aka.ms/vc14/vc_redist.x64.exe}"
 RIPPERMOON_VCREDIST_X86_URL="${RIPPERMOON_VCREDIST_X86_URL:-https://aka.ms/vc14/vc_redist.x86.exe}"
 RIPPERMOON_DOTNET6_DESKTOP_URL="${RIPPERMOON_DOTNET6_DESKTOP_URL:-https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe}"
@@ -898,7 +898,14 @@ install_windows_steam() {
 
   log "🎮" "Installing Windows Steam into the Steam prefix."
   "${install_bin}/gptk-steam" --install "${steam_setup}" >> "${log_file}" 2>&1
-  log "✅" "Windows Steam install command completed."
+  local steam_exe="${GPTK_PREFIX_ROOT}/Steam/drive_c/Program Files (x86)/Steam/steam.exe"
+  if [[ -f "${steam_exe}" ]]; then
+    log "✅" "Windows Steam installed and validated: ${steam_exe}"
+  else
+    log "❌" "Steam installer finished, but steam.exe was not created: ${steam_exe}"
+    log "❌" "Open the newest log in ${GPTK_LOG_DIR}, then retry with ./install.zsh --install-steam."
+    return 1
+  fi
 }
 
 if [[ "${list_backups}" == "1" ]]; then

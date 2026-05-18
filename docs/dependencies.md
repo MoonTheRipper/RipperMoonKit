@@ -61,7 +61,7 @@ https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe
 The file is saved to:
 
 ```text
-$GPTK_EXTERNAL_ROOT/Installers/SteamSetup.exe
+~/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe
 ```
 
 Override the URL or path:
