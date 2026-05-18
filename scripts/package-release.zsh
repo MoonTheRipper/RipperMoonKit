@@ -80,7 +80,6 @@ resource_bundle="${build_dir}/RipperMoonKit_RipperMoonKitLauncher.bundle"
 }
 
 install -m 755 "${executable}" "${app_path}/Contents/MacOS/RipperMoonKitLauncher"
-ditto "${resource_bundle}" "${app_path}/RipperMoonKit_RipperMoonKitLauncher.bundle"
 ditto "${resource_bundle}" "${app_path}/Contents/Resources/RipperMoonKit_RipperMoonKitLauncher.bundle"
 create_app_icon "${app_path}/Contents/Resources"
 
@@ -115,11 +114,15 @@ PLIST
 
 if command -v codesign >/dev/null 2>&1; then
   log "✍️" "Applying ad-hoc app signature."
-  if codesign --force --deep --sign - "${app_path}" >> "${log_file}" 2>&1; then
-    log "✅" "Applied ad-hoc app signature."
-  else
-    log "⚠️" "Ad-hoc signing was skipped; SwiftPM resource bundles must remain at the app root for this build."
-  fi
+  codesign --force --deep --sign - "${app_path}" >> "${log_file}" 2>&1 || {
+    log "❌" "Ad-hoc signing failed; refusing to package an invalid app."
+    exit 1
+  }
+  codesign --verify --deep --strict --verbose=2 "${app_path}" >> "${log_file}" 2>&1 || {
+    log "❌" "Ad-hoc signature verification failed."
+    exit 1
+  }
+  log "✅" "Applied and verified ad-hoc app signature."
 fi
 
 log "💿" "Creating DMG."
@@ -130,6 +133,11 @@ hdiutil create \
   -ov \
   -format UDZO \
   "${dmg_path}" >> "${log_file}" 2>&1
+hdiutil verify "${dmg_path}" >> "${log_file}" 2>&1 || {
+  log "❌" "DMG verification failed."
+  exit 1
+}
+log "✅" "Verified DMG image."
 
 log "🗜️" "Creating source ZIP from git."
 (cd "${repo_dir}" && git archive --format=zip --prefix="RipperMoonKit-${version}/" -o "${source_zip}" HEAD)

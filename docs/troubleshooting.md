@@ -1,5 +1,11 @@
 # Troubleshooting
 
+## macOS Says The App Is Damaged Or Cannot Be Opened
+
+Download the newest DMG from GitHub releases first. Older packages before `v1.2.3` could contain an app bundle whose internal resources were not sealed correctly, so a fresh macOS user account could reject the app even when the developer account opened it.
+
+If the newest DMG still fails, remove the old copy from Applications, drag the app from the DMG into Applications again, then open **System Settings > Privacy & Security** and allow the app if macOS asks. RipperMoonKit is ad-hoc signed for now, not Apple Developer ID notarized.
+
 ## Steam Starts But Webhelper Times Out
 
 Repair Steam compatibility:

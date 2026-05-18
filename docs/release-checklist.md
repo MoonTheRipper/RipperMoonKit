@@ -34,6 +34,18 @@ Run zsh syntax checks:
 find . -type f \( -name '*.zsh' -o -name 'gptk-*' -o -name '*.example' \) -exec zsh -n {} \;
 ```
 
+## Release Package Integrity
+
+Build the release package and verify that signing did not silently fail:
+
+```zsh
+zsh scripts/package-release.zsh
+codesign --verify --deep --strict --verbose=2 "dist.noindex/work-v$(<VERSION).noindex/RipperMoonKit Launcher.app"
+hdiutil verify "dist.noindex/RipperMoonKit-Launcher.dmg"
+```
+
+The package script must stop if signing or DMG verification fails. Do not publish a DMG that contains unsealed files in the `.app` bundle root.
+
 ## Installer Smoke Test
 
 Copy-only smoke test:

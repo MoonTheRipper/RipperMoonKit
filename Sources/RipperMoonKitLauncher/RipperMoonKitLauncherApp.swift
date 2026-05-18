@@ -46,6 +46,37 @@ private struct GitHubReleaseInfo: Decodable {
     }
 }
 
+private enum AppResource {
+    private static let resourceBundleName = "RipperMoonKit_RipperMoonKitLauncher.bundle"
+
+    static func image(named name: String, extension ext: String = "png") -> NSImage? {
+        guard let url = url(forResource: name, withExtension: ext) else {
+            return nil
+        }
+        return NSImage(contentsOf: url)
+    }
+
+    static func url(forResource name: String, withExtension ext: String) -> URL? {
+        let fileName = "\(name).\(ext)"
+        let candidates: [URL?] = [
+            Bundle.main.resourceURL?
+                .appendingPathComponent(resourceBundleName)
+                .appendingPathComponent(fileName),
+            Bundle.main.resourceURL?
+                .appendingPathComponent(fileName),
+            Bundle.main.bundleURL
+                .deletingLastPathComponent()
+                .appendingPathComponent(resourceBundleName)
+                .appendingPathComponent(fileName),
+            Bundle.main.bundleURL
+                .appendingPathComponent(resourceBundleName)
+                .appendingPathComponent(fileName)
+        ]
+
+        return candidates.compactMap { $0 }.first { FileManager.default.fileExists(atPath: $0.path) }
+    }
+}
+
 // MARK: - Onyx theme
 //
 // Black / white / scarlet palette from the RipperMoonKit redesign. Subtle Apple
@@ -136,12 +167,7 @@ private struct BrandMark: View {
     /// Loaded once from the package resource bundle. `Image(_:bundle:)` does not
     /// reliably resolve a loose PNG in a flat SPM resource bundle on macOS, so the
     /// logo is loaded by URL instead.
-    private static let logo: NSImage? = {
-        guard let url = Bundle.module.url(forResource: "rippermoonlogo", withExtension: "png") else {
-            return nil
-        }
-        return NSImage(contentsOf: url)
-    }()
+    private static let logo = AppResource.image(named: "rippermoonlogo")
 
     var body: some View {
         Group {
@@ -942,12 +968,7 @@ private struct UpdateNoticeBanner: View {
 
 /// Sidebar support prompt — a plain one-liner and a bordered Ko-fi button.
 private struct KofiSupport: View {
-    private static let logo: NSImage? = {
-        guard let url = Bundle.module.url(forResource: "kofi_logo", withExtension: "png") else {
-            return nil
-        }
-        return NSImage(contentsOf: url)
-    }()
+    private static let logo = AppResource.image(named: "kofi_logo")
 
     var body: some View {
         VStack(spacing: 9) {

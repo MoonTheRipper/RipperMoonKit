@@ -57,6 +57,10 @@
         <p class="lead">Most launch failures come from a missing mounted drive, wrong prefix, missing runtime dependency, or a game folder that is not the actual installed game folder.</p>
       </div>
 
+      <h2>macOS Says The App Is Damaged Or Cannot Be Opened</h2>
+      <p>Download the newest DMG from GitHub releases first. Older packages before <code>v1.2.3</code> could contain an app bundle whose internal resources were not sealed correctly, so a fresh macOS user account could reject the app even when the developer account opened it.</p>
+      <p>If the newest DMG still fails, remove the old copy from Applications, drag the app from the DMG into Applications again, then open <strong>System Settings &gt; Privacy &amp; Security</strong> and allow the app if macOS asks. RipperMoonKit is ad-hoc signed for now, not Apple Developer ID notarized.</p>
+
       <h2>GPTK Shows Missing</h2>
       <p>Make sure Game Porting Toolkit is installed or mounted. The launcher accepts configured GPTK paths, the Apple app in <code>/Applications</code>, and patched runners under <code>$GPTK_HOME/runners</code>.</p>
 
