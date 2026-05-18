@@ -22,3 +22,6 @@ dist.noindex/
 .rippermoon-gptk.env
 *.log
 *.dmp
+
+# Local AI assistant / editor settings — never commit
+.claude/
