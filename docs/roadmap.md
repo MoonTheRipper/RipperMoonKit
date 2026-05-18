@@ -63,6 +63,27 @@ steam_required: true
 steam_appid: 480
 ```
 
+## Planned REFramework Support
+
+REFramework for Resident Evil / RE Engine games is a planned compatibility track, not current support. The first goal is a profile template and tester workflow, not bundled REFramework binaries.
+
+Investigation references:
+
+- praydog/REFramework PR #1589: Wine/D3DMetal support work for D3D12Hook.
+- D3D12 device creation under D3DMetal, especially avoiding `D3D12CreateDevice(nullptr, ...)`.
+- D3DMetal-wrapped COM object behavior when locating the D3D12 command queue.
+- QueryInterface deadlock avoidance and alternative object identity checks.
+- Wine-specific `NtProtectVirtualMemory` / memory protection behavior during hook setup.
+- Restart reliability after app restart, Steam restart, Wine restart, and macOS reboot.
+
+Planned RipperMoonKit work:
+
+- Add an RE Engine / REFramework profile preset.
+- Validate expected REFramework loader files, such as `dinput8.dll` where applicable.
+- Add per-game tester prompts for game version, REFramework build, runner, DLL overrides, launch result, and restart behavior.
+- Document known-good launch flags once at least one RE Engine title is repeatable.
+- Keep REFramework and game files user-supplied; do not redistribute third-party builds.
+
 ## Safety Rules
 
 - Keep game files, saves, Wine prefixes, Steam data, and Apple GPTK runtime blobs out of git.

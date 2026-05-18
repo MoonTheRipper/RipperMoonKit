@@ -222,6 +222,7 @@ Start here:
 - [docs/steam.md](docs/steam.md): Windows Steam install and launch flow.
 - [docs/game-folder-workflow.md](docs/game-folder-workflow.md): copying pre-installed game folders instead of running fragile installers.
 - [docs/elden-ring-ersc.md](docs/elden-ring-ersc.md): ERSC launch sequence.
+- [docs/reframework.md](docs/reframework.md): planned REFramework compatibility track for Resident Evil / RE Engine games.
 - [docs/clair-obscur-dlss-metalfx.md](docs/clair-obscur-dlss-metalfx.md): Clair Obscur DLSS through GPTK MetalFX.
 - [docs/steam-voice-capture-fix-2026-05-13.md](docs/steam-voice-capture-fix-2026-05-13.md): Golden Pot freeze bug report and workaround.
 - [docs/save-transfer.md](docs/save-transfer.md): save discovery and restore workflow.

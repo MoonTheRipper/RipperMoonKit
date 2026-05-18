@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RipperMoonKit REFramework Support Plan</title>
+  <meta name="description" content="Planned RipperMoonKit investigation for REFramework support with Resident Evil and RE Engine games through Wine, GPTK, and D3DMetal.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html"><img src="assets/rippermoonlogo.png" alt=""><span>RipperMoonKit</span></a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a><a href="index.html">Docs</a><a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a><a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="tested-games.html">Known Tested Games</a><a href="elden-ring.html">Elden Ring ERSC</a><a href="reframework.html" aria-current="page">REFramework Plan</a>
+      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a><a href="license.html">License</a>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Planned Compatibility</p>
+        <h1>REFramework support is a planned investigation.</h1>
+        <p class="lead">RipperMoonKit does not currently ship a REFramework profile, but Resident Evil / RE Engine games are a good fit for a future compatibility track once the Wine, GPTK, and D3DMetal behavior is repeatable.</p>
+      </div>
+
+      <h2>Why This Needs Its Own Track</h2>
+      <p>REFramework hooks D3D12 paths that can behave differently under Apple's D3DMetal translation layer than they do on native Windows or Proton/DXVK. A useful upstream reference is <a href="https://github.com/praydog/REFramework/pull/1589">praydog/REFramework pull request #1589</a>, which explored Wine/D3DMetal support for D3D12Hook. That PR was closed, so it is research material rather than a drop-in supported fix.</p>
+
+      <h2>Investigation Points</h2>
+      <ul>
+        <li>Use a real adapter for D3D12 device creation under Wine/D3DMetal.</li>
+        <li>Handle D3DMetal-wrapped COM objects when locating the D3D12 command queue.</li>
+        <li>Avoid QueryInterface-based identity checks if they deadlock under D3DMetal.</li>
+        <li>Validate Wine-specific memory protection behavior around REFramework hook setup.</li>
+        <li>Check whether failures return after restart, Steam restart, or macOS reboot.</li>
+      </ul>
+
+      <h2>RipperMoonKit Scope</h2>
+      <p>The first implementation should provide an RE Engine profile template, REFramework file validation, per-game DLL override fields, D3D12/D3DMetal launch notes, and tester-report prompts for game version, runner, logs, and restart behavior. It should not redistribute REFramework builds or game files.</p>
+
+      <h2>Success Criteria</h2>
+      <ol>
+        <li>Place or install REFramework files through a documented profile flow.</li>
+        <li>Launch the target RE Engine game from RipperMoonKit.</li>
+        <li>See REFramework initialize consistently after closing and reopening the app.</li>
+        <li>Relaunch after closing Steam/Wine without manual file edits.</li>
+        <li>Collect logs across at least two clean sessions.</li>
+      </ol>
+
+      <div class="next-links">
+        <a class="button-link primary" href="tested-games.html">Known Tested Games</a>
+        <a class="button-link" href="gui.html">Launcher Guide</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

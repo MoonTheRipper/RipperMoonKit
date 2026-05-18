@@ -49,3 +49,15 @@ Steam is both a standalone app profile and a dependency for games that need Stea
 - Troubleshooting: for webhelper or content unavailable issues, repair Steam compatibility and check the Steam logs.
 
 See [steam.md](steam.md) and [troubleshooting.html#steam](troubleshooting.html#steam).
+
+## Planned: REFramework / RE Engine Games
+
+Status: Planned
+
+REFramework support is not currently marked tested. It is on the roadmap as a dedicated compatibility track because REFramework's D3D12 hooks can run into Wine/D3DMetal-specific behavior.
+
+- Why this profile would exist: Resident Evil / RE Engine games need a repeatable way to place REFramework files, preserve per-game DLL overrides, and collect launch logs.
+- Current research reference: [praydog/REFramework pull request #1589](https://github.com/praydog/REFramework/pull/1589), which explored Wine/D3DMetal support for D3D12Hook.
+- Next step: collect tester reports for exact game version, REFramework build, runner, launch flags, and whether the setup survives restart.
+
+See [reframework.html](reframework.html).
