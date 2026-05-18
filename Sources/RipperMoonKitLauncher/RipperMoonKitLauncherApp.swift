@@ -2506,7 +2506,7 @@ private struct SetupGuideView: View {
             if model.guidedSetupRunning {
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
-                    Text("Setup is running in the Terminal window. When it finishes, click Recheck.")
+                    Text("Setup is running in the Terminal window. Watch for the green SETUP FINISHED banner — RipperMoonKit refreshes here automatically, or click Recheck.")
                         .font(.system(size: 12))
                         .foregroundStyle(Onyx.textDim)
                         .fixedSize(horizontal: false, vertical: true)
@@ -3471,23 +3471,18 @@ private final class LauncherModel: ObservableObject {
     }
 
     func installDependencies() {
-        let body = """
-        #!/bin/zsh
-        clear
-        echo "Installing dependencies and connecting Apple Game Porting Toolkit 3…"
+        let work = """
+        echo "Installing dependencies and Apple Game Porting Toolkit 3…"
         echo "macOS may ask for your Mac password once (to install Homebrew)."
+        echo "Copying GPTK can take several minutes with no output — that is normal."
         echo
 
         \(toolkitSourceBootstrapCommand)
         set +e
 
         RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh
-
-        echo
-        echo "✅ Done. Return to RipperMoonKit and click Recheck."
-        echo "   You can close this window."
         """
-        runScriptInTerminal(named: "install-gptk", body: body, title: "Install GPTK")
+        runScriptInTerminal(named: "install-gptk", title: "Install GPTK", work: work)
     }
 
     func runNextSetupStep() {
@@ -3508,37 +3503,35 @@ private final class LauncherModel: ObservableObject {
     }
 
     func runFirstRunSetup() {
-        let body = """
-        #!/bin/zsh
-        clear
-        echo "════════════════════════════════════════════════"
-        echo "  RipperMoonKit — First Run Setup"
-        echo "════════════════════════════════════════════════"
+        let work = """
+        echo "════════ RipperMoonKit — First Run Setup ════════"
         echo
-        echo "This installs everything RipperMoonKit needs."
-        echo "macOS may ask for your Mac password once (to install Homebrew)."
+        echo "This installs everything RipperMoonKit needs to run games."
+        echo
+        echo "  • macOS may ask for your Mac password once (to install Homebrew)."
+        echo "  • Some steps copy several GB and show no output while copying."
+        echo "    That is normal — leave this window open until you see the"
+        echo "    SETUP FINISHED banner at the bottom."
         echo
 
         \(toolkitSourceBootstrapCommand)
         set +e
 
         echo
-        echo "➡️ Installing toolkit scripts and local config…"
-        ./install.zsh --skip-deps || echo "⚠️ Toolkit step had problems — see the output above."
+        echo "➡️  Step 1 of 3 — installing toolkit scripts and local config…"
+        ./install.zsh --skip-deps || echo "⚠️  Toolkit step had problems — see the output above."
 
         echo
-        echo "➡️ Installing dependencies and connecting Apple Game Porting Toolkit 3…"
-        RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh || echo "⚠️ GPTK step incomplete — you may still need to download GPTK from Apple."
+        echo "➡️  Step 2 of 3 — dependencies + Apple Game Porting Toolkit 3…"
+        echo "    This is the long one. Copying GPTK can take several minutes"
+        echo "    with no output on screen — please wait, it is not frozen."
+        RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh || echo "⚠️  GPTK step incomplete — you may still need to download GPTK from Apple."
 
         echo
-        echo "➡️ Downloading and installing Windows Steam…"
-        ./install.zsh --install-steam || echo "⚠️ Steam step incomplete — you can install Steam later from the Steam profile."
-
-        echo
-        echo "✅ Setup finished. Return to RipperMoonKit and click Recheck."
-        echo "   You can close this window."
+        echo "➡️  Step 3 of 3 — installing Windows Steam…"
+        ./install.zsh --install-steam || echo "⚠️  Steam step incomplete — install it later from the Steam profile."
         """
-        runScriptInTerminal(named: "guided-setup", body: body, title: "Guided Setup")
+        runScriptInTerminal(named: "guided-setup", title: "Guided Setup", work: work)
     }
 
     func prepareToolkitSource() {
@@ -4285,12 +4278,54 @@ private final class LauncherModel: ObservableObject {
         """
     }
 
+    private var setupSentinelURL: URL {
+        URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Application Support/RipperMoonKit/.setup-complete")
+    }
+
     /// Runs a setup script in a real Terminal window so macOS can show the
     /// admin-password prompt (Homebrew) and the long GPTK download wait.
-    private func runScriptInTerminal(named name: String, body: String, title: String) {
+    /// The script ends with a loud banner and writes a sentinel file so the
+    /// app can detect completion and refresh itself with no manual step.
+    private func runScriptInTerminal(named name: String, title: String, work: String) {
         let dir = URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent("Library/Application Support/RipperMoonKit", isDirectory: true)
         let scriptURL = dir.appendingPathComponent("\(name).command")
+        let sentinel = setupSentinelURL
+        try? FileManager.default.removeItem(at: sentinel)
+
+        let body = """
+        #!/bin/zsh
+        printf '\\033]0;RipperMoonKit Setup — running…\\007'
+        clear
+        (
+        \(work)
+        )
+        work_status=$?
+        mkdir -p \(dir.path.shellQuoted)
+        date "+%Y-%m-%d %H:%M:%S" > \(sentinel.path.shellQuoted)
+        printf '\\a'
+        echo
+        if [[ "$work_status" -eq 0 ]]; then
+          printf '\\033]0;RipperMoonKit Setup — FINISHED\\007'
+          echo "════════════════════════════════════════════════"
+          echo "   ✅  SETUP FINISHED"
+          echo "════════════════════════════════════════════════"
+          echo
+          echo "RipperMoonKit refreshed itself — switch back to it to see"
+          echo "what installed. You can now close this Terminal window."
+        else
+          printf '\\033]0;RipperMoonKit Setup — STOPPED\\007'
+          echo "════════════════════════════════════════════════"
+          echo "   ⚠️  SETUP STOPPED EARLY"
+          echo "════════════════════════════════════════════════"
+          echo
+          echo "Something above did not finish. Switch back to RipperMoonKit,"
+          echo "check which items still need setup, and run setup again."
+        fi
+        echo
+        """
+
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try body.write(to: scriptURL, atomically: true, encoding: .utf8)
@@ -4318,9 +4353,29 @@ private final class LauncherModel: ObservableObject {
         commandOutput = """
         \(title) is running in a Terminal window.
 
-        Follow the steps shown there. macOS may ask for your Mac password once.
-        When it finishes, return here and click Recheck.
+        Follow the steps shown there — macOS may ask for your Mac password once.
+        Some steps copy several GB and look idle while they work; that is normal.
+
+        RipperMoonKit refreshes itself the moment setup finishes — no need to watch.
         """
+        watchForSetupCompletion()
+    }
+
+    /// Polls for the setup sentinel and refreshes the app when Terminal setup ends.
+    private func watchForSetupCompletion() {
+        let sentinel = setupSentinelURL
+        Task { @MainActor [weak self] in
+            for _ in 0..<1200 { // up to ~60 minutes
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                guard let self, self.guidedSetupRunning else { return }
+                if FileManager.default.fileExists(atPath: sentinel.path) {
+                    try? FileManager.default.removeItem(at: sentinel)
+                    NSApp.activate(ignoringOtherApps: true)
+                    self.reload()
+                    return
+                }
+            }
+        }
     }
 
     private func runnerEnvAssignment(for profile: GameProfile) -> String {
