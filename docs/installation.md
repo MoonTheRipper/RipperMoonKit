@@ -7,6 +7,8 @@ RipperMoonKit can be installed in two ways:
 
 RipperMoonKit does not include Apple Game Porting Toolkit, games, Steam files, or mods. Each user provides their own GPTK 3 download from Apple and their own legally obtained game files.
 
+For the simplest app-first checklist, read [normal-user-guide.md](normal-user-guide.md).
+
 ## Option A: Install From DMG
 
 1. Download the latest DMG:

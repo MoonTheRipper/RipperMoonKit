@@ -59,7 +59,7 @@ The screenshots show the launcher profile and a live Elden Ring GPTK run. See [d
 
 ## Quick Start
 
-Read [docs/quickstart.md](docs/quickstart.md) first.
+Read [docs/normal-user-guide.md](docs/normal-user-guide.md) first if you installed the DMG and want the simplest app-first path. Use [docs/quickstart.md](docs/quickstart.md) if you want the shorter technical checklist.
 
 Short version:
 

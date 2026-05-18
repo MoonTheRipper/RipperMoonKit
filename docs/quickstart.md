@@ -2,6 +2,8 @@
 
 This is the shortest path to a working RipperMoonToolKit install.
 
+If you installed from the DMG and want a simpler app-first guide, read [normal-user-guide.md](normal-user-guide.md).
+
 For a visual example of the app and Elden Ring running on macOS, see [proof-of-concept.md](proof-of-concept.md).
 
 ## 1. Download GPTK 3 From Apple
