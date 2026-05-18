@@ -6,6 +6,10 @@ RipperMoonToolKit is a manual Apple Game Porting Toolkit 3 launcher setup for Ap
 
 This repository is source and documentation only. It intentionally does not include Wine prefixes, installed games, Steam data, saves, logs, Apple runtime files, or any machine-specific directories.
 
+## License
+
+RipperMoonKit is free to run, inspect, and modify for personal use, but it is not licensed for repackaging, resale, rebranding, or embedding into another product. See [LICENSE](LICENSE) for the full source-available personal-use terms.
+
 ## Status
 
 The toolkit is intended for technical users who are comfortable with Terminal, mounted volumes, and Wine/GPTK troubleshooting.
@@ -223,6 +227,7 @@ Start here:
 - [docs/save-transfer.md](docs/save-transfer.md): save discovery and restore workflow.
 - [docs/troubleshooting.md](docs/troubleshooting.md): common failure modes.
 - [docs/faq.md](docs/faq.md): common questions.
+- [docs/license.html](docs/license.html): plain-language license summary.
 - [docs/release-checklist.md](docs/release-checklist.md): maintainer checklist before publishing.
 - [docs/roadmap.md](docs/roadmap.md): planned SwiftUI launcher and compatibility profile work.
 

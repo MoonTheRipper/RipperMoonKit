@@ -1,0 +1,66 @@
+RipperMoonKit Source-Available Personal Use License 1.0
+
+Copyright (c) 2026 moontheripper
+
+This license is intentionally not MIT, Apache-2.0, GPL, or another open-source
+license. RipperMoonKit is free to use, inspect, and modify for personal use, but
+it may not be repackaged, resold, rebranded, or embedded into another product
+without written permission from the copyright holder.
+
+1. Permission
+
+You may:
+
+- install and run RipperMoonKit for free;
+- copy the source code for personal, educational, research, or internal
+  non-commercial use;
+- build the app or scripts from source for your own machines;
+- make private modifications for your own use;
+- fork the repository or prepare patches for the purpose of contributing changes
+  back to the upstream project;
+- share links to the official repository, official releases, and documentation.
+
+2. Restrictions
+
+You may not, without prior written permission from the copyright holder:
+
+- sell, rent, lease, sublicense, or commercially exploit RipperMoonKit;
+- redistribute packaged builds, installers, DMGs, archives, or modified releases
+  of RipperMoonKit;
+- rebrand RipperMoonKit or present a modified copy as a separate product;
+- embed, bundle, or integrate RipperMoonKit code into another application,
+  launcher, service, commercial toolkit, or paid distribution;
+- remove or obscure copyright notices, attribution, this license, or user-facing
+  project identity;
+- use the RipperMoonKit name, logo, screenshots, or branding in a way that
+  implies endorsement of an unofficial build or derivative product;
+- bundle RipperMoonKit with copyrighted games, Apple Game Porting Toolkit files,
+  Steam files, third-party mods, or other files you do not have permission to
+  redistribute.
+
+3. Contributions
+
+By submitting a pull request, patch, issue attachment, or other contribution to
+the upstream project, you grant the project maintainer permission to use,
+modify, reproduce, publish, and distribute that contribution as part of
+RipperMoonKit under this license or a future project license.
+
+4. Third-Party Software
+
+RipperMoonKit can help users install or launch third-party tools and runtimes.
+Those tools remain under their own licenses and terms. This license does not
+grant rights to Apple Game Porting Toolkit, Wine, Steam, games, game assets,
+mods, ModEngine, Seamless Co-op, Randomizer, or any other third-party component.
+
+5. No Warranty
+
+RipperMoonKit is provided "as is", without warranty of any kind, express or
+implied, including but not limited to warranties of merchantability, fitness for
+a particular purpose, and non-infringement. You use it at your own risk.
+
+6. Termination
+
+If you violate this license, your permission to use, copy, modify, or access the
+project under this license ends automatically. The copyright holder may reinstate
+permission in writing.
+
