@@ -66,6 +66,21 @@
         <li>Follow the first-run setup prompts. The app can guide you to GPTK, install helper scripts, and prepare local folders.</li>
       </ol>
 
+      <h2>After Installing The App</h2>
+      <p>After the app is in Applications, the first job is to let RipperMoonKit prepare the local GPTK/Wine environment. The DMG only installs RipperMoonKit; it does not bundle Apple GPTK, Steam, games, saves, or mods.</p>
+      <ol>
+        <li>Open <strong>RipperMoonKit Launcher.app</strong>.</li>
+        <li>If macOS blocks it, allow it in <strong>System Settings &gt; Privacy &amp; Security</strong>, then open it again.</li>
+        <li>Follow the first-run setup guide.</li>
+        <li>When GPTK is missing, use the prompt to open Apple's GPTK page, download <strong>Game Porting Toolkit 3</strong>, and mount the downloaded DMG.</li>
+        <li>Return to RipperMoonKit and run the setup/install action so it can copy GPTK locally, create folders, install helper scripts, and write <code>~/.rippermoon-gptk.env</code>.</li>
+        <li>Open <strong>Settings &gt; Paths</strong> and confirm the GPTK home, prefix root, games root, external root, and Steam library paths.</li>
+        <li>Open the <strong>Steam</strong> profile and install Windows Steam when needed.</li>
+        <li>For co-op Steamworks test paths such as Elden Ring ERSC, open the <strong>Steam</strong> profile and click <strong>Install Spacewar</strong> once. Wait for AppID 480 setup to finish, then close Spacewar.</li>
+        <li>Add or open a game profile, set the game folder and executable, then launch from that profile.</li>
+      </ol>
+      <p>Setup and launcher logs are written under <code>$GPTK_HOME/logs/</code>. If setup fails, use <strong>Settings &gt; Maintenance</strong> after checking the newest log.</p>
+
       <h2>GPTK Requirement</h2>
       <p>RipperMoonKit targets <strong>Apple Game Porting Toolkit 3</strong>. Download GPTK 3 from Apple Developer and mount the downloaded disk image before running the full setup. If the app or installer cannot find GPTK, it can open Apple's download page and wait while you mount it.</p>
       <p><a href="https://developer.apple.com/games/game-porting-toolkit/">Open Apple Game Porting Toolkit page</a></p>
