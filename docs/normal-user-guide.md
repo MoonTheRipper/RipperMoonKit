@@ -23,12 +23,12 @@ Apple GPTK must be downloaded from Apple. Steam is installed later only if a gam
 3. Drag **RipperMoonKit Launcher.app** into **Applications**.
 4. Open **RipperMoonKit Launcher.app**.
 5. If macOS blocks the app, open **System Settings > Privacy & Security**, allow the app, then open it again.
-6. Follow the first-run setup guide.
-7. If the app says GPTK is missing, download **Game Porting Toolkit 3** from Apple.
-8. Open the downloaded GPTK DMG so it appears in Finder under **Locations**.
-9. Return to RipperMoonKit and click **Install GPTK**.
-10. If setup does not finish cleanly, keep the GPTK DMG mounted and click **Install GPTK** again.
-11. Click **Install Toolkit** if the app still reports missing helper scripts or if setup was interrupted.
+6. Follow the first-run setup guide and click **Start Guided Setup**.
+7. The app prepares its own toolkit source clone under `~/Library/Application Support/RipperMoonKit/source`.
+8. If the app says GPTK is missing, download **Game Porting Toolkit 3** from Apple.
+9. Open the downloaded GPTK DMG so it appears in Finder under **Locations**.
+10. Return to RipperMoonKit and continue **Start Guided Setup**, or click **Install GPTK** if only the GPTK step needs another try.
+11. If setup was interrupted, keep the GPTK DMG mounted and click **Start Guided Setup** again.
 12. Open **Settings > Paths** and confirm the folders look correct for your Mac.
 13. Open the **Steam** profile and install Windows Steam only if your game needs Steam.
 14. For Elden Ring ERSC or other co-op Steamworks test paths, open the **Steam** profile and click **Install Spacewar** once.
@@ -51,8 +51,8 @@ If setup stops after saying it is attaching that image:
 2. Confirm the nested **Evaluation environment for Windows games 3.0** image is also mounted.
 3. Leave both mounted.
 4. Return to RipperMoonKit.
-5. Click **Install GPTK** again.
-6. After GPTK finishes, click **Install Toolkit** if the app still reports missing helpers.
+5. Click **Start Guided Setup** again, or **Install GPTK** if only GPTK is missing.
+6. After GPTK finishes, confirm the first-run checklist is green.
 
 This is safe to retry. RipperMoonKit keeps local configuration, saves, Wine prefixes, Steam data, and game folders outside the app bundle.
 

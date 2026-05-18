@@ -29,6 +29,8 @@ private enum SidebarSelection: Hashable {
 private let rmkAppVersion: String =
     (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.0"
 
+private let rmkRepositoryURL = "https://github.com/MoonTheRipper/RipperMoonKit.git"
+
 private struct UpdateNotice: Identifiable, Equatable {
     let version: String
     let url: URL
@@ -2451,7 +2453,7 @@ private struct SetupGuideView: View {
                     Text("First Run Setup")
                         .font(.system(size: 19, weight: .bold))
                         .foregroundStyle(Onyx.text)
-                    Text("Initialize the toolkit paths and Apple Game Porting Toolkit before launching games.")
+                    Text("Click Start Guided Setup once. It prepares the source clone, installs the toolkit, then connects Apple Game Porting Toolkit 3.")
                         .font(.system(size: 12.5))
                         .foregroundStyle(Onyx.textDim)
                 }
@@ -2459,6 +2461,7 @@ private struct SetupGuideView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 SetupRow(title: "Toolkit scripts", isOK: model.config.hasToolkitScripts)
+                SetupRow(title: "Toolkit source clone", isOK: model.toolkitSourceReady)
                 SetupRow(title: "GPTK Wine runner", isOK: model.config.hasWineRunner)
                 SetupRow(title: "D3DMetal runtime", isOK: model.config.hasD3DMetalRuntime)
                 SetupRow(title: "Config file", isOK: model.config.exists)
@@ -2471,6 +2474,9 @@ private struct SetupGuideView: View {
             }
 
             FlowLayout(spacing: 8) {
+                RMKButton(kind: .primary, icon: "play.circle.fill", title: "Start Guided Setup") {
+                    model.runFirstRunSetup()
+                }
                 RMKButton(kind: .primary, icon: "square.and.arrow.down.fill", title: "Install Toolkit") {
                     model.installToolkit()
                 }
@@ -2935,13 +2941,28 @@ private final class LauncherModel: ObservableObject {
         config.exists ? "Config loaded from \(config.configPath)" : "Config not found at \(config.configPath)"
     }
 
+    var toolkitSourceReady: Bool {
+        FileManager.default.isExecutableFile(atPath: "\(toolkitSourceFolder)/install.zsh")
+    }
+
     init() {
         let loaded = ToolkitConfig.load()
         config = loaded
         profiles = Self.loadProfiles(config: loaded, defaults: defaults)
         pathSettings = PathSettings(config: loaded)
         driveMaps = DriveMap.parse(loaded.values["GPTK_DRIVE_MAPS"] ?? "")
-        toolkitSourceFolder = defaults.string(forKey: "toolkitSourceFolder") ?? "\(loaded.home)/Desktop/RipperMoonToolKit"
+        let supportSource = Self.defaultToolkitSourceFolder(home: loaded.home)
+        let desktopSource = "\(loaded.home)/Desktop/RipperMoonToolKit"
+        if let storedSource = defaults.string(forKey: "toolkitSourceFolder") {
+            let storedInstaller = "\(storedSource)/install.zsh"
+            if storedSource == desktopSource && !FileManager.default.fileExists(atPath: storedInstaller) {
+                toolkitSourceFolder = supportSource
+            } else {
+                toolkitSourceFolder = storedSource
+            }
+        } else {
+            toolkitSourceFolder = supportSource
+        }
         tgdbAPIKeyLocal = defaults.string(forKey: tgdbAPIKeyDefaultsKey)
             ?? (loaded.values["GPTK_TGDB_API_KEY"] ?? "")
         let validIDs = Set(profiles.map { $0.id })
@@ -2965,7 +2986,7 @@ private final class LauncherModel: ObservableObject {
         pathSettings = PathSettings(config: config)
         driveMaps = DriveMap.parse(config.values["GPTK_DRIVE_MAPS"] ?? "")
         refreshBackups()
-        if !config.needsSetupGuide {
+        if !config.needsSetupGuide && toolkitSourceReady {
             defaults.set(true, forKey: setupGuideSeenKey)
             showSetupGuide = false
         } else {
@@ -3273,7 +3294,7 @@ private final class LauncherModel: ObservableObject {
     func createBackupOnly() {
         runShell(
             title: "Create Backup",
-            command: "cd \(toolkitSourceFolder.shellQuoted) && ./install.zsh --skip-deps --backup-only",
+            command: "\(toolkitSourceBootstrapCommand)\n./install.zsh --skip-deps --backup-only",
             completion: { [weak self] in self?.refreshBackups() }
         )
     }
@@ -3281,7 +3302,7 @@ private final class LauncherModel: ObservableObject {
     func installToolkit() {
         runShell(
             title: "Install Toolkit",
-            command: "cd \(toolkitSourceFolder.shellQuoted) && ./install.zsh --skip-deps",
+            command: "\(toolkitSourceBootstrapCommand)\n./install.zsh --skip-deps",
             completion: { [weak self] in self?.refreshBackups() }
         )
     }
@@ -3289,8 +3310,25 @@ private final class LauncherModel: ObservableObject {
     func installDependencies() {
         runShell(
             title: "Install GPTK",
-            command: "cd \(toolkitSourceFolder.shellQuoted) && RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh",
+            command: "\(toolkitSourceBootstrapCommand)\nRIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh",
             completion: { [weak self] in self?.reload() }
+        )
+    }
+
+    func runFirstRunSetup() {
+        runShell(
+            title: "Guided Setup",
+            command: """
+            \(toolkitSourceBootstrapCommand)
+            echo "➡️ Step 2/3: installing toolkit scripts and local config."
+            ./install.zsh --skip-deps
+            echo "➡️ Step 3/3: connecting Apple Game Porting Toolkit 3."
+            RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh
+            """,
+            completion: { [weak self] in
+                self?.refreshBackups()
+                self?.reload()
+            }
         )
     }
 
@@ -3346,9 +3384,13 @@ private final class LauncherModel: ObservableObject {
 
     func updateFromGitHub() {
         let command = """
-        cd \(toolkitSourceFolder.shellQuoted) && \
-        git fetch --tags origin && \
-        if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then git pull --ff-only origin main; else echo "Already up to date."; fi && \
+        \(toolkitSourceBootstrapCommand)
+        if [[ -d .git ]]; then
+          git fetch --tags origin && \
+          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then git pull --ff-only origin main; else echo "Already up to date."; fi
+        else
+          echo "Toolkit source exists without Git metadata; using installed source as-is."
+        fi
         ./install.zsh --skip-deps && \
         zsh scripts/install-gui-app.zsh
         """
@@ -3371,7 +3413,7 @@ private final class LauncherModel: ObservableObject {
 
         runShell(
             title: "Uninstall Toolkit",
-            command: "cd \(toolkitSourceFolder.shellQuoted) && zsh scripts/uninstall.zsh \(args.joined(separator: " "))",
+            command: "\(toolkitSourceBootstrapCommand)\nzsh scripts/uninstall.zsh \(args.joined(separator: " "))",
             completion: { [weak self] in self?.reload() }
         )
     }
@@ -3380,7 +3422,7 @@ private final class LauncherModel: ObservableObject {
         guard let backup = backups.first(where: { $0.id == id }) else { return }
         runShell(
             title: "Rollback",
-            command: "cd \(toolkitSourceFolder.shellQuoted) && ./install.zsh --rollback \(backup.name.shellQuoted)",
+            command: "\(toolkitSourceBootstrapCommand)\n./install.zsh --rollback \(backup.name.shellQuoted)",
             completion: { [weak self] in self?.refreshBackups() }
         )
     }
@@ -3437,7 +3479,7 @@ private final class LauncherModel: ObservableObject {
     }
 
     private func shouldShowSetupGuide(config: ToolkitConfig) -> Bool {
-        !defaults.bool(forKey: setupGuideSeenKey) && config.needsSetupGuide
+        !defaults.bool(forKey: setupGuideSeenKey) && (config.needsSetupGuide || !toolkitSourceReady)
     }
 
     private func testerReportMarkdown(for profile: GameProfile?) -> String {
@@ -3914,6 +3956,10 @@ private final class LauncherModel: ObservableObject {
         return "Z:\\\(withoutLeadingSlash.replacingOccurrences(of: "/", with: "\\"))"
     }
 
+    private static func defaultToolkitSourceFolder(home: String) -> String {
+        "\(home)/Library/Application Support/RipperMoonKit/source"
+    }
+
     func closeTargets(for profile: GameProfile) -> [String] {
         var targets: [String] = []
         let executable = (profile.executable as NSString).lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3933,6 +3979,37 @@ private final class LauncherModel: ObservableObject {
 
     private var sourceConfig: String {
         "[[ -r \(config.configPath.shellQuoted) ]] && source \(config.configPath.shellQuoted); ulimit -n \"${GPTK_NOFILE_LIMIT:-49152}\" 2>/dev/null || true"
+    }
+
+    private var toolkitSourceBootstrapCommand: String {
+        let source = toolkitSourceFolder.shellQuoted
+        let repo = rmkRepositoryURL.shellQuoted
+        return """
+        set -e
+        echo "➡️ Step 1/3: preparing RipperMoonKit source."
+        repo=\(repo)
+        src=\(source)
+        mkdir -p "$(dirname "$src")"
+        if [[ -x "$src/install.zsh" ]]; then
+          echo "✅ Toolkit source ready: $src"
+          cd "$src"
+        else
+          echo "⬇️ Cloning toolkit source into: $src"
+          rm -rf "$src.tmp" "$src.tmp.zip"
+          if git --version >/dev/null 2>&1; then
+            git clone --depth 1 "$repo" "$src.tmp"
+          else
+            curl -fL "https://github.com/MoonTheRipper/RipperMoonKit/archive/refs/heads/main.zip" -o "$src.tmp.zip"
+            unzip -q "$src.tmp.zip" -d "$(dirname "$src")"
+            mv "$(dirname "$src")/RipperMoonKit-main" "$src.tmp"
+            rm -f "$src.tmp.zip"
+          fi
+          rm -rf "$src"
+          mv "$src.tmp" "$src"
+          cd "$src"
+        fi
+        chmod +x ./install.zsh scripts/*.zsh 2>/dev/null || true
+        """
     }
 
     private func runnerEnvAssignment(for profile: GameProfile) -> String {

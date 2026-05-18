@@ -20,7 +20,7 @@ https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMo
 2. Open the DMG.
 3. Drag **RipperMoonKit Launcher.app** into **Applications**, or into your user Applications folder.
 4. Open the app.
-5. Follow first-run setup prompts.
+5. Follow first-run setup prompts and click **Start Guided Setup**.
 
 If macOS blocks the app because it was downloaded from the internet, open:
 
@@ -30,7 +30,7 @@ System Settings > Privacy & Security
 
 Then allow the app to open.
 
-The app can guide the first-run setup, open Apple's GPTK page when GPTK is missing, and call the same installer flow used by the source version.
+The app can guide the first-run setup, create or update its own source clone in `~/Library/Application Support/RipperMoonKit/source`, open Apple's GPTK page when GPTK is missing, and call the same installer flow used by the source version.
 
 ## After Installing The App
 
@@ -38,9 +38,9 @@ After dragging **RipperMoonKit Launcher.app** into Applications, the user should
 
 1. Open **RipperMoonKit Launcher.app**.
 2. If macOS blocks it, allow it in **System Settings > Privacy & Security**, then open it again.
-3. Follow the first-run setup guide.
+3. Follow the first-run setup guide and click **Start Guided Setup**.
 4. When GPTK is missing, click the GPTK prompt, download **Apple Game Porting Toolkit 3** from Apple, and mount the downloaded DMG.
-5. Return to RipperMoonKit and run the setup/install action so it can copy GPTK locally, create folders, install helper scripts, and write `~/.rippermoon-gptk.env`.
+5. Return to RipperMoonKit and continue **Start Guided Setup** so it can copy GPTK locally, create folders, install helper scripts, and write `~/.rippermoon-gptk.env`.
 6. Open **Settings > Paths** and confirm the GPTK home, prefix root, games root, external root, and Steam library paths match the machine.
 7. Open the **Steam** profile and install Windows Steam when needed. The DMG does not include Steam.
 8. For co-op Steamworks test paths such as Elden Ring ERSC, open the **Steam** profile and click **Install Spacewar** once. Wait for AppID 480 setup to finish, then close Spacewar.
