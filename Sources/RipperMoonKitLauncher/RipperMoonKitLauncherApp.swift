@@ -761,6 +761,7 @@ private struct RMKSidebar: View {
                 .scrollIndicators(.hidden)
             }
 
+            HelpButton()
             KofiSupport()
             FeedbackButton(selection: selection)
             footer
@@ -1069,6 +1070,41 @@ private struct FeedbackButton: View {
     private var selectedProfile: GameProfile? {
         guard case let .profile(id) = selection else { return nil }
         return model.profiles.first { $0.id == id }
+    }
+}
+
+/// Sidebar entry that opens the bundled how-to documentation.
+private struct HelpButton: View {
+    @EnvironmentObject private var model: LauncherModel
+
+    var body: some View {
+        Button {
+            model.openHelpDocs()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "book.fill")
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Onyx.accent)
+                Text("Help & Docs")
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(Onyx.text)
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Onyx.textMute)
+            }
+            .padding(.horizontal, 11)
+            .padding(.vertical, 8)
+            .background(Onyx.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 14)
+        .padding(.top, 6)
+        .help("Open the RipperMoonKit guide — setup, adding games, and launching.")
     }
 }
 
@@ -1709,6 +1745,17 @@ private struct GameDetailScreen: View {
     }
 
     @ViewBuilder private var appTab: some View {
+        if !profile.isSteamApp {
+            CollapsibleCard(
+                title: "How launching works",
+                icon: "questionmark.circle.fill",
+                storageKey: "profile.section.launch-help.collapsed",
+                help: "The two ways games run in RipperMoonKit — through Steam, or straight from a game folder."
+            ) {
+                launchHelpContent
+            }
+        }
+
         Card(title: "App Settings", icon: "gamecontroller.fill") {
             VStack(alignment: .leading, spacing: 12) {
                 FieldRow(label: "Name") { OnyxField(text: $profile.name) }
@@ -1783,6 +1830,48 @@ private struct GameDetailScreen: View {
         }
     }
 
+    private var launchHelpContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            pathHintRow(
+                icon: "cart.fill",
+                title: "A Steam game",
+                text: "Open the Steam app from your Library, sign in, and install the game inside Steam. Then launch it from Steam — or set the Folder and Executable below to the installed game."
+            )
+            pathHintRow(
+                icon: "internaldrive.fill",
+                title: "A standalone game or repack",
+                text: "No Steam needed. Set the Folder and Executable below to the game's .exe, pick the Windows version, then press Launch."
+            )
+            Button { model.openHelpDocs(page: "gui.html") } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "book.fill").font(.system(size: 10))
+                    Text("Open the full guide")
+                }
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Onyx.accent)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func pathHintRow(icon: String, title: String, text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundStyle(Onyx.accent)
+                .frame(width: 20)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Onyx.text)
+                Text(text)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Onyx.textDim)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     // ── Launch tab ────────────────────────────────────────────────────────
     @ViewBuilder private var launchTab: some View {
         CollapsibleCard(
@@ -1837,24 +1926,27 @@ private struct GameDetailScreen: View {
         }
 
         Card(title: "Actions", icon: "play.circle.fill") {
-            FlowLayout(spacing: 8) {
-                if profile.isEldenRingERSC {
-                    HStack(alignment: .top, spacing: 9) {
-                        Image(systemName: "info.circle.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Onyx.accent)
-                        Text("For co-op, open the Steam profile and use Install Spacewar once. Let Steam finish AppID 480 setup, then close Spacewar before launching Elden Ring.")
-                            .font(.system(size: 11.5))
-                            .foregroundStyle(Onyx.textDim)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(10)
-                    .background(Onyx.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(Onyx.hairline, lineWidth: 0.75)
-                    }
+          VStack(alignment: .leading, spacing: 12) {
+            if profile.isEldenRingERSC {
+                HStack(alignment: .top, spacing: 9) {
+                    Image(systemName: "info.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Onyx.accent)
+                    Text("For co-op, open the Steam profile and use Install Spacewar once. Let Steam finish AppID 480 setup, then close Spacewar before launching Elden Ring.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Onyx.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Onyx.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+                }
+            }
+
+            FlowLayout(spacing: 8) {
                 if profile.requiresSteam && !profile.isSteamManaged {
                     RMKButton(kind: .primary, icon: "play.fill", title: "Start Steam") {
                         model.startSteam(for: profile)
@@ -1909,6 +2001,7 @@ private struct GameDetailScreen: View {
                     confirmDelete = true
                 }
             }
+          }
         }
 
         CollapsibleCard(
@@ -3896,6 +3989,19 @@ private final class LauncherModel: ObservableObject {
 
     func openGPTKPage() {
         NSWorkspace.shared.open(URL(string: config.gptkDownloadPage)!)
+    }
+
+    /// Opens the documentation bundled inside the app (offline-safe), falling
+    /// back to the GitHub repository if the bundled docs are not present.
+    func openHelpDocs(page: String = "index.html") {
+        let local = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Resources/docs", isDirectory: true)
+            .appendingPathComponent(page)
+        if FileManager.default.fileExists(atPath: local.path) {
+            NSWorkspace.shared.open(local)
+        } else {
+            NSWorkspace.shared.open(URL(string: "https://github.com/MoonTheRipper/RipperMoonKit")!)
+        }
     }
 
     func dismissSetupGuide() {

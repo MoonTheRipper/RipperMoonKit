@@ -75,6 +75,19 @@ bundle_toolkit() {
   log "🧰" "Bundled toolkit source into the app: ${toolkit_dir}"
 }
 
+bundle_docs() {
+  local resources_dir="$1"
+  local docs_dir="${resources_dir}/docs"
+
+  rm -rf "${docs_dir}"
+  if [[ -d "${repo_dir}/docs" ]]; then
+    ditto "${repo_dir}/docs" "${docs_dir}"
+    log "📚" "Bundled documentation into the app: ${docs_dir}"
+  else
+    log "⚠️" "docs folder not found; in-app Help will fall back to GitHub."
+  fi
+}
+
 mkdir -p "${dist_dir}"
 : > "${log_file}"
 
@@ -103,6 +116,7 @@ install -m 755 "${executable}" "${app_path}/Contents/MacOS/RipperMoonKitLauncher
 ditto "${resource_bundle}" "${app_path}/Contents/Resources/RipperMoonKit_RipperMoonKitLauncher.bundle"
 create_app_icon "${app_path}/Contents/Resources"
 bundle_toolkit "${app_path}/Contents/Resources"
+bundle_docs "${app_path}/Contents/Resources"
 
 cat > "${app_path}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
