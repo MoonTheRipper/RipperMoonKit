@@ -51,8 +51,10 @@ private struct GitHubReleaseInfo: Decodable {
 private struct SetupCheck: Identifiable, Hashable {
     let id: String
     let title: String
+    let explanation: String
     let detail: String
     let isOK: Bool
+    let isOptional: Bool
 }
 
 private enum AppResource {
@@ -651,6 +653,9 @@ private struct ContentView: View {
                 }
                 VStack(spacing: 0) {
                     RMKTopbar(selection: $selection, sidebarOpen: $sidebarOpen)
+                    if model.config.needsSetupGuide && !model.showSetupGuide {
+                        SetupBanner()
+                    }
                     ScrollView { screen.padding(.bottom, 4) }
                 }
             }
@@ -665,7 +670,16 @@ private struct ContentView: View {
             }
         }
         .sheet(isPresented: $model.showSetupGuide) {
-            SetupGuideView().environmentObject(model).frame(width: 640)
+            SetupGuideView()
+                .environmentObject(model)
+                .frame(width: 640)
+                .interactiveDismissDisabled(true)
+        }
+        .onChange(of: model.pendingSelection) { _, newValue in
+            if let newValue {
+                selection = newValue
+                model.pendingSelection = nil
+            }
         }
         .animation(.easeInOut(duration: 0.22), value: sidebarOpen)
     }
@@ -2467,29 +2481,61 @@ private struct SetupGuideView: View {
     @EnvironmentObject private var model: LauncherModel
     @State private var showAdvanced = false
 
-    private var allReady: Bool {
-        model.setupChecks.allSatisfy(\.isOK)
-    }
+    private var checks: [SetupCheck] { model.setupChecks }
+    private var coreChecks: [SetupCheck] { checks.filter { !$0.isOptional } }
+    /// "Ready to game" depends only on the required pieces — Steam is optional.
+    private var coreReady: Bool { coreChecks.allSatisfy(\.isOK) }
+    private var readyCount: Int { coreChecks.filter(\.isOK).count }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        Group {
+            if coreReady {
+                successView
+            } else {
+                progressView
+            }
+        }
+        .padding(24)
+        .background(Onyx.bg)
+        .task {
+            // Auto-recheck: the checklist ticks itself off, no button needed.
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                if Task.isCancelled { break }
+                model.refreshSetupChecks()
+            }
+        }
+    }
+
+    // MARK: - In-progress
+
+    private var progressView: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
                 BrandMark(size: 52, glow: true)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Welcome to RipperMoonKit")
+                    Text("Setting up RipperMoonKit")
                         .font(.system(size: 19, weight: .bold))
                         .foregroundStyle(Onyx.text)
-                    Text("One click installs everything. macOS will ask for your Mac password once, and Apple's Game Porting Toolkit is the only file you download yourself.")
+                    Text("One click installs everything. macOS asks for your Mac password once, and Apple's Game Porting Toolkit is the only file you download yourself.")
                         .font(.system(size: 12.5))
                         .foregroundStyle(Onyx.textDim)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(model.setupChecks) { check in
-                    SetupRow(title: check.title, isOK: check.isOK)
-                        .help(check.detail)
+            HStack(spacing: 10) {
+                Text("\(readyCount) of \(coreChecks.count) ready")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Onyx.textMute)
+                    .fixedSize()
+                ProgressView(value: Double(readyCount), total: Double(coreChecks.count))
+                    .tint(Onyx.accent)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(checks) { check in
+                    SetupRow(check: check)
                 }
             }
             .padding(14)
@@ -2504,27 +2550,18 @@ private struct SetupGuideView: View {
             }
 
             if model.guidedSetupRunning {
-                HStack(spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
                     ProgressView().controlSize(.small)
-                    Text("Setup is running in the Terminal window. Watch for the green SETUP FINISHED banner — RipperMoonKit refreshes here automatically, or click Recheck.")
+                    Text("Setup is running in the Terminal window. Each item above ticks off on its own as it installs — watch for the green SETUP FINISHED banner there.")
                         .font(.system(size: 12))
                         .foregroundStyle(Onyx.textDim)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            HStack(spacing: 8) {
-                RMKButton(kind: .primary, icon: "sparkles",
-                          title: model.guidedSetupRunning ? "Restart Setup" : "Set Up RipperMoonKit") {
-                    model.runFirstRunSetup()
-                }
-                RMKButton(kind: .ghost, icon: "arrow.clockwise", title: "Recheck") {
-                    model.reload()
-                }
-                Spacer()
-                RMKButton(kind: .ghost, title: allReady ? "Done" : "Close") {
-                    model.dismissSetupGuide()
-                }
+            RMKButton(kind: .primary, icon: "sparkles",
+                      title: model.guidedSetupRunning ? "Restart Setup" : "Set Up RipperMoonKit") {
+                model.runFirstRunSetup()
             }
 
             DisclosureGroup(isExpanded: $showAdvanced) {
@@ -2549,9 +2586,16 @@ private struct SetupGuideView: View {
                     .foregroundStyle(Onyx.textMute)
             }
             .tint(Onyx.textDim)
+
+            HStack {
+                Spacer()
+                Button("Set up later") { model.deferSetup() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Onyx.textMute)
+                Spacer()
+            }
         }
-        .padding(24)
-        .background(Onyx.bg)
     }
 
     private var gptkNotice: some View {
@@ -2575,23 +2619,145 @@ private struct SetupGuideView: View {
                 .strokeBorder(Onyx.accent.opacity(0.4), lineWidth: 0.75)
         }
     }
+
+    // MARK: - Success
+
+    private var successView: some View {
+        VStack(spacing: 16) {
+            BrandMark(size: 64, glow: true)
+
+            VStack(spacing: 5) {
+                Text("You're all set")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Onyx.text)
+                Text("Every required piece is installed. The Mac is ready to reap — go play something.")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Onyx.textDim)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            RMKButton(kind: .primary, icon: "gamecontroller.fill", title: "Start Gaming") {
+                model.finishSetup()
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("OPTIONAL — YOU MIGHT ALSO WANT TO:")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Onyx.textMute)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if !model.steamReady {
+                    optionalCard(
+                        icon: "arrow.down.app.fill",
+                        title: "Finish Steam setup",
+                        detail: "Install Windows Steam to play your Steam library. Non-Steam games don't need it.",
+                        action: "Open Steam"
+                    ) { model.goToSteamSetup() }
+                }
+                optionalCard(
+                    icon: "folder.fill",
+                    title: "Set your games folder",
+                    detail: "Tell RipperMoonKit where your game files live so it can find and launch them.",
+                    action: "Settings"
+                ) { model.openSetupRelatedSettings() }
+                optionalCard(
+                    icon: "photo.fill",
+                    title: "Add cover art",
+                    detail: "Add a free TheGamesDB API key to pull box-art for your game tiles.",
+                    action: "Settings"
+                ) { model.openSetupRelatedSettings() }
+            }
+            .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func optionalCard(icon: String, title: String, detail: String,
+                              action: String, perform: @escaping () -> Void) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 15))
+                .foregroundStyle(Onyx.accent)
+                .frame(width: 26)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Onyx.text)
+                Text(detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Onyx.textDim)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            RMKButton(kind: .ghost, title: action, small: true, action: perform)
+        }
+        .padding(12)
+        .background(Onyx.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+        }
+    }
 }
 
 private struct SetupRow: View {
-    let title: String
-    let isOK: Bool
+    let check: SetupCheck
+
+    private var statusLabel: String {
+        if check.isOK { return "Ready" }
+        return check.isOptional ? "Optional" : "Pending"
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: check.isOK ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 14))
+                .foregroundStyle(check.isOK ? Onyx.good : Onyx.textMute)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(check.title)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(Onyx.text)
+                Text(check.explanation)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Onyx.textDim)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Text(statusLabel)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(check.isOK ? Onyx.good : Onyx.textMute)
+        }
+        .help(check.detail)
+    }
+}
+
+/// Persistent bar shown when setup is unfinished and the window is closed.
+private struct SetupBanner: View {
+    @EnvironmentObject private var model: LauncherModel
+
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: isOK ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                .foregroundStyle(isOK ? Onyx.good : Onyx.accent)
-            Text(title)
-                .font(.system(size: 12.5))
-                .foregroundStyle(Onyx.text)
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 11, weight: .bold))
+            Text("Setup isn't finished — games can't launch yet.")
+                .font(.system(size: 11.5, weight: .semibold))
             Spacer()
-            Text(isOK ? "Ready" : "Needs setup")
-                .font(.system(size: 11))
-                .foregroundStyle(Onyx.textMute)
+            Button { model.reopenSetupGuide() } label: {
+                Text("Finish Setup")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Onyx.accent)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 4)
+                    .background(Color.white, in: Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
         }
+        .foregroundStyle(Onyx.accentInk)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity)
+        .background(Onyx.accent)
     }
 }
 
@@ -2991,6 +3157,8 @@ private final class LauncherModel: ObservableObject {
     @Published var toolkitSourceFolder: String
     @Published var isRunning = false
     @Published var guidedSetupRunning = false
+    @Published var setupDeferred = false
+    @Published var pendingSelection: SidebarSelection?
     @Published var liveProfileIDs: Set<UUID> = []
     /// macOS PIDs backing each live profile — used to terminate games directly.
     var liveProfilePIDs: [UUID: [Int32]] = [:]
@@ -3043,45 +3211,59 @@ private final class LauncherModel: ObservableObject {
         [
             SetupCheck(
                 id: "source",
-                title: "Toolkit source clone",
+                title: "Toolkit files",
+                explanation: "RipperMoonKit's own helper scripts, copied onto your Mac.",
                 detail: toolkitSourceFolder,
-                isOK: toolkitSourceReady
+                isOK: toolkitSourceReady,
+                isOptional: false
             ),
             SetupCheck(
                 id: "scripts",
-                title: "Toolkit scripts",
+                title: "Game launchers",
+                explanation: "The commands RipperMoonKit uses to start your games.",
                 detail: "\(config.gptkLaunchPath) and \(config.gptkSteamPath)",
-                isOK: config.hasToolkitScripts
+                isOK: config.hasToolkitScripts,
+                isOptional: false
             ),
             SetupCheck(
                 id: "config",
-                title: "Config file",
+                title: "Settings file",
+                explanation: "Your personal config — storage folders and launch options.",
                 detail: config.configPath,
-                isOK: config.exists
+                isOK: config.exists,
+                isOptional: false
             ),
             SetupCheck(
                 id: "wine",
-                title: "GPTK Wine runner",
+                title: "Game Porting Toolkit runner",
+                explanation: "Apple's translator that lets Windows games run on macOS.",
                 detail: config.effectiveWineHome,
-                isOK: config.hasWineRunner
+                isOK: config.hasWineRunner,
+                isOptional: false
             ),
             SetupCheck(
                 id: "d3dmetal",
-                title: "D3DMetal runtime",
+                title: "D3DMetal graphics",
+                explanation: "Apple's layer that renders DirectX games on Metal.",
                 detail: config.gptkRuntime,
-                isOK: config.hasD3DMetalRuntime
+                isOK: config.hasD3DMetalRuntime,
+                isOptional: false
             ),
             SetupCheck(
                 id: "steamsetup",
                 title: "Steam installer",
+                explanation: "The downloaded Steam setup file — only needed if you use Steam.",
                 detail: steamInstallerPath,
-                isOK: steamInstallerReady
+                isOK: steamInstallerReady,
+                isOptional: true
             ),
             SetupCheck(
                 id: "steam",
                 title: "Windows Steam",
+                explanation: "Steam installed in its game prefix. Optional — skip it for non-Steam games.",
                 detail: steamExecutablePath(in: steamProfile),
-                isOK: steamReady
+                isOK: steamReady,
+                isOptional: true
             )
         ]
     }
@@ -3137,11 +3319,10 @@ private final class LauncherModel: ObservableObject {
         driveMaps = DriveMap.parse(config.values["GPTK_DRIVE_MAPS"] ?? "")
         refreshBackups()
         guidedSetupRunning = false
-        if !config.needsSetupGuide && toolkitSourceReady {
-            defaults.set(true, forKey: setupGuideSeenKey)
-            showSetupGuide = false
-        } else {
-            showSetupGuide = shouldShowSetupGuide(config: config)
+        // Surface the setup window when something is still missing; never
+        // force it closed — if it is open and now complete it shows success.
+        if (config.needsSetupGuide || !toolkitSourceReady) && !setupDeferred {
+            showSetupGuide = true
         }
         lastResult = "Refreshed"
     }
@@ -3718,12 +3899,48 @@ private final class LauncherModel: ObservableObject {
     }
 
     func dismissSetupGuide() {
-        defaults.set(true, forKey: setupGuideSeenKey)
         showSetupGuide = false
     }
 
+    /// "Set up later" — closes the window for this session. The persistent
+    /// Finish Setup banner stays visible so the user can resume any time.
+    func deferSetup() {
+        setupDeferred = true
+        showSetupGuide = false
+    }
+
+    /// Reopens the setup window from the Finish Setup banner.
+    func reopenSetupGuide() {
+        setupDeferred = false
+        config = ToolkitConfig.load()
+        showSetupGuide = true
+    }
+
+    /// "Start Gaming" — leaves the finished setup window for the library.
+    func finishSetup() {
+        showSetupGuide = false
+        pendingSelection = .library
+    }
+
+    /// Optional next step — jump into Settings for game folder / cover art.
+    func openSetupRelatedSettings() {
+        showSetupGuide = false
+        pendingSelection = .settings
+    }
+
+    /// Optional next step — open the Steam app to finish installing Steam.
+    func goToSteamSetup() {
+        showSetupGuide = false
+        pendingSelection = .profile(steamProfile.id)
+    }
+
+    /// Lightweight re-read so the setup checklist ticks itself off live.
+    func refreshSetupChecks() {
+        config = ToolkitConfig.load()
+    }
+
     private func shouldShowSetupGuide(config: ToolkitConfig) -> Bool {
-        !defaults.bool(forKey: setupGuideSeenKey) && (config.needsSetupGuide || !toolkitSourceReady)
+        !setupDeferred && (config.needsSetupGuide || !toolkitSourceReady)
     }
 
     private func testerReportMarkdown(for profile: GameProfile?) -> String {
