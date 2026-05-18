@@ -217,32 +217,66 @@ Keep this repository limited to scripts, docs, examples, and small configuration
 
 ## Documentation
 
-Start here:
+The documentation is grouped so users can start with setup, then move into app use, game workflows, and repair notes.
 
-- [docs/index.md](docs/index.md): documentation table of contents.
-- [docs/quickstart.md](docs/quickstart.md): shortest working install path.
-- [docs/setup.md](docs/setup.md): first-time setup and path model.
-- [docs/dependencies.md](docs/dependencies.md): dependency download, unpack, install, and logs.
-- [docs/update-safety.md](docs/update-safety.md): update backups, protected paths, and rollback.
-- [docs/gui.md](docs/gui.md): SwiftUI launcher build/run notes.
-- [docs/uninstall.md](docs/uninstall.md): uninstall options that keep or remove configs/saves by choice.
-- [docs/gptk.md](docs/gptk.md): downloading GPTK 3 from Apple, mounting it, and letting the installer copy it locally.
-- [docs/configuration.md](docs/configuration.md): environment variables and path configuration.
-- [docs/drives.md](docs/drives.md): custom Wine drive mappings.
-- [docs/commands.md](docs/commands.md): command reference.
-- [docs/visual-c-runtime.md](docs/visual-c-runtime.md): Microsoft Visual C++ runtime installation for Wine prefixes.
-- [docs/steam.md](docs/steam.md): Windows Steam install and launch flow.
-- [docs/game-folder-workflow.md](docs/game-folder-workflow.md): copying pre-installed game folders instead of running fragile installers.
-- [docs/elden-ring-ersc.md](docs/elden-ring-ersc.md): ERSC launch sequence.
-- [docs/reframework.md](docs/reframework.md): planned REFramework compatibility track for Resident Evil / RE Engine games.
-- [docs/clair-obscur-dlss-metalfx.md](docs/clair-obscur-dlss-metalfx.md): Clair Obscur DLSS through GPTK MetalFX.
-- [docs/steam-voice-capture-fix-2026-05-13.md](docs/steam-voice-capture-fix-2026-05-13.md): Golden Pot freeze bug report and workaround.
-- [docs/save-transfer.md](docs/save-transfer.md): save discovery and restore workflow.
-- [docs/troubleshooting.md](docs/troubleshooting.md): common failure modes.
-- [docs/faq.md](docs/faq.md): common questions.
-- [docs/license.html](docs/license.html): plain-language license summary.
-- [docs/release-checklist.md](docs/release-checklist.md): maintainer checklist before publishing.
-- [docs/roadmap.md](docs/roadmap.md): planned SwiftUI launcher and compatibility profile work.
+<details open>
+<summary><strong>First-Time Setup</strong></summary>
+
+- [Documentation index](docs/index.md): full documentation map.
+- [Quickstart](docs/quickstart.md): shortest working install path.
+- [Installation](docs/installation.md): DMG install and source install paths.
+- [Setup model](docs/setup.md): first-time folders, prefixes, and path model.
+- [GPTK 3](docs/gptk.md): download from Apple, mount, and copy locally.
+- [Dependencies](docs/dependencies.md): dependency download, unpack, install, and logs.
+
+</details>
+
+<details>
+<summary><strong>Launcher And Configuration</strong></summary>
+
+- [SwiftUI launcher](docs/gui.md): app build/run notes and profile behavior.
+- [Configuration](docs/configuration.md): environment variables and path configuration.
+- [Drive mappings](docs/drives.md): custom Wine drive letters.
+- [Update safety](docs/update-safety.md): update backups, protected paths, and rollback.
+- [Uninstall](docs/uninstall.md): keep or remove configs/saves by choice.
+
+</details>
+
+<details>
+<summary><strong>Game Workflows</strong></summary>
+
+- [Game folder workflow](docs/game-folder-workflow.md): copying pre-installed game folders instead of fragile installers.
+- [Known tested games](docs/tested-games.md): field notes for tried games.
+- [Elden Ring ERSC](docs/elden-ring-ersc.md): ERSC launch sequence.
+- [REFramework plan](docs/reframework.md): planned Resident Evil / RE Engine compatibility track.
+- [Clair Obscur DLSS/MetalFX](docs/clair-obscur-dlss-metalfx.md): DLSS through GPTK MetalFX.
+- [Save transfer](docs/save-transfer.md): save discovery and restore workflow.
+
+</details>
+
+<details>
+<summary><strong>Commands And Repair</strong></summary>
+
+- [Commands](docs/commands.md): command reference.
+- [Steam](docs/steam.md): Windows Steam install and launch flow.
+- [Visual C++ runtime](docs/visual-c-runtime.md): Microsoft runtime installation for Wine prefixes.
+- [API stubs](docs/stubs.md): missing Wine/GPTK delay-load API stubs.
+- [Troubleshooting](docs/troubleshooting.md): common failure modes.
+- [Golden Pot voice capture fix](docs/steam-voice-capture-fix-2026-05-13.md): freeze bug report and workaround.
+- [Golden Pot runner precedence fix](docs/golden-pot-runner-precedence-fix-2026-05-14.md): update regression guard.
+- [ERSC esync descriptor fix](docs/ersc-esync-file-descriptor-fix-2026-05-16.md): Wine esync file descriptor exhaustion notes.
+
+</details>
+
+<details>
+<summary><strong>Project</strong></summary>
+
+- [Q&A](docs/faq.md): common questions.
+- [License summary](docs/license.html): plain-language license summary.
+- [Release checklist](docs/release-checklist.md): maintainer checklist before publishing.
+- [Roadmap](docs/roadmap.md): planned launcher and compatibility profile work.
+
+</details>
 
 ## Project Page
 

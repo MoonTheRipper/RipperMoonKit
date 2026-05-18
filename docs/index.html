@@ -24,21 +24,36 @@
   </header>
   <div class="page">
     <aside class="doc-tree" aria-label="Documentation tree">
-      <strong>Start</strong>
-      <a href="index.html" aria-current="page">Overview</a>
-      <a href="installation.html">Installation</a>
-      <a href="proof-of-concept.html">Proof Of Concept</a>
-      <strong>Use The App</strong>
-      <a href="gui.html">Launcher Guide</a>
-      <a href="games.html">Games And Saves</a>
-      <a href="tested-games.html">Known Tested Games</a>
-      <a href="elden-ring.html">Elden Ring ERSC</a>
-      <a href="reframework.html">REFramework Plan</a>
-      <strong>Reference</strong>
-      <a href="commands.html">Commands</a>
-      <a href="troubleshooting.html">Troubleshooting</a>
-      <a href="faq.html">Q&amp;A</a>
-      <a href="license.html">License</a>
+      <details open>
+        <summary>Start Here</summary>
+        <a href="index.html" aria-current="page">Overview</a>
+        <a href="installation.html">Installation</a>
+        <a href="proof-of-concept.html">Proof Of Concept</a>
+      </details>
+      <details open>
+        <summary>Use The App</summary>
+        <a href="gui.html">Launcher Guide</a>
+        <a href="games.html">Games And Saves</a>
+        <a href="tested-games.html">Known Tested Games</a>
+      </details>
+      <details open>
+        <summary>Game Workflows</summary>
+        <a href="elden-ring.html">Elden Ring ERSC</a>
+        <a href="reframework.html">REFramework Plan</a>
+        <a href="ersc-esync-file-descriptor-fix-2026-05-16.html">ERSC Esync Fix</a>
+      </details>
+      <details open>
+        <summary>Reference</summary>
+        <a href="commands.html">Commands</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+        <a href="faq.html">Q&amp;A</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a href="license.html">License</a>
+        <a href="../index.html">Project Home</a>
+        <a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub Repo</a>
+      </details>
     </aside>
     <main class="content">
       <div class="hero">
@@ -46,6 +61,51 @@
         <h1>Find the setup path you need.</h1>
         <p class="lead">RipperMoonKit is organized around clear game profiles: install the toolkit, point it at your GPTK runtime and game folders, then launch from the app or from repeatable commands.</p>
       </div>
+
+      <section class="doc-directory" aria-labelledby="documentation-tree">
+        <h2 id="documentation-tree">Documentation Tree</h2>
+        <details open>
+          <summary>First-Time Setup</summary>
+          <a href="installation.html"><span>Installation</span><small>DMG install, source install, GPTK requirement, local layout.</small></a>
+          <a href="quickstart.md"><span>Quickstart</span><small>Shortest path from GPTK download to first launch.</small></a>
+          <a href="gptk.md"><span>Apple GPTK 3</span><small>Download from Apple, mount the DMG, and let the installer copy it locally.</small></a>
+          <a href="setup.md"><span>Setup Model</span><small>Recommended folders, prefixes, external drives, and logging.</small></a>
+          <a href="dependencies.md"><span>Dependencies</span><small>What the installer downloads, caches, unpacks, and logs.</small></a>
+        </details>
+        <details open>
+          <summary>Launcher And Profiles</summary>
+          <a href="gui.html"><span>Launcher Guide</span><small>Library grid, per-game settings, update controls, backups, and profile actions.</small></a>
+          <a href="games.html"><span>Games And Saves</span><small>Copied game folders, save discovery, and drive mapping expectations.</small></a>
+          <a href="configuration.md"><span>Configuration</span><small>Environment variables used by scripts and the app.</small></a>
+          <a href="drives.md"><span>Drive Mappings</span><small>Assign letters to mounted drives while keeping C: reserved for Wine.</small></a>
+          <a href="update-safety.md"><span>Update Safety</span><small>Backups, rollback, and protected local state.</small></a>
+        </details>
+        <details open>
+          <summary>Game Workflows</summary>
+          <a href="tested-games.html"><span>Known Tested Games</span><small>Field notes for games already tried with RipperMoonKit.</small></a>
+          <a href="elden-ring.html"><span>Elden Ring ERSC</span><small>Steam-first launch sequence, copied Game folder, ModEngine, and Golden Pot notes.</small></a>
+          <a href="proof-of-concept.html"><span>Proof Of Concept</span><small>Launcher screenshots and live Elden Ring GPTK HUD captures.</small></a>
+          <a href="reframework.html"><span>REFramework Plan</span><small>Planned Resident Evil / RE Engine compatibility track.</small></a>
+          <a href="clair-obscur-dlss-metalfx.md"><span>Clair Obscur</span><small>DLSS/MetalFX notes and NVIDIA driver warning behavior.</small></a>
+          <a href="gowr.md"><span>God Of War Ragnarok</span><small>PSPC runtime, GameInput stub, and launch command notes.</small></a>
+        </details>
+        <details>
+          <summary>Commands And Repair</summary>
+          <a href="commands.html"><span>Commands</span><small>Terminal reference for install, launch, Steam, runtimes, stubs, and GUI install.</small></a>
+          <a href="troubleshooting.html"><span>Troubleshooting</span><small>Common startup, Steam, web runtime, video, and freeze failures.</small></a>
+          <a href="visual-c-runtime.md"><span>Visual C++ Runtime</span><small>Install Microsoft runtime packages into one or all Wine prefixes.</small></a>
+          <a href="stubs.md"><span>API Stubs</span><small>Build and install minimal DLL stubs for missing Wine/GPTK delay-load APIs.</small></a>
+          <a href="steam.md"><span>Steam</span><small>Install, repair, launch, stop, and use AppID/Spacewar test paths.</small></a>
+        </details>
+        <details>
+          <summary>Support And Project</summary>
+          <a href="faq.html"><span>Q&amp;A</span><small>Plain answers to common project, Steam, game folder, and update questions.</small></a>
+          <a href="license.html"><span>License</span><small>Free personal use with no repackaging, resale, rebranding, or embedding.</small></a>
+          <a href="uninstall.md"><span>Uninstall</span><small>Remove the toolkit while choosing whether configs and saves remain.</small></a>
+          <a href="release-checklist.md"><span>Release Checklist</span><small>Maintainer checks before publishing a GitHub release.</small></a>
+          <a href="roadmap.md"><span>Roadmap</span><small>Planned compatibility profiles and future launcher work.</small></a>
+        </details>
+      </section>
 
       <div class="cards">
         <a class="card" href="installation.html">
