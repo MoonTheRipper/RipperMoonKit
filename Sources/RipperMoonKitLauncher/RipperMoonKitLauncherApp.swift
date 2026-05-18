@@ -29,6 +29,23 @@ private enum SidebarSelection: Hashable {
 private let rmkAppVersion: String =
     (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.0"
 
+private struct UpdateNotice: Identifiable, Equatable {
+    let version: String
+    let url: URL
+
+    var id: String { version }
+}
+
+private struct GitHubReleaseInfo: Decodable {
+    let tagName: String
+    let htmlURL: URL?
+
+    enum CodingKeys: String, CodingKey {
+        case tagName = "tag_name"
+        case htmlURL = "html_url"
+    }
+}
+
 // MARK: - Onyx theme
 //
 // Black / white / scarlet palette from the RipperMoonKit redesign. Subtle Apple
@@ -606,6 +623,7 @@ private struct ContentView: View {
         .preferredColorScheme(darkOverride.map { $0 ? .dark : .light })
         .onAppear { model.reload() }
         .task {
+            await model.checkForAvailableUpdate()
             while !Task.isCancelled {
                 await model.refreshLiveStatus()
                 try? await Task.sleep(nanoseconds: 4_000_000_000)
@@ -670,6 +688,7 @@ private struct RMKSidebar: View {
             sectionLabel("Toolkit")
             navItem(.backups, "Backups", "clock.arrow.circlepath")
             navItem(.settings, "Settings", "gearshape.fill")
+            UpdateNoticeBanner(selection: $selection)
 
             if model.profiles.isEmpty {
                 Spacer(minLength: 12)
@@ -877,6 +896,45 @@ private struct RMKSidebar: View {
                 .strokeBorder(Onyx.hairline, lineWidth: 0.75)
         }
         .padding(10)
+    }
+}
+
+private struct UpdateNoticeBanner: View {
+    @EnvironmentObject private var model: LauncherModel
+    @Binding var selection: SidebarSelection
+
+    var body: some View {
+        if let notice = model.updateNotice {
+            Button {
+                selection = .settings
+            } label: {
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Onyx.accent)
+                        Text("Update Available")
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .foregroundStyle(Onyx.text)
+                        Spacer(minLength: 0)
+                    }
+                    Text("\(notice.version) is on GitHub. Go to Settings > Maintenance > Update From GitHub.")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Onyx.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(10)
+                .background(Onyx.surface2, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .strokeBorder(Onyx.accent.opacity(0.35), lineWidth: 0.9)
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 10)
+            .padding(.top, 8)
+            .help("Open Settings to update RipperMoonKit from GitHub.")
+        }
     }
 }
 
@@ -2242,12 +2300,37 @@ private struct SettingsScreen: View {
 
             Card(title: "Maintenance", icon: "wrench.and.screwdriver.fill") {
                 VStack(alignment: .leading, spacing: 14) {
+                    if let notice = model.updateNotice {
+                        HStack(alignment: .top, spacing: 9) {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Onyx.accent)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("RipperMoonKit \(notice.version) is available on GitHub.")
+                                    .font(.system(size: 12.5, weight: .semibold))
+                                    .foregroundStyle(Onyx.text)
+                                Text("Use Update From GitHub below. The app will close and reopen after the update installs.")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(Onyx.textDim)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(10)
+                        .background(Onyx.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(Onyx.accent.opacity(0.35), lineWidth: 0.8)
+                        }
+                    }
                     FlowLayout(spacing: 8) {
                         RMKButton(kind: .primary, icon: "square.and.arrow.down.fill", title: "Install Toolkit") {
                             model.installToolkit()
                         }
                         RMKButton(kind: .ghost, icon: "externaldrive.fill.badge.plus", title: "Install GPTK") {
                             model.installDependencies()
+                        }
+                        RMKButton(kind: .ghost, icon: "arrow.clockwise", title: "Check for Updates") {
+                            Task { await model.checkForAvailableUpdate(force: true) }
                         }
                         RMKButton(kind: .ghost, icon: "arrow.down.circle.fill", title: "Update From GitHub") {
                             model.updateFromGitHub()
@@ -2786,11 +2869,14 @@ private final class LauncherModel: ObservableObject {
     @Published var showSetupGuide = false
     @Published var tgdbAPIKeyLocal: String = ""
     @Published var pinnedProfileIDs: [UUID] = []
+    @Published var updateNotice: UpdateNotice?
+    @Published var isCheckingForUpdates = false
 
     private let defaults = UserDefaults.standard
     private let setupGuideSeenKey = "setupGuideSeen.v2"
     private let tgdbAPIKeyDefaultsKey = "tgdbAPIKey"
     private let pinnedProfilesKey = "pinnedProfiles.v1"
+    private var hasCheckedForUpdates = false
 
     var defaultSelection: SidebarSelection {
         .library
@@ -3150,6 +3236,56 @@ private final class LauncherModel: ObservableObject {
         )
     }
 
+    func checkForAvailableUpdate(force: Bool = false) async {
+        if isCheckingForUpdates || (!force && hasCheckedForUpdates) {
+            return
+        }
+
+        isCheckingForUpdates = true
+        hasCheckedForUpdates = true
+        defer { isCheckingForUpdates = false }
+
+        guard let url = URL(string: "https://api.github.com/repos/MoonTheRipper/RipperMoonKit/releases/latest") else {
+            return
+        }
+
+        do {
+            var request = URLRequest(url: url, timeoutInterval: 8)
+            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+            request.setValue("RipperMoonKit/\(rmkAppVersion)", forHTTPHeaderField: "User-Agent")
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  (200..<300).contains(http.statusCode) else {
+                if force {
+                    lastResult = "Update check failed"
+                    commandOutput = "GitHub did not return the latest release information.\n"
+                }
+                return
+            }
+
+            let release = try JSONDecoder().decode(GitHubReleaseInfo.self, from: data)
+            let releaseURL = release.htmlURL ?? URL(string: "https://github.com/MoonTheRipper/RipperMoonKit/releases/latest")!
+            if Self.isVersion(release.tagName, newerThan: rmkAppVersion) {
+                updateNotice = UpdateNotice(version: release.tagName, url: releaseURL)
+                if force {
+                    lastResult = "Update available"
+                    commandOutput = "RipperMoonKit \(release.tagName) is available. Open Settings > Maintenance > Update From GitHub.\n"
+                }
+            } else {
+                updateNotice = nil
+                if force {
+                    lastResult = "Already on latest release"
+                    commandOutput = "Installed version: \(rmkAppVersion)\nLatest GitHub release: \(release.tagName)\n"
+                }
+            }
+        } catch {
+            if force {
+                lastResult = "Update check failed"
+                commandOutput = "\(error.localizedDescription)\n"
+            }
+        }
+    }
+
     func updateFromGitHub() {
         let command = """
         cd \(toolkitSourceFolder.shellQuoted) && \
@@ -3161,7 +3297,8 @@ private final class LauncherModel: ObservableObject {
         runShell(
             title: "Update From GitHub",
             command: command,
-            completion: { [weak self] in self?.reload() }
+            completion: { [weak self] in self?.reload() },
+            successCompletion: { [weak self] in self?.relaunchAfterUpdate() }
         )
     }
 
@@ -3823,7 +3960,13 @@ private final class LauncherModel: ObservableObject {
         try FileManager.default.copyItem(atPath: config.configPath, toPath: backup)
     }
 
-    private func runShell(title: String, command: String, detached: Bool = false, completion: (() -> Void)? = nil) {
+    private func runShell(
+        title: String,
+        command: String,
+        detached: Bool = false,
+        completion: (() -> Void)? = nil,
+        successCompletion: (() -> Void)? = nil
+    ) {
         defaults.set(toolkitSourceFolder, forKey: "toolkitSourceFolder")
         isRunning = true
         lastResult = "\(title) running"
@@ -3840,7 +3983,58 @@ private final class LauncherModel: ObservableObject {
                 lastResult = detached ? "\(title) sent" : "\(title) finished with status \(result.status)"
             }
             completion?()
+            if result.error == nil && result.status == 0 {
+                successCompletion?()
+            }
         }
+    }
+
+    private func relaunchAfterUpdate() {
+        let bundleURL = Bundle.main.bundleURL
+        guard bundleURL.pathExtension == "app" else {
+            commandOutput += "\nUpdate installed. Relaunch is only automatic from the packaged .app.\n"
+            return
+        }
+
+        lastResult = "Update installed. Restarting app"
+        commandOutput += "\nUpdate installed. RipperMoonKit will close and reopen.\n"
+        let command = "sleep 1; open \(bundleURL.path.shellQuoted)"
+
+        DispatchQueue.global(qos: .utility).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            process.arguments = ["-lc", command]
+            try? process.run()
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            NSApp.terminate(nil)
+        }
+    }
+
+    private static func isVersion(_ candidate: String, newerThan installed: String) -> Bool {
+        let lhs = versionParts(candidate)
+        let rhs = versionParts(installed)
+        let count = max(lhs.count, rhs.count)
+        for index in 0..<count {
+            let left = index < lhs.count ? lhs[index] : 0
+            let right = index < rhs.count ? rhs[index] : 0
+            if left != right {
+                return left > right
+            }
+        }
+        return false
+    }
+
+    private static func versionParts(_ version: String) -> [Int] {
+        let trimmed = version.trimmingCharacters(in: .whitespacesAndNewlines)
+        let withoutPrefix = trimmed.drop { $0 == "v" || $0 == "V" }
+        return withoutPrefix
+            .split { $0 == "." || $0 == "-" || $0 == "_" }
+            .map { token in
+                let digits = token.prefix { $0.isNumber }
+                return Int(digits) ?? 0
+            }
     }
 
     private static func loadProfiles(config: ToolkitConfig, defaults: UserDefaults) -> [GameProfile] {

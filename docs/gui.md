@@ -319,7 +319,8 @@ The Settings view includes:
 
 - **Install Toolkit**: runs `./install.zsh --skip-deps` and creates a rollback backup first.
 - **Install GPTK**: runs the full installer with `RIPPERMOON_OPEN_GPTK_PAGE=1`; if GPTK is missing, Apple's GPTK page opens and the installer waits for the DMG.
-- **Update From GitHub**: fetches `origin/main`, fast-forwards the repo, reinstalls toolkit scripts, and rebuilds the local `.app`.
+- **Check for Updates**: checks the latest public GitHub release. When a newer version is available, the sidebar shows an update notice that sends users to Settings > Maintenance.
+- **Update From GitHub**: fetches `origin/main`, fast-forwards the repo, reinstalls toolkit scripts, rebuilds the local `.app`, then closes and reopens the packaged app.
 - **Uninstall Toolkit**: removes toolkit scripts and the app. Configs and Wine prefixes/saves are kept unless their checkboxes are enabled.
 
 The uninstall defaults are intentionally conservative:
