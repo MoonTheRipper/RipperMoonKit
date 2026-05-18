@@ -18,7 +18,19 @@ Open the downloaded `.dmg` so it mounts under `/Volumes`.
 
 Leave it mounted while running the installer. If it contains a nested **Evaluation environment for Windows games 3.0** image, the installer will try to mount that nested image automatically.
 
-## 2. Install The Toolkit
+## 2. Choose Install Method
+
+For the macOS app first, download the latest DMG, open it, and drag **RipperMoonKit Launcher.app** into Applications:
+
+```text
+https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg
+```
+
+Open the app and follow the first-run setup prompts.
+
+For the source and command-line helper install, continue below.
+
+## 3. Install From Source
 
 ```zsh
 cd RipperMoonToolKit
@@ -44,7 +56,7 @@ Update backups are stored under:
 ls -lt "$GPTK_HOME/backups"
 ```
 
-## 3. Reload Shell
+## 4. Reload Shell
 
 ```zsh
 source ~/.zshrc
@@ -58,7 +70,7 @@ which gptk-steam
 which gptk-game
 ```
 
-## 4. Install Steam
+## 5. Install Steam
 
 If you did not use `./install.zsh --install-steam`, install Steam after bootstrap:
 
@@ -78,7 +90,7 @@ Stop Steam:
 gptk-steam --kill
 ```
 
-## 5. Run A Game
+## 6. Run A Game
 
 For a copied/pre-installed game folder:
 
@@ -93,10 +105,10 @@ For a game that depends on the Steam client, launch it from the same prefix as S
 gptk-launch --prefix Steam -- ./GameLauncher.exe
 ```
 
-## 6. Optional SwiftUI Launcher
+## 7. Optional SwiftUI Launcher From Source
 
 ```zsh
-swift run RipperMoonKitLauncher
+zsh scripts/install-gui-app.zsh
 ```
 
 The launcher gives each game its own page:

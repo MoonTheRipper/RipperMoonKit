@@ -54,6 +54,14 @@ Read [docs/quickstart.md](docs/quickstart.md) first.
 
 Short version:
 
+For the app-first path, download the latest DMG, open it, and drag **RipperMoonKit Launcher.app** into Applications:
+
+```text
+https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg
+```
+
+For source install:
+
 1. Download **Game Porting Toolkit 3** from Apple:
 
 ```text
@@ -88,6 +96,7 @@ $GPTK_HOME/backups/rippermoon-update-YYYYmmdd-HHMMSS
 ```
 
 See [docs/update-safety.md](docs/update-safety.md).
+See [docs/installation.md](docs/installation.md) for the full DMG and source install paths.
 
 ## Common Commands
 
@@ -118,12 +127,6 @@ Install Windows Steam during bootstrap:
 See [docs/commands.md](docs/commands.md) for the full command reference.
 
 Run the SwiftUI launcher:
-
-```zsh
-swift run RipperMoonKitLauncher
-```
-
-Install a local `.app` bundle:
 
 ```zsh
 zsh scripts/install-gui-app.zsh

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Install RipperMoonKit</title>
-  <meta name="description" content="Install RipperMoonKit with Apple Game Porting Toolkit 3 and prepare the macOS launcher app.">
+  <meta name="description" content="Install RipperMoonKit from the DMG app or from source, then connect it to Apple Game Porting Toolkit 3.">
   <link rel="stylesheet" href="site.css">
 </head>
 <body>
@@ -19,39 +19,65 @@
   <div class="page">
     <aside class="doc-tree" aria-label="Documentation tree">
       <strong>Start</strong><a href="index.html">Overview</a><a href="installation.html" aria-current="page">Installation</a><a href="proof-of-concept.html">Proof Of Concept</a>
-      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="tested-games.html">Known Tested Games</a><a href="elden-ring.html">Elden Ring ERSC</a>
-      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a>
+      <strong>Use The App</strong><a href="gui.html">Launcher Guide</a><a href="games.html">Games And Saves</a><a href="tested-games.html">Known Tested Games</a><a href="elden-ring.html">Elden Ring ERSC</a><a href="reframework.html">REFramework Plan</a>
+      <strong>Reference</strong><a href="commands.html">Commands</a><a href="troubleshooting.html">Troubleshooting</a><a href="faq.html">Q&amp;A</a><a href="license.html">License</a>
     </aside>
     <main class="content">
       <div class="hero">
         <p class="eyebrow">Installation</p>
-        <h1>Set up the toolkit once.</h1>
-        <p class="lead">The installer prepares folders, helper commands, backups, and the local GPTK runtime path. It does not include Apple runtime files or game files.</p>
+        <h1>Choose the DMG app or source install.</h1>
+        <p class="lead">RipperMoonKit does not include Apple Game Porting Toolkit, games, Steam files, or mods. Install the launcher, download GPTK 3 from Apple, then let the app or source installer prepare local helpers, paths, logs, and rollback-safe updates.</p>
       </div>
 
-      <h2>1. Download GPTK 3</h2>
-      <p>Download <strong>Game Porting Toolkit 3</strong> from Apple and mount the downloaded disk image. Leave it mounted while installing RipperMoonKit.</p>
+      <h2>Option A: Install From DMG</h2>
+      <p>This is the best path for non-technical users who want the macOS app first.</p>
+      <ol>
+        <li>Download the latest <a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">RipperMoonKit Launcher DMG</a>.</li>
+        <li>Open the DMG.</li>
+        <li>Drag <strong>RipperMoonKit Launcher.app</strong> into <strong>Applications</strong>, or into your user Applications folder.</li>
+        <li>Open the app. If macOS warns that it is from the internet, use <strong>System Settings &gt; Privacy &amp; Security</strong> to allow it.</li>
+        <li>Follow the first-run setup prompts. The app can guide you to GPTK, install helper scripts, and prepare local folders.</li>
+      </ol>
+
+      <h2>GPTK Requirement</h2>
+      <p>RipperMoonKit targets <strong>Apple Game Porting Toolkit 3</strong>. Download GPTK 3 from Apple Developer and mount the downloaded disk image before running the full setup. If the app or installer cannot find GPTK, it can open Apple's download page and wait while you mount it.</p>
       <p><a href="https://developer.apple.com/games/game-porting-toolkit/">Open Apple Game Porting Toolkit page</a></p>
 
-      <h2>2. Install RipperMoonKit</h2>
-      <p>From the source folder, run the installer. It creates local configuration, installs the helper commands, and writes a timestamped log.</p>
+      <h2>Option B: Install From Source</h2>
+      <p>Use this path if you want the command-line helpers, local source tree, docs, and the ability to edit or build the app yourself.</p>
+      <ol>
+        <li>Clone or download the source ZIP from GitHub.</li>
+        <li>Download and mount GPTK 3 from Apple.</li>
+        <li>Run the installer from the source folder:</li>
+      </ol>
       <pre><code>cd RipperMoonToolKit
 ./install.zsh</code></pre>
+      <p>The installer creates local configuration, installs helper commands, copies GPTK from the mounted Apple media, downloads SteamSetup.exe, writes logs, and creates update backups before replacing toolkit files.</p>
 
-      <h2>3. Install The App</h2>
-      <p>The GUI is the easiest path for non-technical users. It installs to your user Applications folder.</p>
+      <h2>Build Or Reinstall The App From Source</h2>
+      <p>If you installed from source, build and install the local app bundle with:</p>
       <pre><code>zsh scripts/install-gui-app.zsh</code></pre>
+      <p>The app is installed to:</p>
+      <pre><code>~/Applications/RipperMoonKit Launcher.app</code></pre>
 
-      <h2>4. Reload The Shell</h2>
-      <p>Open a new Terminal window or reload your shell configuration.</p>
+      <h2>Reload The Shell</h2>
+      <p>After a source install, open a new Terminal window or reload your shell configuration.</p>
       <pre><code>source ~/.zshrc</code></pre>
 
-      <h2>5. Check The Main Commands</h2>
+      <h2>Check The Main Commands</h2>
       <pre><code>which gptk-launch
 which gptk-steam
 which gptk-game</code></pre>
 
-      <h2>What Gets Protected</h2>
+      <h2>Where Things Are Stored</h2>
+      <ul>
+        <li><code>~/GPTK</code>: toolkit support files, copied GPTK runtime, logs, downloads, backups.</li>
+        <li><code>~/WinePrefixes</code>: Wine prefixes and Windows registry state.</li>
+        <li><code>~/.rippermoon-gptk.env</code>: editable path configuration.</li>
+        <li>Your external game drive: installed or copied game folders, installers, and Steam libraries.</li>
+      </ul>
+
+      <h2>What Updates Protect</h2>
       <p>Updates back up the small toolkit files first. Saves, Wine prefixes, Steam data, installed games, GPTK runtimes, and patched runners stay outside the repository and are not removed by normal updates.</p>
 
       <div class="next-links">

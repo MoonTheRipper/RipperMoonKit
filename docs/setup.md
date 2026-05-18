@@ -70,7 +70,17 @@ export GPTK_APP_PATH="$GPTK_HOME/apps/Game Porting Toolkit.app"
 export GPTK_WINE_HOME="$GPTK_APP_PATH/Contents/Resources/wine"
 ```
 
-## Install
+## Install From DMG
+
+For the app-first install, download the latest DMG:
+
+```text
+https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg
+```
+
+Open the DMG, drag **RipperMoonKit Launcher.app** into Applications, then open it. The first-run setup can guide the GPTK download/mount step and install the local helper scripts.
+
+## Install From Source
 
 Before running the installer, download **Game Porting Toolkit 3** from Apple Developer and mount the DMG:
 
@@ -91,6 +101,12 @@ $GPTK_HOME/logs/rippermoon-install-YYYYmmdd-HHMMSS.log
 ```
 
 It installs host dependencies, copies GPTK 3 from the mounted Apple media, downloads `SteamSetup.exe`, and verifies the GPTK/Wine runtime path. See [dependencies.md](dependencies.md) and [gptk.md](gptk.md) for details.
+
+Install the local SwiftUI app from source with:
+
+```zsh
+zsh scripts/install-gui-app.zsh
+```
 
 Open a new terminal, or reload shell config:
 

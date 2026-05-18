@@ -7,14 +7,16 @@ Use this page as the navigation map for RipperMoonToolKit.
 Read in this order:
 
 1. [quickstart.md](quickstart.md)
-2. [gptk.md](gptk.md)
-3. [setup.md](setup.md)
-4. [steam.md](steam.md)
-5. [commands.md](commands.md)
+2. [installation.md](installation.md)
+3. [gptk.md](gptk.md)
+4. [setup.md](setup.md)
+5. [steam.md](steam.md)
+6. [commands.md](commands.md)
 
 ## Configuration
 
 - [configuration.md](configuration.md): all supported environment variables.
+- [installation.md](installation.md): DMG install and source install paths.
 - [drives.md](drives.md): custom Wine drive mappings.
 - [dependencies.md](dependencies.md): installer bootstrap behavior and logs.
 - [visual-c-runtime.md](visual-c-runtime.md): Microsoft Visual C++ runtime installation for Wine prefixes.
