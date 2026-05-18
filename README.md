@@ -1,20 +1,20 @@
-# RipperMoonToolKit
+# RipperMoonKit
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/I2I61WTJ6V)
 
-RipperMoonToolKit is a manual Apple Game Porting Toolkit 3 launcher setup for Apple Silicon Macs. It keeps Wine prefixes on internal storage, keeps large game libraries on external storage, and launches Windows Steam or standalone Windows game folders through reusable zsh commands.
+RipperMoonKit is a macOS toolkit for running selected Windows games through Apple Game Porting Toolkit 3 and Wine. It provides helper scripts, a SwiftUI launcher, per-game profiles, update backups, and documentation for the workflows that have been tested on this machine.
 
-This repository is source and documentation only. It intentionally does not include Wine prefixes, installed games, Steam data, saves, logs, Apple runtime files, or any machine-specific directories.
+The project is intentionally narrow. It is not a game store, not Proton, not Heroic, not a compatibility database, and not a redistribution of Apple GPTK, Steam, games, saves, or third-party mods. Users provide their own game files and download Apple GPTK from Apple.
 
 ## License
 
 RipperMoonKit is free to run, inspect, and modify for personal use, but it is not licensed for repackaging, resale, rebranding, or embedding into another product. See [LICENSE](LICENSE) for the full source-available personal-use terms.
 
-## Status
+## Current Scope
 
-The toolkit is intended for technical users who are comfortable with Terminal, mounted volumes, and Wine/GPTK troubleshooting.
+The app and scripts are meant for users who are comfortable with external drives, Wine prefixes, logs, and occasional breakage. The GUI reduces the amount of command-line work, but the project is still a compatibility toolkit rather than a finished consumer game launcher.
 
-Tested workflow:
+Tested workflows:
 
 - Apple Game Porting Toolkit 3.
 - Windows Steam running through a dedicated `Steam` prefix.
@@ -23,6 +23,15 @@ Tested workflow:
 - Elden Ring randomized output launching through ModEngine 2; launching without ModEngine returns the game to the non-randomized path.
 - Save transfer into the real Wine prefix save directory after confirming the game-created save path.
 - Elden Ring Seamless Coop Golden Pot lobby opening with a GPTK DirectSound capture workaround.
+
+## Known Limits
+
+- Apple Silicon Macs are the target platform.
+- Game compatibility is not guaranteed. Each game can need a different prefix, runner, runtime, launch flag, or workaround.
+- Online features that depend on kernel anti-cheat are expected to fail under Wine/GPTK.
+- The project does not bypass DRM, anti-cheat, game ownership checks, or platform rules.
+- Installers are often less reliable than copied, already-installed Windows game folders.
+- External drives must stay mounted at the same paths, or drive mappings need to be updated in Settings.
 
 ## Proof Of Concept
 
@@ -42,7 +51,7 @@ The screenshots show the launcher profile and a live Elden Ring GPTK run. See [d
 - `gptk-stubs`: cross-compiles and installs minimal stub DLLs for Wine/GPTK missing APIs (GameInput, etc.) so delay-load crashes are resolved without touching game files.
 - Dynamic path configuration through `~/.rippermoon-gptk.env`.
 - Configurable Wine drive mappings with any letters except `C:`.
-- Installer bootstrap with timestamped emoji logs.
+- Installer bootstrap with timestamped logs.
 - Update backups and rollback for existing local installs.
 - A SwiftUI launcher target with per-app profiles, ERSC defaults, validation, logs, path editing, drive mapping, close-game control, VC++ runtime install actions, and rollback.
 - An Elden Ring Mod Manager panel that installs selected mod ZIPs, prepares ModEngine 2 config/launch files, runs the randomizer GUI, and launches the modded profile without copying another PC's drive letters.
