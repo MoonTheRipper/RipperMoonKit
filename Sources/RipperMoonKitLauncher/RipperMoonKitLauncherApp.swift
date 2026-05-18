@@ -2465,18 +2465,24 @@ private struct SettingsScreen: View {
 
 private struct SetupGuideView: View {
     @EnvironmentObject private var model: LauncherModel
+    @State private var showAdvanced = false
+
+    private var allReady: Bool {
+        model.setupChecks.allSatisfy(\.isOK)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 14) {
                 BrandMark(size: 52, glow: true)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("First Run Setup")
+                    Text("Welcome to RipperMoonKit")
                         .font(.system(size: 19, weight: .bold))
                         .foregroundStyle(Onyx.text)
-                    Text("Click Start Guided Setup once. It prepares the source clone, installs the toolkit, then connects Apple Game Porting Toolkit 3.")
+                    Text("One click installs everything. macOS will ask for your Mac password once, and Apple's Game Porting Toolkit is the only file you download yourself.")
                         .font(.system(size: 12.5))
                         .foregroundStyle(Onyx.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
@@ -2493,34 +2499,81 @@ private struct SetupGuideView: View {
                     .strokeBorder(Onyx.hairline, lineWidth: 0.75)
             }
 
-            FlowLayout(spacing: 8) {
-                RMKButton(kind: .primary, icon: "play.circle.fill", title: "Start Guided Setup") {
-                    model.runFirstRunSetup()
-                }
-                RMKButton(kind: .ghost, icon: "arrowshape.turn.up.forward.fill",
-                          title: model.nextSetupActionTitle) {
-                    model.runNextSetupStep()
-                }
-                RMKButton(kind: .primary, icon: "square.and.arrow.down.fill", title: "Install Toolkit") {
-                    model.installToolkit()
-                }
-                RMKButton(kind: .ghost, icon: "externaldrive.fill.badge.plus", title: "Install GPTK") {
-                    model.installDependencies()
-                }
-                RMKButton(kind: .ghost, icon: "safari.fill", title: "Apple GPTK Page") {
-                    model.openGPTKPage()
+            if !model.config.hasLocalGPTK {
+                gptkNotice
+            }
+
+            if model.guidedSetupRunning {
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    Text("Setup is running in the Terminal window. When it finishes, click Recheck.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Onyx.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            HStack {
+            HStack(spacing: 8) {
+                RMKButton(kind: .primary, icon: "sparkles",
+                          title: model.guidedSetupRunning ? "Restart Setup" : "Set Up RipperMoonKit") {
+                    model.runFirstRunSetup()
+                }
+                RMKButton(kind: .ghost, icon: "arrow.clockwise", title: "Recheck") {
+                    model.reload()
+                }
                 Spacer()
-                RMKButton(kind: .primary, title: "Done") {
+                RMKButton(kind: .ghost, title: allReady ? "Done" : "Close") {
                     model.dismissSetupGuide()
                 }
             }
+
+            DisclosureGroup(isExpanded: $showAdvanced) {
+                FlowLayout(spacing: 8) {
+                    RMKButton(kind: .ghost, icon: "arrow.down.circle", title: "Prepare Source", small: true) {
+                        model.prepareToolkitSource()
+                    }
+                    RMKButton(kind: .ghost, icon: "square.and.arrow.down", title: "Install Toolkit", small: true) {
+                        model.installToolkit()
+                    }
+                    RMKButton(kind: .ghost, icon: "externaldrive.badge.plus", title: "Install GPTK", small: true) {
+                        model.installDependencies()
+                    }
+                    RMKButton(kind: .ghost, icon: "safari", title: "Apple GPTK Page", small: true) {
+                        model.openGPTKPage()
+                    }
+                }
+                .padding(.top, 10)
+            } label: {
+                Text("Advanced — run individual steps")
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(Onyx.textMute)
+            }
+            .tint(Onyx.textDim)
         }
         .padding(24)
         .background(Onyx.bg)
+    }
+
+    private var gptkNotice: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("One step needs you", systemImage: "person.badge.key.fill")
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(Onyx.text)
+            Text("Apple's Game Porting Toolkit is a free download that needs a free Apple Developer account. Open the page, sign in, and download it — setup detects the file automatically and continues.")
+                .font(.system(size: 11.5))
+                .foregroundStyle(Onyx.textDim)
+                .fixedSize(horizontal: false, vertical: true)
+            RMKButton(kind: .ghost, icon: "safari.fill", title: "Open Apple GPTK Page", small: true) {
+                model.openGPTKPage()
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Onyx.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(Onyx.accent.opacity(0.4), lineWidth: 0.75)
+        }
     }
 }
 
@@ -2937,6 +2990,7 @@ private final class LauncherModel: ObservableObject {
     @Published var driveMaps: [DriveMap]
     @Published var toolkitSourceFolder: String
     @Published var isRunning = false
+    @Published var guidedSetupRunning = false
     @Published var liveProfileIDs: Set<UUID> = []
     /// macOS PIDs backing each live profile — used to terminate games directly.
     var liveProfilePIDs: [UUID: [Int32]] = [:]
@@ -3082,6 +3136,7 @@ private final class LauncherModel: ObservableObject {
         pathSettings = PathSettings(config: config)
         driveMaps = DriveMap.parse(config.values["GPTK_DRIVE_MAPS"] ?? "")
         refreshBackups()
+        guidedSetupRunning = false
         if !config.needsSetupGuide && toolkitSourceReady {
             defaults.set(true, forKey: setupGuideSeenKey)
             showSetupGuide = false
@@ -3416,11 +3471,23 @@ private final class LauncherModel: ObservableObject {
     }
 
     func installDependencies() {
-        runShell(
-            title: "Install GPTK",
-            command: "\(toolkitSourceBootstrapCommand)\nRIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh",
-            completion: { [weak self] in self?.reload() }
-        )
+        let body = """
+        #!/bin/zsh
+        clear
+        echo "Installing dependencies and connecting Apple Game Porting Toolkit 3…"
+        echo "macOS may ask for your Mac password once (to install Homebrew)."
+        echo
+
+        \(toolkitSourceBootstrapCommand)
+        set +e
+
+        RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh
+
+        echo
+        echo "✅ Done. Return to RipperMoonKit and click Recheck."
+        echo "   You can close this window."
+        """
+        runScriptInTerminal(named: "install-gptk", body: body, title: "Install GPTK")
     }
 
     func runNextSetupStep() {
@@ -3441,22 +3508,37 @@ private final class LauncherModel: ObservableObject {
     }
 
     func runFirstRunSetup() {
-        runShell(
-            title: "Guided Setup",
-            command: """
-            \(toolkitSourceBootstrapCommand)
-            echo "➡️ Step 2/3: installing toolkit scripts and local config."
-            ./install.zsh --skip-deps
-            echo "➡️ Step 3/4: connecting Apple Game Porting Toolkit 3."
-            RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh
-            echo "➡️ Step 4/4: downloading and installing Windows Steam."
-            ./install.zsh --install-steam
-            """,
-            completion: { [weak self] in
-                self?.refreshBackups()
-                self?.reload()
-            }
-        )
+        let body = """
+        #!/bin/zsh
+        clear
+        echo "════════════════════════════════════════════════"
+        echo "  RipperMoonKit — First Run Setup"
+        echo "════════════════════════════════════════════════"
+        echo
+        echo "This installs everything RipperMoonKit needs."
+        echo "macOS may ask for your Mac password once (to install Homebrew)."
+        echo
+
+        \(toolkitSourceBootstrapCommand)
+        set +e
+
+        echo
+        echo "➡️ Installing toolkit scripts and local config…"
+        ./install.zsh --skip-deps || echo "⚠️ Toolkit step had problems — see the output above."
+
+        echo
+        echo "➡️ Installing dependencies and connecting Apple Game Porting Toolkit 3…"
+        RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh || echo "⚠️ GPTK step incomplete — you may still need to download GPTK from Apple."
+
+        echo
+        echo "➡️ Downloading and installing Windows Steam…"
+        ./install.zsh --install-steam || echo "⚠️ Steam step incomplete — you can install Steam later from the Steam profile."
+
+        echo
+        echo "✅ Setup finished. Return to RipperMoonKit and click Recheck."
+        echo "   You can close this window."
+        """
+        runScriptInTerminal(named: "guided-setup", body: body, title: "Guided Setup")
     }
 
     func prepareToolkitSource() {
@@ -4154,17 +4236,35 @@ private final class LauncherModel: ObservableObject {
         "[[ -r \(config.configPath.shellQuoted) ]] && source \(config.configPath.shellQuoted); ulimit -n \"${GPTK_NOFILE_LIMIT:-49152}\" 2>/dev/null || true"
     }
 
+    /// Toolkit source shipped inside the packaged .app, if present.
+    /// Lets first-run setup work offline with no GitHub clone.
+    private var bundledToolkitFolder: String? {
+        let candidate = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Resources/toolkit", isDirectory: true)
+        let installer = candidate.appendingPathComponent("install.zsh").path
+        return FileManager.default.isExecutableFile(atPath: installer) ? candidate.path : nil
+    }
+
     private var toolkitSourceBootstrapCommand: String {
         let source = toolkitSourceFolder.shellQuoted
         let repo = rmkRepositoryURL.shellQuoted
+        let bundled = (bundledToolkitFolder ?? "").shellQuoted
         return """
         set -e
-        echo "➡️ Step 1/3: preparing RipperMoonKit source."
+        echo "➡️ Preparing RipperMoonKit source…"
         repo=\(repo)
         src=\(source)
+        bundled=\(bundled)
         mkdir -p "$(dirname "$src")"
         if [[ -x "$src/install.zsh" ]]; then
           echo "✅ Toolkit source ready: $src"
+          cd "$src"
+        elif [[ -n "$bundled" && -x "$bundled/install.zsh" ]]; then
+          echo "📦 Installing bundled toolkit source into: $src"
+          rm -rf "$src.tmp"
+          ditto "$bundled" "$src.tmp"
+          rm -rf "$src"
+          mv "$src.tmp" "$src"
           cd "$src"
         else
           echo "⬇️ Cloning toolkit source into: $src"
@@ -4182,6 +4282,44 @@ private final class LauncherModel: ObservableObject {
           cd "$src"
         fi
         chmod +x ./install.zsh scripts/*.zsh 2>/dev/null || true
+        """
+    }
+
+    /// Runs a setup script in a real Terminal window so macOS can show the
+    /// admin-password prompt (Homebrew) and the long GPTK download wait.
+    private func runScriptInTerminal(named name: String, body: String, title: String) {
+        let dir = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Application Support/RipperMoonKit", isDirectory: true)
+        let scriptURL = dir.appendingPathComponent("\(name).command")
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try body.write(to: scriptURL, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
+        } catch {
+            lastResult = "\(title) failed"
+            commandOutput = "Could not prepare the setup script:\n\(error.localizedDescription)\n"
+            return
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = ["-a", "Terminal", scriptURL.path]
+        do {
+            try process.run()
+        } catch {
+            lastResult = "\(title) failed"
+            commandOutput = "Could not open Terminal:\n\(error.localizedDescription)\n"
+            return
+        }
+
+        guidedSetupRunning = true
+        lastResult = "\(title) running in Terminal"
+        commandOutput = """
+        \(title) is running in a Terminal window.
+
+        Follow the steps shown there. macOS may ask for your Mac password once.
+        When it finishes, return here and click Recheck.
         """
     }
 
@@ -4820,7 +4958,7 @@ private struct ToolkitConfig {
     var gptkHome: String { expand(values["GPTK_HOME"] ?? "$HOME/GPTK") }
     var prefixRoot: String { expand(values["GPTK_PREFIX_ROOT"] ?? "$HOME/WinePrefixes") }
     var gamesRoot: String { expand(values["GPTK_GAMES_ROOT"] ?? "$HOME/Games") }
-    var externalRoot: String { expand(values["GPTK_EXTERNAL_ROOT"] ?? "/Volumes/GameCoreApp") }
+    var externalRoot: String { expand(values["GPTK_EXTERNAL_ROOT"] ?? "$HOME/Library/Application Support/RipperMoonKit") }
     var steamLibrary: String { expand(values["GPTK_STEAM_LIBRARY"] ?? "$GPTK_EXTERNAL_ROOT/SteamLibrary") }
     var logsPath: String { expand(values["GPTK_LOG_DIR"] ?? "$GPTK_HOME/logs") }
     var gptkWineHome: String { expand(values["GPTK_WINE_HOME"] ?? "$GPTK_HOME/apps/Game Porting Toolkit.app/Contents/Resources/wine") }

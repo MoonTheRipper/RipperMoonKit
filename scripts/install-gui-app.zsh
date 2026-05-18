@@ -71,6 +71,26 @@ create_app_icon() {
   log "🎨" "Created app icon from rippermoonlogo."
 }
 
+bundle_toolkit() {
+  local resources_dir="$1"
+  local toolkit_dir="${resources_dir}/toolkit"
+  local dir
+
+  rm -rf "${toolkit_dir}"
+  mkdir -p "${toolkit_dir}"
+
+  install -m 755 "${repo_dir}/install.zsh" "${toolkit_dir}/install.zsh"
+  install -m 644 "${repo_dir}/env.example" "${toolkit_dir}/env.example"
+  install -m 644 "${repo_dir}/VERSION" "${toolkit_dir}/VERSION"
+
+  for dir in bin libexec scripts stubs; do
+    [[ -d "${repo_dir}/${dir}" ]] && ditto "${repo_dir}/${dir}" "${toolkit_dir}/${dir}"
+  done
+
+  chmod +x "${toolkit_dir}/install.zsh" "${toolkit_dir}/scripts/"*.zsh "${toolkit_dir}/bin/"* 2>/dev/null || true
+  log "🧰" "Bundled toolkit source into the app."
+}
+
 log "🚀" "Building RipperMoonKitLauncher."
 log "🪵" "GUI install log: ${log_file}"
 
@@ -95,9 +115,9 @@ rm -rf "${tmp_app}"
 mkdir -p "${tmp_app}/Contents/MacOS" "${tmp_app}/Contents/Resources"
 
 install -m 755 "${executable}" "${tmp_app}/Contents/MacOS/RipperMoonKitLauncher"
-ditto "${resource_bundle}" "${tmp_app}/RipperMoonKit_RipperMoonKitLauncher.bundle"
 ditto "${resource_bundle}" "${tmp_app}/Contents/Resources/RipperMoonKit_RipperMoonKitLauncher.bundle"
 create_app_icon "${tmp_app}/Contents/Resources"
+bundle_toolkit "${tmp_app}/Contents/Resources"
 
 cat > "${tmp_app}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -127,6 +147,19 @@ cat > "${tmp_app}/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
+
+if command -v codesign >/dev/null 2>&1; then
+  log "✍️" "Applying ad-hoc app signature."
+  codesign --force --deep --sign - "${tmp_app}" >> "${log_file}" 2>&1 || {
+    log "❌" "Ad-hoc signing failed."
+    exit 1
+  }
+  codesign --verify --deep --strict --verbose=2 "${tmp_app}" >> "${log_file}" 2>&1 || {
+    log "❌" "Ad-hoc signature verification failed."
+    exit 1
+  }
+  log "✅" "Applied and verified ad-hoc app signature."
+fi
 
 if [[ -d "${app_path}" ]]; then
   backup="${GPTK_HOME}/backups/gui-app-${stamp}.noindex/RipperMoonKit Launcher.app.backup"

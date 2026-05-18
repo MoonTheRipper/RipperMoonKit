@@ -55,6 +55,26 @@ create_app_icon() {
   rm -rf "${work}"
 }
 
+bundle_toolkit() {
+  local resources_dir="$1"
+  local toolkit_dir="${resources_dir}/toolkit"
+  local dir
+
+  rm -rf "${toolkit_dir}"
+  mkdir -p "${toolkit_dir}"
+
+  install -m 755 "${repo_dir}/install.zsh" "${toolkit_dir}/install.zsh"
+  install -m 644 "${repo_dir}/env.example" "${toolkit_dir}/env.example"
+  install -m 644 "${repo_dir}/VERSION" "${toolkit_dir}/VERSION"
+
+  for dir in bin libexec scripts stubs; do
+    [[ -d "${repo_dir}/${dir}" ]] && ditto "${repo_dir}/${dir}" "${toolkit_dir}/${dir}"
+  done
+
+  chmod +x "${toolkit_dir}/install.zsh" "${toolkit_dir}/scripts/"*.zsh "${toolkit_dir}/bin/"* 2>/dev/null || true
+  log "🧰" "Bundled toolkit source into the app: ${toolkit_dir}"
+}
+
 mkdir -p "${dist_dir}"
 : > "${log_file}"
 
@@ -82,6 +102,7 @@ resource_bundle="${build_dir}/RipperMoonKit_RipperMoonKitLauncher.bundle"
 install -m 755 "${executable}" "${app_path}/Contents/MacOS/RipperMoonKitLauncher"
 ditto "${resource_bundle}" "${app_path}/Contents/Resources/RipperMoonKit_RipperMoonKitLauncher.bundle"
 create_app_icon "${app_path}/Contents/Resources"
+bundle_toolkit "${app_path}/Contents/Resources"
 
 cat > "${app_path}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
