@@ -71,6 +71,7 @@
 
       <h2>Steam And ERSC</h2>
       <p>Start Steam first, then launch ERSC from the same Steam prefix. This lets Steam API calls and Spacewar/AppID 480 state stay visible to the game.</p>
+      <p><strong>Run once before co-op testing:</strong> open the <strong>Steam</strong> profile in RipperMoonKit and click <strong>Install Spacewar</strong>. Steam launches AppID 480 so it can install Spacewar and any first-run redistributables. When that setup finishes, close Spacewar, keep or restart Steam as needed, then launch Elden Ring ERSC or ModEngine from the Elden Ring profile.</p>
 
       <h2>ModEngine And Randomizer</h2>
       <p>For randomized Elden Ring, the final launcher is <code>Game/ModEngine2/launchmod_eldenring.bat</code>. The randomizer imports a <code>.randomizeopt</code> file and generates files under <code>ModEngine2/randomizer/</code>; ModEngine then launches <code>eldenring.exe</code>, loads <code>SeamlessCoop/ersc.dll</code>, and mounts the randomizer folder.</p>

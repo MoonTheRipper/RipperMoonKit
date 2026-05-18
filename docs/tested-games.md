@@ -9,7 +9,7 @@ Status: Gold
 Tested with an already-installed Windows game folder copied to the Mac games drive. Steam must be running in the same prefix so ERSC can see Steam API state and Spacewar/AppID 480.
 
 - Why this profile exists: ERSC, Steam networking, ModEngine, and Randomizer need repeatable DLL overrides and a stable prefix.
-- How it launches: Steam starts first, then ERSC or ModEngine launches from the Elden Ring profile with native `winmm` and `steam_api64`.
+- How it launches: use the Steam profile's **Install Spacewar** action once, close Spacewar after setup finishes, then start Steam and launch ERSC or ModEngine from the Elden Ring profile with native `winmm` and `steam_api64`.
 - Known fixes: use the no-capture DirectSound runner and no-esync path for Golden Pot stability.
 
 See [elden-ring.html](elden-ring.html), [ersc-esync-file-descriptor-fix-2026-05-16.md](ersc-esync-file-descriptor-fix-2026-05-16.md), and [steam-voice-capture-fix-2026-05-13.md](steam-voice-capture-fix-2026-05-13.md).
@@ -42,10 +42,10 @@ See [gowr.md](gowr.md).
 
 Status: Dependency
 
-Steam is both a standalone app profile and a dependency for games that need Steam APIs. Downloads, Steam Web Runtime updates, and Steam-managed games should stay in the Steam prefix.
+Steam is both a standalone app profile and a dependency for games that need Steam APIs. Downloads, Steam Web Runtime updates, Spacewar/AppID 480 setup, and Steam-managed games should stay in the Steam prefix.
 
 - Why this profile exists: many Windows games check Steam state even when their game files are copied locally.
-- How it launches: start Steam from the library, or let a game profile start it first when required.
+- How it launches: start Steam from the library, let a game profile start it first when required, or use **Install Spacewar** once for co-op workflows that need AppID 480 initialized.
 - Troubleshooting: for webhelper or content unavailable issues, repair Steam compatibility and check the Steam logs.
 
 See [steam.md](steam.md) and [troubleshooting.html#steam](troubleshooting.html#steam).

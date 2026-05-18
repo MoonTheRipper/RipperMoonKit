@@ -151,6 +151,12 @@ gptk-steam --repair-compat
 Launch Spacewar/AppID 480:
 
 ```zsh
+gptk-steam --log --install-spacewar
+```
+
+Raw Steam argument equivalent:
+
+```zsh
 gptk-steam --log -applaunch 480
 ```
 

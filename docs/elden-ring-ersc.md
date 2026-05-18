@@ -54,13 +54,29 @@ That runner is a stock GPTK runner with only Wine DirectSound capture disabled. 
 
 ## Launch Sequence
 
-Start Steam first:
+Run the Spacewar/AppID 480 setup once from the Steam profile before co-op testing. Steam uses AppID 480 as the public Steamworks test app, and some co-op paths rely on that local Steam state even when the game folder itself is copied locally.
+
+From the GUI:
+
+1. Open the **Steam** profile.
+2. Click **Install Spacewar**.
+3. Wait for Steam to finish installing Spacewar and any first-run redistributables.
+4. Close Spacewar.
+5. Launch Elden Ring ERSC or ModEngine from the Elden Ring profile.
+
+From Terminal:
+
+```zsh
+gptk-steam --log --install-spacewar
+```
+
+Then start Steam normally:
 
 ```zsh
 gptk-steam --log
 ```
 
-In another terminal, make sure AppID 480 is launched or initialized when your ERSC setup depends on it:
+The raw Steam argument form is equivalent to the one-time Spacewar setup:
 
 ```zsh
 gptk-steam --log -applaunch 480
@@ -189,7 +205,7 @@ Optional Spacewar/AppID 480 launch when a setup needs it initialized explicitly:
 
 ```zsh
 env GPTK_WINE_HOME="/Users/USERNAME/GPTK/runners/gptk-dsound-nocap-20260513" \
-  /Users/USERNAME/bin/gptk-steam --no-log -applaunch 480
+  /Users/USERNAME/bin/gptk-steam --no-log --install-spacewar
 ```
 
 ## Why Same Prefix Matters

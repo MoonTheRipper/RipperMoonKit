@@ -121,6 +121,12 @@ Stop Steam:
 gptk-steam --kill
 ```
 
+Install Spacewar / AppID 480 once for co-op Steamworks test paths:
+
+```zsh
+gptk-steam --log --install-spacewar
+```
+
 Run a Windows executable:
 
 ```zsh
@@ -184,8 +190,9 @@ Important tested constraint:
 - Use a copied, already-installed Windows `Game` folder.
 - Do not use the original installation files as the runtime source.
 - Start Steam first.
+- From the Steam profile, run **Install Spacewar** once so Steam installs AppID 480 / Spacewar. Close Spacewar after setup finishes.
 - Launch ERSC from the same `Steam` prefix.
-- Keep esync enabled when Steam is already running with esync.
+- Do not mix esync states. The current ERSC profile starts Steam and ERSC with esync disabled for Golden Pot stability.
 - If Golden Pot lobby opening freezes the frame while audio continues, use the no-capture GPTK runner documented in [docs/steam-voice-capture-fix-2026-05-13.md](docs/steam-voice-capture-fix-2026-05-13.md).
 
 For Randomizer plus Seamless Coop, use the GUI's Elden Ring **Mod Manager** panel. **Install ModEngine + Randomizer** installs .NET 6 Desktop Runtime into a randomizer tools prefix, clones or updates the `elden-randomizer-coop` setup reference repo under `$GPTK_HOME/tools`, opens the download pages, installs recognized ZIPs from its `inputs/` folder, prepares `ModEngine2/config_eldenring.toml` and `ModEngine2/launchmod_eldenring.bat`, runs `ModEngine2/randomizer/EldenRingRandomizer.exe`, and launches through `modengine2_launcher.exe` after the `.randomizeopt` seed has been imported and randomized. When Wine Staging is installed, the randomizer GUI uses that tool runner while Elden Ring itself remains on the configured GPTK game runner.

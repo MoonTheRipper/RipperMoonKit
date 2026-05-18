@@ -86,6 +86,8 @@ The MetalFX/DLSS toggle is for games that expose DLSS in their own graphics menu
 
 The **Close Game** action uses Wine `taskkill` against the selected profile's executable name. For the default ERSC profile, it also targets `eldenring.exe`. It does not stop the Steam prefix or run `wineserver -k`.
 
+The Steam profile includes **Install Spacewar**, which launches Steam AppID 480 once. Let Steam finish installing Spacewar and any first-run redistributables, close Spacewar, then launch co-op profiles such as Elden Ring ERSC from their own profile.
+
 The per-profile **Install VC++ Runtime** action runs `gptk-vcrun --prefix PROFILE_PREFIX`. Settings > Maintenance also has a global install action that runs `gptk-vcrun --all`.
 
 The sidebar **Report Test Result** button copies a structured tester report and opens a prefilled GitHub issue. GitHub may still require sign-in before submission; the copied report can also be pasted into Reddit, Discord, email, or another feedback form.

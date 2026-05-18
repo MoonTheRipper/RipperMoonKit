@@ -52,13 +52,28 @@ gptk-steam --repair-compat
 
 ## AppID 480 / Spacewar
 
-Some Steamworks test paths use Spacewar/AppID 480.
+Some Steamworks test paths use Spacewar/AppID 480. In co-op workflows such as Elden Ring Seamless Co-op, the mod may use Steam networking while the game itself is launched from a copied folder. Steam still needs the local AppID 480 state available inside the Steam prefix.
 
-Launch it through Steam:
+This is a run-once setup step. Launch AppID 480 from the Steam profile, let Steam finish installing Spacewar and any first-run redistributables, then close Spacewar. After that, start Steam normally before launching the co-op game.
+
+From the GUI:
+
+1. Open the **Steam** profile.
+2. Click **Install Spacewar**.
+3. Wait for Steam to finish AppID 480 setup.
+4. Close Spacewar.
+5. Launch the co-op game profile.
+
+From Terminal:
+
+```zsh
+gptk-steam --log --install-spacewar
+```
+
+The raw Steam argument form is equivalent:
 
 ```zsh
 gptk-steam --log -applaunch 480
 ```
 
 If the app has first-run redistributables, let Steam finish them before launching a game that depends on that Steamworks state.
-

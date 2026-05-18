@@ -19,6 +19,7 @@ Options:
   --install [SteamSetup.exe]       Install or repair Windows Steam
   --kill                           Stop the Steam Wine prefix
   --repair-compat                  Reapply Steam CEF compatibility registry entries
+  --install-spacewar               Launch AppID 480 once so Steam installs Spacewar
   --no-legacy-cef                  Do not force Steam onto the legacy Win7 CEF path
   --reset-webhelper-cache          Move Steam CEF/htmlcache aside before launch
   --no-reset-webhelper-cache       Do not touch Steam webhelper cache
@@ -26,6 +27,7 @@ Options:
 
 Examples:
   gptk-steam --log
+  gptk-steam --log --install-spacewar
   gptk-steam --log -applaunch 480
   gptk-steam --kill
 USAGE
@@ -36,6 +38,7 @@ installer=""
 install=0
 kill_only=0
 repair_compat_only=0
+install_spacewar=0
 legacy_cef="${GPTK_STEAM_LEGACY_CEF:-1}"
 reset_webhelper_cache="${GPTK_STEAM_RESET_WEBHELPER_CACHE:-0}"
 log_mode="${GPTK_LOG_ENABLED:-1}"
@@ -57,6 +60,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --repair-compat)
       repair_compat_only=1
+      shift
+      ;;
+    --install-spacewar)
+      install_spacewar=1
       shift
       ;;
     --no-legacy-cef)
@@ -94,6 +101,10 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "${install_spacewar}" == "1" ]]; then
+  steam_args=("-applaunch" "480")
+fi
 
 prefix_path="$(gptk_resolve_prefix "${prefix}")"
 steam_exe="${prefix_path}/drive_c/Program Files (x86)/Steam/steam.exe"

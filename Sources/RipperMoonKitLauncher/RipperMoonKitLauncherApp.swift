@@ -1794,6 +1794,23 @@ private struct GameDetailScreen: View {
 
         Card(title: "Actions", icon: "play.circle.fill") {
             FlowLayout(spacing: 8) {
+                if profile.isEldenRingERSC {
+                    HStack(alignment: .top, spacing: 9) {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Onyx.accent)
+                        Text("For co-op, open the Steam profile and use Install Spacewar once. Let Steam finish AppID 480 setup, then close Spacewar before launching Elden Ring.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Onyx.textDim)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(10)
+                    .background(Onyx.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+                    }
+                }
                 if profile.requiresSteam && !profile.isSteamManaged {
                     RMKButton(kind: .primary, icon: "play.fill", title: "Start Steam") {
                         model.startSteam(for: profile)
@@ -1802,6 +1819,12 @@ private struct GameDetailScreen: View {
                 RMKButton(kind: .primary, icon: "gamecontroller.fill",
                           title: profile.isSteamApp ? "Launch Steam" : (profile.useModEngine == true ? "Launch Modded" : "Launch")) {
                     model.launch(profile)
+                }
+                if profile.isSteamApp {
+                    RMKButton(kind: .ghost, icon: "network", title: "Install Spacewar") {
+                        model.installSpacewarFromSteam(for: profile)
+                    }
+                    .help("Launches Steam AppID 480 once so Steam can install Spacewar. Some co-op Steamworks test paths depend on this local Steam state.")
                 }
                 if !profile.isSteamApp {
                     RMKButton(kind: .ghost, icon: "xmark.circle.fill", title: "Close Game",
@@ -1895,6 +1918,11 @@ private struct GameDetailScreen: View {
                     CommandPreview(title: profile.isSteamApp ? "Launch Steam" : "Launch From Steam",
                                    command: model.previewSteamManagedLaunchCommand(for: profile))
                     .help("Launches Steam directly, or asks Steam to launch the selected AppID.")
+                    if profile.isSteamApp {
+                        CommandPreview(title: "Install Spacewar",
+                                       command: model.previewInstallSpacewarCommand(for: profile))
+                        .help("Launches AppID 480 from Steam so Steam can install Spacewar for Steamworks co-op test paths.")
+                    }
                 } else if profile.useModEngine == true {
                     CommandPreview(title: "Launch Modded",
                                    command: model.previewModEngineLaunchCommand(for: profile))
@@ -3037,6 +3065,15 @@ private final class LauncherModel: ObservableObject {
         )
     }
 
+    func installSpacewarFromSteam(for profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(
+            title: "Install Spacewar AppID 480",
+            command: previewInstallSpacewarCommand(for: profile, detached: true),
+            detached: true
+        )
+    }
+
     func stopSteam() {
         runShell(title: "Stop Steam", command: previewStopSteamCommand())
     }
@@ -3502,6 +3539,16 @@ private final class LauncherModel: ObservableObject {
         }
         let envPart = steamEnvAssignment(for: profile)
         return "\(sourceConfig); \(writeState); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log"
+    }
+
+    func previewInstallSpacewarCommand(for profile: GameProfile, detached: Bool = false) -> String {
+        let writeState = steamStateWriteCommand(for: profile)
+        let envPart = steamEnvAssignment(for: profile)
+        let logPath = "\(config.logsPath)/steam-spacewar-480.log"
+        if detached {
+            return "\(sourceConfig); \(writeState); nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log --install-spacewar >> \(logPath.shellQuoted) 2>&1 &"
+        }
+        return "\(sourceConfig); \(writeState); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log --install-spacewar"
     }
 
     func previewStopSteamCommand() -> String {
