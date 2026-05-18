@@ -88,6 +88,8 @@ The **Close Game** action uses Wine `taskkill` against the selected profile's ex
 
 The per-profile **Install VC++ Runtime** action runs `gptk-vcrun --prefix PROFILE_PREFIX`. Settings > Maintenance also has a global install action that runs `gptk-vcrun --all`.
 
+The sidebar **Report Test Result** button copies a structured tester report and opens a prefilled GitHub issue. GitHub may still require sign-in before submission; the copied report can also be pasted into Reddit, Discord, email, or another feedback form.
+
 ## Default ERSC Profile
 
 The first profile is the tested Elden Ring ERSC path:
