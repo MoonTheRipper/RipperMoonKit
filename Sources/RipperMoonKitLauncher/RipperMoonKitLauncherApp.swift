@@ -2726,7 +2726,7 @@ private struct SetupGuideView: View {
                     Text("Download Game Porting Toolkit 3.0")
                         .font(.system(size: 19, weight: .bold))
                         .foregroundStyle(Onyx.text)
-                    Text("This is the only required file RipperMoonKit cannot bundle. Download it from Apple, open the DMG, then come back here.")
+                    Text("This is the only required file RipperMoonKit cannot bundle. Download it from Apple, open the DMG, then come back here. Installation will not start until the GPTK download or mount is detected.")
                         .font(.system(size: 12.5))
                         .foregroundStyle(Onyx.textDim)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2737,7 +2737,7 @@ private struct SetupGuideView: View {
                 Label("What to do now", systemImage: "externaldrive.badge.plus")
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(Onyx.text)
-                Text("1. Sign in with a free Apple Developer account.\n2. Download Game Porting Toolkit 3.0.\n3. Open the downloaded DMG so it appears in Finder.\n4. Return here and click Begin GPTK Install.")
+                Text("1. Sign in with a free Apple Developer account.\n2. Download Game Porting Toolkit 3.0.\n3. Open the downloaded DMG so it appears in Finder.\n4. Return here when the button below becomes available.")
                     .font(.system(size: 12))
                     .foregroundStyle(Onyx.textDim)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2756,7 +2756,16 @@ private struct SetupGuideView: View {
                     .strokeBorder(Onyx.accent.opacity(0.4), lineWidth: 0.75)
             }
 
-            RMKButton(kind: .primary, icon: "externaldrive.badge.checkmark", title: "Begin GPTK Install") {
+            Label(model.config.gptkInstallMediaStatus, systemImage: model.config.hasGPTKInstallMedia ? "checkmark.circle.fill" : "clock.fill")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(model.config.hasGPTKInstallMedia ? Onyx.good : Onyx.textDim)
+
+            RMKButton(
+                kind: .primary,
+                icon: "externaldrive.badge.checkmark",
+                title: model.config.hasGPTKInstallMedia ? "Begin GPTK Install" : "Waiting for GPTK Download",
+                disabled: !model.config.hasGPTKInstallMedia
+            ) {
                 model.beginGPTKInstall()
             }
 
@@ -3827,8 +3836,12 @@ private final class LauncherModel: ObservableObject {
     }
 
     func beginGPTKInstall() {
+        refreshSetupChecks()
+        guard config.hasLocalGPTK || config.hasGPTKInstallMedia else {
+            showGPTKDownloadStep(openBrowser: false)
+            return
+        }
         awaitingGPTKDownload = false
-        openedGPTKPageForCurrentSetup = false
         installDependencies()
     }
 
@@ -3838,7 +3851,7 @@ private final class LauncherModel: ObservableObject {
         } else if !config.hasToolkitScripts || !config.exists {
             installToolkit()
         } else if !config.hasLocalGPTK {
-            showGPTKDownloadStep(openBrowser: true)
+            config.hasGPTKInstallMedia ? beginGPTKInstall() : showGPTKDownloadStep(openBrowser: true)
         } else if !steamInstallerReady {
             downloadSteamInstaller()
         } else if !steamReady {
@@ -3851,19 +3864,21 @@ private final class LauncherModel: ObservableObject {
 
     func startFirstRunSetup() {
         refreshSetupChecks()
-        if !config.hasLocalGPTK {
+        if !config.hasLocalGPTK && !config.hasGPTKInstallMedia {
             showGPTKDownloadStep(openBrowser: true)
             return
         }
+        awaitingGPTKDownload = false
         runFirstRunSetup()
     }
 
     func runFirstRunSetup() {
         refreshSetupChecks()
-        if !config.hasLocalGPTK {
+        if !config.hasLocalGPTK && !config.hasGPTKInstallMedia {
             showGPTKDownloadStep(openBrowser: true)
             return
         }
+        awaitingGPTKDownload = false
 
         let work = """
         echo "════════ RipperMoonKit — First Run Setup ════════"
@@ -5513,6 +5528,7 @@ private struct ToolkitConfig {
         toolWineHomeCandidates.first(where: hasWineExecutable) ?? effectiveWineHome
     }
     var gptkRuntime: String { expand(values["GPTK_RUNTIME"] ?? "$GPTK_HOME/runtime") }
+    var gptkDownloadDir: String { expand(values["GPTK_DOWNLOAD_DIR"] ?? "$HOME/Downloads") }
     var gptkDownloadPage: String { expand(values["GPTK_DOWNLOAD_PAGE"] ?? "https://developer.apple.com/games/game-porting-toolkit/") }
     var steamSetupPath: String {
         expand(values["STEAM_SETUP_PATH"] ?? "$HOME/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe")
@@ -5539,6 +5555,29 @@ private struct ToolkitConfig {
     var hasLocalGPTK: Bool {
         hasLocalWineRunner && hasLocalD3DMetalRuntime
     }
+    var hasGPTKInstallMedia: Bool {
+        downloadedGPTKDmgPath != nil
+            || mountedGPTKAppSource != nil
+            || (hasLocalWineRunner && mountedGPTKRuntimeSource != nil)
+    }
+    var gptkInstallMediaStatus: String {
+        if hasLocalGPTK {
+            return "GPTK is already installed locally."
+        }
+        if let app = mountedGPTKAppSource {
+            return "GPTK app media detected: \(app)"
+        }
+        if let runtime = mountedGPTKRuntimeSource {
+            if hasLocalWineRunner {
+                return "GPTK runtime media detected: \(runtime)"
+            }
+            return "GPTK runtime media is mounted, but the main GPTK app is still needed."
+        }
+        if let dmg = downloadedGPTKDmgPath {
+            return "GPTK download detected: \(dmg)"
+        }
+        return "Waiting for GPTK 3.0 in Downloads, Desktop, or mounted Finder volumes."
+    }
     var needsSetupGuide: Bool {
         !exists || !hasToolkitScripts || !hasLocalGPTK
     }
@@ -5551,6 +5590,44 @@ private struct ToolkitConfig {
         uniqued(["\(gptkRuntime)/lib/wine/x86_64-windows/d3d12.dll"] + wineHomeCandidates.map {
             "\($0)/lib/wine/x86_64-windows/d3d12.dll"
         })
+    }
+
+    private var mountedGPTKAppSource: String? {
+        firstDescendant(in: gptkMediaRoots, maxDepth: 5) { url in
+            url.lastPathComponent == "Game Porting Toolkit.app"
+                && FileManager.default.isExecutableFile(atPath: url.appendingPathComponent("Contents/Resources/wine/bin/wine64").path)
+        }
+    }
+
+    private var mountedGPTKRuntimeSource: String? {
+        firstDescendant(in: gptkMediaRoots, maxDepth: 5) { url in
+            isGPTKRuntimeRoot(url)
+        }
+    }
+
+    private var downloadedGPTKDmgPath: String? {
+        firstDescendant(in: [gptkDownloadDir, "\(home)/Desktop"], maxDepth: 4) { url in
+            let name = url.lastPathComponent.lowercased()
+            guard name.hasSuffix(".dmg") else { return false }
+            return name.contains("game porting toolkit")
+                || (name.contains("game") && name.contains("porting") && name.contains("toolkit"))
+                || name.contains("evaluation environment for windows games")
+        }
+    }
+
+    private var gptkMediaRoots: [String] {
+        var roots: [String] = []
+        if let source = values["GPTK_SOURCE"]?.strippedShellQuotes, !source.isEmpty {
+            roots.append(expand(source))
+        }
+        if let volumeURLs = try? FileManager.default.contentsOfDirectory(
+            at: URL(fileURLWithPath: "/Volumes", isDirectory: true),
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            roots.append(contentsOf: volumeURLs.map(\.path))
+        }
+        return uniqued(roots)
     }
 
     private var wineHomeCandidates: [String] {
@@ -5577,6 +5654,43 @@ private struct ToolkitConfig {
         }
 
         return uniqued(candidates)
+    }
+
+    private func isGPTKRuntimeRoot(_ url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.appendingPathComponent("lib/wine/x86_64-windows/d3d12.dll").path)
+            && FileManager.default.fileExists(atPath: url.appendingPathComponent("lib/external").path)
+    }
+
+    private func firstDescendant(
+        in roots: [String],
+        maxDepth: Int,
+        matching predicate: (URL) -> Bool
+    ) -> String? {
+        let manager = FileManager.default
+        for root in roots {
+            let rootURL = URL(fileURLWithPath: root)
+            guard manager.fileExists(atPath: rootURL.path) else { continue }
+            if predicate(rootURL) {
+                return rootURL.path
+            }
+            guard let enumerator = manager.enumerator(
+                at: rootURL,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            ) else { continue }
+
+            for case let url as URL in enumerator {
+                let depth = url.pathComponents.count - rootURL.pathComponents.count
+                if depth > maxDepth {
+                    enumerator.skipDescendants()
+                    continue
+                }
+                if predicate(url) {
+                    return url.path
+                }
+            }
+        }
+        return nil
     }
 
     private var toolWineHomeCandidates: [String] {
