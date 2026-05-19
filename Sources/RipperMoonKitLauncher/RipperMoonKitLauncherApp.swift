@@ -3401,7 +3401,7 @@ private final class LauncherModel: ObservableObject {
             SetupCheck(
                 id: "wine",
                 title: "Game Porting Toolkit runner",
-                explanation: "Apple's translator that lets Windows games run on macOS.",
+                explanation: "The prebuilt Wine/GPTK app runner copied into the local toolkit folder.",
                 detail: config.localGPTKWineHome,
                 isOK: config.hasLocalWineRunner,
                 isOptional: false
@@ -3409,7 +3409,7 @@ private final class LauncherModel: ObservableObject {
             SetupCheck(
                 id: "d3dmetal",
                 title: "D3DMetal graphics",
-                explanation: "Apple's layer that renders DirectX games on Metal.",
+                explanation: "Apple's official GPTK runtime layer that renders DirectX games on Metal.",
                 detail: config.gptkRuntime,
                 isOK: config.hasLocalD3DMetalRuntime,
                 isOptional: false
@@ -5557,21 +5557,27 @@ private struct ToolkitConfig {
     }
     var hasGPTKInstallMedia: Bool {
         downloadedGPTKDmgPath != nil
-            || mountedGPTKAppSource != nil
-            || (hasLocalWineRunner && mountedGPTKRuntimeSource != nil)
+            || mountedGPTKRuntimeSource != nil
+            || hasLocalD3DMetalRuntime
     }
     var gptkInstallMediaStatus: String {
         if hasLocalGPTK {
             return "GPTK is already installed locally."
         }
-        if let app = mountedGPTKAppSource {
-            return "GPTK app media detected: \(app)"
-        }
         if let runtime = mountedGPTKRuntimeSource {
-            if hasLocalWineRunner {
-                return "GPTK runtime media detected: \(runtime)"
+            if let app = mountedGPTKAppSource {
+                return "GPTK runtime and app source detected: \(runtime) + \(app)"
             }
-            return "GPTK runtime media is mounted, but the main GPTK app is still needed."
+            return "GPTK runtime detected. The app runner will be installed with Homebrew if needed."
+        }
+        if hasLocalD3DMetalRuntime {
+            if let app = mountedGPTKAppSource {
+                return "Local GPTK runtime exists. GPTK app source detected: \(app)"
+            }
+            return "Local GPTK runtime exists. The app runner will be installed with Homebrew if needed."
+        }
+        if let app = mountedGPTKAppSource {
+            return "GPTK app source detected: \(app). The GPTK 3.0 runtime is still needed."
         }
         if let dmg = downloadedGPTKDmgPath {
             return "GPTK download detected: \(dmg)"
@@ -5593,7 +5599,7 @@ private struct ToolkitConfig {
     }
 
     private var mountedGPTKAppSource: String? {
-        firstDescendant(in: gptkMediaRoots, maxDepth: 5) { url in
+        firstDescendant(in: gptkAppSourceRoots, maxDepth: 5) { url in
             url.lastPathComponent == "Game Porting Toolkit.app"
                 && FileManager.default.isExecutableFile(atPath: url.appendingPathComponent("Contents/Resources/wine/bin/wine64").path)
         }
@@ -5630,6 +5636,13 @@ private struct ToolkitConfig {
         return uniqued(roots)
     }
 
+    private var gptkAppSourceRoots: [String] {
+        uniqued(gptkMediaRoots + [
+            "/Applications",
+            "\(home)/Applications"
+        ])
+    }
+
     private var wineHomeCandidates: [String] {
         var candidates = [
             gptkWineHome,
@@ -5657,8 +5670,14 @@ private struct ToolkitConfig {
     }
 
     private func isGPTKRuntimeRoot(_ url: URL) -> Bool {
-        FileManager.default.fileExists(atPath: url.appendingPathComponent("lib/wine/x86_64-windows/d3d12.dll").path)
-            && FileManager.default.fileExists(atPath: url.appendingPathComponent("lib/external").path)
+        let directLib = url.appendingPathComponent("lib")
+        let redistLib = url.appendingPathComponent("redist/lib")
+        return isGPTKRuntimeLibRoot(directLib) || isGPTKRuntimeLibRoot(redistLib)
+    }
+
+    private func isGPTKRuntimeLibRoot(_ url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.appendingPathComponent("wine/x86_64-windows/d3d12.dll").path)
+            && FileManager.default.fileExists(atPath: url.appendingPathComponent("external").path)
     }
 
     private func firstDescendant(

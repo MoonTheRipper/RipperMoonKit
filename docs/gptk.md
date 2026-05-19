@@ -34,7 +34,21 @@ Game Porting Toolkit.app
 Evaluation environment for Windows games 3.0
 ```
 
-It installs local copies into:
+If `Game Porting Toolkit.app` is already installed in `/Applications`, the installer uses that as a source. If it is missing, the installer can use Homebrew to install the prebuilt Gcenx GPTK app cask:
+
+```zsh
+brew install --cask --no-quarantine gcenx/wine/game-porting-toolkit
+```
+
+The app is still copied into the toolkit folder so future macOS app updates or manual changes to `/Applications` do not silently change the runner used by RipperMoonKit.
+
+GPTK 3's evaluation image stores the D3DMetal runtime under:
+
+```text
+Evaluation environment for Windows games 3.0/redist/lib
+```
+
+The installer installs local copies into:
 
 ```text
 $GPTK_HOME/apps/Game Porting Toolkit.app
@@ -49,6 +63,8 @@ The launchers then use:
 export GPTK_WINE_HOME="$GPTK_HOME/apps/Game Porting Toolkit.app/Contents/Resources/wine"
 export GPTK_RUNTIME="$GPTK_HOME/runtime"
 ```
+
+That local copy is intentional. It avoids compatibility changes caused by a system-wide `/Applications/Game Porting Toolkit.app` update while preserving the patched runners under `$GPTK_HOME/runners`.
 
 ## Installer Flags
 

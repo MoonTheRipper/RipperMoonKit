@@ -72,7 +72,7 @@ https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMo
 Then open the app and follow the first-run setup:
 
 1. Allow the app in **System Settings > Privacy & Security** if macOS blocks it.
-2. Use the first-run guide to connect **Apple Game Porting Toolkit 3**. The DMG does not include GPTK.
+2. Use the first-run guide to connect **Apple Game Porting Toolkit 3**. The DMG does not include GPTK; the app runner can be installed with Homebrew, while Apple's DMG supplies the official runtime.
 3. Confirm paths in **Settings > Paths**.
 4. Install Windows Steam from the **Steam** profile when a game needs Steam. The DMG does not include Steam.
 5. For Elden Ring ERSC/co-op Steamworks test paths, use **Steam > Install Spacewar** once, wait for AppID 480 setup, then close Spacewar.

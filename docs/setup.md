@@ -100,7 +100,7 @@ The installer writes a detailed log:
 $GPTK_HOME/logs/rippermoon-install-YYYYmmdd-HHMMSS.log
 ```
 
-It installs host dependencies, copies GPTK 3 from the mounted Apple media, downloads `SteamSetup.exe`, and verifies the GPTK/Wine runtime path. See [dependencies.md](dependencies.md) and [gptk.md](gptk.md) for details.
+It installs host dependencies, installs the prebuilt `Game Porting Toolkit.app` runner through Homebrew if needed, copies the Apple GPTK 3 runtime from the mounted media, downloads `SteamSetup.exe`, and verifies the local pinned GPTK/Wine runtime path. See [dependencies.md](dependencies.md) and [gptk.md](gptk.md) for details.
 
 Install the local SwiftUI app from source with:
 

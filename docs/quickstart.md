@@ -59,7 +59,8 @@ The installer will:
 - install Rosetta when needed;
 - install Homebrew when missing;
 - install Homebrew dependencies;
-- copy GPTK 3 from the mounted Apple media;
+- install the prebuilt `Game Porting Toolkit.app` runner if needed;
+- copy the Apple GPTK 3 runtime from the mounted Apple media;
 - download `SteamSetup.exe`;
 - write a timestamped install log.
 

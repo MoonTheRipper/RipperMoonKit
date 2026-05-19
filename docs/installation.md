@@ -42,7 +42,7 @@ After dragging **RipperMoonKit Launcher.app** into Applications, the user should
 4. When GPTK is missing, the app pauses on the **Download Game Porting Toolkit 3.0** step and opens Apple's download page.
 5. Download **Apple Game Porting Toolkit 3.0** from Apple, then open the downloaded DMG so it mounts in Finder.
 6. Return to RipperMoonKit. The **Begin GPTK Install** button becomes available after the app detects the downloaded DMG or mounted GPTK media.
-7. Click **Begin GPTK Install** so it can copy GPTK locally, create folders, install helper scripts, and write `~/.rippermoon-gptk.env`. The setup window should not show the finished state until GPTK 3.0 has been copied and verified.
+7. Click **Begin GPTK Install** so it can install the GPTK app runner if needed, copy the Apple GPTK runtime locally, create folders, install helper scripts, and write `~/.rippermoon-gptk.env`. The setup window should not show the finished state until the runner and GPTK 3.0 runtime have been copied and verified.
 8. Open **Settings > Paths** and confirm the GPTK home, prefix root, games root, external root, and Steam library paths match the machine.
 9. Open the **Steam** profile. If it still shows **Install Steam**, click it and wait until validation finds `steam.exe`. The DMG does not include Steam.
 10. For co-op Steamworks test paths such as Elden Ring ERSC, open the **Steam** profile and click **Install Spacewar** once. Wait for AppID 480 setup to finish, then close Spacewar.
@@ -68,10 +68,11 @@ https://developer.apple.com/games/game-porting-toolkit/
 
 Mount the downloaded DMG before running full setup. If the Apple media contains a nested **Evaluation environment for Windows games 3.0** image, the installer tries to mount it automatically.
 
+The Apple DMG supplies the official evaluation runtime. The `Game Porting Toolkit.app` runner is installed from the Homebrew/Gcenx cask if a local or `/Applications` copy is not already present.
+
 The installer searches mounted volumes and `~/Downloads` for:
 
 ```text
-Game Porting Toolkit.app
 Evaluation environment for Windows games 3.0
 ```
 
@@ -104,8 +105,9 @@ The installer will:
 - create toolkit folders;
 - create or update `~/.rippermoon-gptk.env`;
 - install helper commands into `~/bin`;
-- copy GPTK 3.0 from mounted Apple media;
 - install or verify host dependencies;
+- install the prebuilt `Game Porting Toolkit.app` runner if needed;
+- copy the Apple GPTK 3.0 runtime from mounted Apple media;
 - download `SteamSetup.exe`;
 - create rollback backups before replacing toolkit files;
 - write a timestamped log.

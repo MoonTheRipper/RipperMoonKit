@@ -19,9 +19,10 @@ The default install does this:
 5. Installs Rosetta on Apple Silicon if needed.
 6. Installs Homebrew if it is missing.
 7. Installs Homebrew formulae used by the toolkit and common Wine/GPTK troubleshooting.
-8. Installs/copies Game Porting Toolkit 3 from the user's mounted Apple GPTK media, or prompts/waits for the user to download and mount it.
-9. Downloads `SteamSetup.exe` to the configured installer path.
-10. Checks whether Apple Game Porting Toolkit or another `wine64` is available.
+8. Installs the prebuilt `Game Porting Toolkit.app` runner with Homebrew if no local/system copy exists.
+9. Installs/copies the Apple GPTK 3 evaluation runtime from the user's mounted Apple GPTK media, or prompts/waits for the user to download and mount it.
+10. Downloads `SteamSetup.exe` to the configured installer path.
+11. Checks whether Apple Game Porting Toolkit or another `wine64` is available.
 
 Profile-specific helpers can install additional Windows runtimes inside Wine prefixes:
 
@@ -48,6 +49,27 @@ Override the list:
 
 ```zsh
 RIPPERMOON_BREW_FORMULAE="samba cabextract p7zip" ./install.zsh
+```
+
+## Game Porting Toolkit App Cask
+
+The Apple GPTK 3 DMG supplies the official evaluation runtime, but current GPTK 3 media does not provide `Game Porting Toolkit.app`. RipperMoonKit can install the prebuilt app runner through Homebrew/Gcenx:
+
+```text
+gcenx/wine/game-porting-toolkit
+```
+
+The app is then copied into:
+
+```text
+$GPTK_HOME/apps/Game Porting Toolkit.app
+```
+
+Override or disable the automatic cask step:
+
+```zsh
+RIPPERMOON_GPTK_APP_CASK="gcenx/wine/game-porting-toolkit" ./install.zsh
+RIPPERMOON_INSTALL_GPTK_APP_CASK=0 ./install.zsh
 ```
 
 ## Steam Installer Download
@@ -122,7 +144,7 @@ Apple Game Porting Toolkit is not redistributed by this project. Download **Game
 ./install.zsh
 ```
 
-The installer searches the mounted GPTK media and installs local copies to:
+The installer searches the mounted GPTK media for the official runtime and installs local copies to:
 
 ```text
 $GPTK_HOME/apps/Game Porting Toolkit.app

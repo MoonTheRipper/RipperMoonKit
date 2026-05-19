@@ -30,8 +30,8 @@ Options:
   --no-homebrew-bootstrap  Do not install Homebrew if it is missing
   --skip-steam-download    Do not download SteamSetup.exe
   --install-steam          After downloading SteamSetup.exe, install Windows Steam into the Steam prefix
-  --skip-gptk              Do not install/copy GPTK from mounted Apple media
-  --reinstall-gptk         Replace existing local GPTK app/runtime with mounted GPTK media
+  --skip-gptk              Do not install/copy GPTK app/runtime
+  --reinstall-gptk         Replace existing local GPTK app/runtime with detected sources
   --gptk-source PATH       Search a specific mounted GPTK folder or volume first
   --no-zshrc               Do not update ~/.zshrc
   --no-backup              Do not create an update backup before installing
@@ -45,6 +45,9 @@ Options:
 
 Environment:
   RIPPERMOON_BREW_FORMULAE  Space-separated Homebrew formulae to install
+  RIPPERMOON_GPTK_APP_CASK   Homebrew cask used to install Game Porting Toolkit.app
+  RIPPERMOON_INSTALL_GPTK_APP_CASK
+                            1 to install the GPTK app cask when the app is missing
   STEAM_SETUP_URL           Override the SteamSetup.exe download URL
   STEAM_SETUP_PATH          Override where SteamSetup.exe is stored
   RIPPERMOON_VCREDIST_X64_URL
@@ -171,6 +174,8 @@ RIPPERMOON_VCREDIST_X86_URL="${RIPPERMOON_VCREDIST_X86_URL:-https://aka.ms/vc14/
 RIPPERMOON_DOTNET6_DESKTOP_URL="${RIPPERMOON_DOTNET6_DESKTOP_URL:-https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe}"
 RIPPERMOON_DOTNET6_DIR="${RIPPERMOON_DOTNET6_DIR:-${GPTK_HOME}/downloads/dotnet6}"
 RIPPERMOON_BREW_FORMULAE="${RIPPERMOON_BREW_FORMULAE-cabextract p7zip samba gnutls molten-vk vulkan-loader vulkan-headers}"
+RIPPERMOON_GPTK_APP_CASK="${RIPPERMOON_GPTK_APP_CASK:-gcenx/wine/game-porting-toolkit}"
+RIPPERMOON_INSTALL_GPTK_APP_CASK="${RIPPERMOON_INSTALL_GPTK_APP_CASK:-1}"
 
 install_bin="${HOME}/bin"
 install_libexec="${GPTK_HOME}/libexec"
@@ -501,6 +506,46 @@ ensure_brew_formulae() {
   done
 }
 
+ensure_gptk_app_cask() {
+  [[ "${RIPPERMOON_INSTALL_GPTK_APP_CASK}" == "1" ]] || {
+    log "ℹ️" "Automatic GPTK app cask install is disabled."
+    return 1
+  }
+
+  if [[ -x "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/bin/wine64" ]]; then
+    log "✅" "System GPTK app is already available: /Applications/Game Porting Toolkit.app"
+    return 0
+  fi
+
+  command_exists brew || {
+    log "❌" "Homebrew is required to install ${RIPPERMOON_GPTK_APP_CASK}."
+    return 1
+  }
+
+  local cask="${RIPPERMOON_GPTK_APP_CASK}"
+  local token="${cask:t}"
+
+  if brew list --cask "${token}" >/dev/null 2>&1; then
+    log "✅" "GPTK app cask is already installed: ${token}"
+  else
+    log "🍺" "Installing GPTK app cask: ${cask}"
+    if ! brew install --cask --no-quarantine "${cask}" >> "${log_file}" 2>&1; then
+      log "❌" "Could not install ${cask}."
+      log "❌" "Install it manually, or set RIPPERMOON_GPTK_APP_CASK to another compatible cask that provides Game Porting Toolkit.app."
+      return 1
+    fi
+    log "✅" "Installed GPTK app cask: ${cask}"
+  fi
+
+  if [[ -x "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/bin/wine64" ]]; then
+    log "✅" "System GPTK app is ready: /Applications/Game Porting Toolkit.app"
+    return 0
+  fi
+
+  log "❌" "The GPTK app cask installed, but /Applications/Game Porting Toolkit.app was not found."
+  return 1
+}
+
 ensure_directories() {
   log "📁" "Creating toolkit directories."
   mkdir -p "${install_bin}" "${install_libexec}" "${install_scripts}" "${GPTK_LOG_DIR}" "${GPTK_PREFIX_ROOT}" "${GPTK_GAMES_ROOT}" "${GPTK_HOME}/apps" "${GPTK_RUNTIME}"
@@ -551,6 +596,8 @@ ensure_gptk_config() {
   ensure_config_export "GPTK_RUNTIME" '${GPTK_HOME}/runtime'
   ensure_config_export "GPTK_WINE_HOME" '${GPTK_APP_PATH}/Contents/Resources/wine'
   ensure_config_export "GPTK_REQUIRED_VERSION" "3"
+  ensure_config_export "RIPPERMOON_GPTK_APP_CASK" "gcenx/wine/game-porting-toolkit"
+  ensure_config_export "RIPPERMOON_INSTALL_GPTK_APP_CASK" "1"
   ensure_config_export "RIPPERMOON_DOTNET6_DESKTOP_URL" "https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe"
   ensure_config_export "RIPPERMOON_DOTNET6_DIR" '${GPTK_HOME}/downloads/dotnet6'
 }
@@ -588,17 +635,35 @@ find_first_path() {
 find_gptk_app_source() {
   local roots=()
   local found=""
+  local candidate
 
   [[ -n "${GPTK_SOURCE:-}" ]] && roots+=("${GPTK_SOURCE}")
   roots+=(/Volumes/*)
+  roots+=("/Applications" "${HOME}/Applications")
 
-  found="$(find "${roots[@]}" -maxdepth 5 -type d -name "Game Porting Toolkit.app" -print -quit 2>/dev/null || true)"
+  for candidate in \
+    "${GPTK_SOURCE:-}/Game Porting Toolkit.app" \
+    "/Applications/Game Porting Toolkit.app" \
+    "${HOME}/Applications/Game Porting Toolkit.app"; do
+    [[ -x "${candidate}/Contents/Resources/wine/bin/wine64" ]] || continue
+    [[ "${candidate:A}" == "${GPTK_APP_PATH:A}" ]] && continue
+    print -r -- "${candidate}"
+    return 0
+  done
+
+  found="$(find "${roots[@]}" -maxdepth 5 -type d -name "Game Porting Toolkit.app" -print 2>/dev/null | while read -r candidate; do
+    [[ -x "${candidate}/Contents/Resources/wine/bin/wine64" ]] || continue
+    [[ "${candidate:A}" == "${GPTK_APP_PATH:A}" ]] && continue
+    print -r -- "${candidate}"
+    break
+  done || true)"
   [[ -n "${found}" ]] && print -r -- "${found}"
 }
 
 find_gptk_runtime_source() {
   local roots=()
   local root
+  local candidate
   local found=""
 
   [[ -n "${GPTK_SOURCE:-}" ]] && roots+=("${GPTK_SOURCE}")
@@ -606,14 +671,22 @@ find_gptk_runtime_source() {
 
   for root in "${roots[@]}"; do
     [[ -d "${root}" ]] || continue
-    if [[ -f "${root}/lib/wine/x86_64-windows/d3d12.dll" && -d "${root}/lib/external" ]]; then
-      print -r -- "${root}"
-      return 0
-    fi
+    for candidate in "${root}" "${root}/redist"; do
+      if [[ -f "${candidate}/lib/wine/x86_64-windows/d3d12.dll" && -d "${candidate}/lib/external" ]]; then
+        print -r -- "${candidate}"
+        return 0
+      fi
+    done
   done
 
-  found="$(find "${roots[@]}" -maxdepth 5 -type d -iname "Evaluation environment for Windows games*" -print -quit 2>/dev/null || true)"
-  if [[ -n "${found}" && -f "${found}/lib/wine/x86_64-windows/d3d12.dll" ]]; then
+  found="$(find "${roots[@]}" -maxdepth 6 -type d \( -iname "Evaluation environment for Windows games*" -o -iname "redist" \) -print 2>/dev/null | while read -r candidate; do
+    for root in "${candidate}" "${candidate}/redist"; do
+      [[ -f "${root}/lib/wine/x86_64-windows/d3d12.dll" && -d "${root}/lib/external" ]] || continue
+      print -r -- "${root}"
+      break 2
+    done
+  done || true)"
+  if [[ -n "${found}" ]]; then
     print -r -- "${found}"
   fi
 }
@@ -678,7 +751,6 @@ wait_for_gptk_media() {
   local interval=5
   local dmg=""
   local last_dmg=""
-  local app_source=""
   local runtime_source=""
 
   [[ "${gptk_wait}" == "1" ]] || return 1
@@ -689,11 +761,10 @@ wait_for_gptk_media() {
   log "ℹ️" "Download Game Porting Toolkit ${GPTK_REQUIRED_VERSION} from Apple, then mount the DMG or leave it in Downloads."
 
   while (( waited <= gptk_wait_seconds )); do
-    app_source="$(find_gptk_app_source || true)"
     runtime_source="$(find_gptk_runtime_source || true)"
 
-    if [[ -n "${app_source}" || -n "${runtime_source}" ]]; then
-      log "✅" "Found mounted GPTK media."
+    if [[ -n "${runtime_source}" ]]; then
+      log "✅" "Found mounted GPTK runtime media."
       return 0
     fi
 
@@ -741,32 +812,47 @@ attach_nested_gptk_runtime_image() {
 
 install_mounted_gptk() {
   [[ "${install_gptk}" == "1" ]] || {
-    log "ℹ️" "Skipping GPTK install/copy from mounted Apple media."
+    log "ℹ️" "Skipping GPTK app/runtime install."
     return 0
   }
 
-  log "🎮" "Looking for mounted Apple Game Porting Toolkit ${GPTK_REQUIRED_VERSION} media."
+  log "🎮" "Preparing Game Porting Toolkit app runner and Apple GPTK ${GPTK_REQUIRED_VERSION} runtime."
 
-  if [[ "${reinstall_gptk}" != "1" && -x "${GPTK_APP_PATH}/Contents/Resources/wine/bin/wine64" && -f "${GPTK_RUNTIME}/lib/wine/x86_64-windows/d3d12.dll" ]]; then
+  local local_app_ok=0
+  local local_runtime_ok=0
+  local need_app=0
+  local need_runtime=0
+  local app_source
+  local runtime_source
+
+  [[ -x "${GPTK_APP_PATH}/Contents/Resources/wine/bin/wine64" ]] && local_app_ok=1
+  [[ -f "${GPTK_RUNTIME}/lib/wine/x86_64-windows/d3d12.dll" ]] && local_runtime_ok=1
+
+  if [[ "${reinstall_gptk}" != "1" && "${local_app_ok}" == "1" && "${local_runtime_ok}" == "1" ]]; then
     log "✅" "Local GPTK app/runtime already installed."
     export GPTK_WINE_HOME="${GPTK_APP_PATH}/Contents/Resources/wine"
     export GPTK_RUNTIME
     return 0
   fi
 
-  local app_source
-  local runtime_source
+  [[ "${reinstall_gptk}" == "1" || "${local_app_ok}" != "1" ]] && need_app=1
+  [[ "${reinstall_gptk}" == "1" || "${local_runtime_ok}" != "1" ]] && need_runtime=1
 
   app_source="$(find_gptk_app_source || true)"
   runtime_source="$(find_gptk_runtime_source || true)"
 
-  if [[ -z "${runtime_source}" ]]; then
+  if [[ "${need_app}" == "1" && -z "${app_source}" ]]; then
+    ensure_gptk_app_cask || true
+    app_source="$(find_gptk_app_source || true)"
+  fi
+
+  if [[ "${need_runtime}" == "1" && -z "${runtime_source}" ]]; then
     attach_nested_gptk_runtime_image
     runtime_source="$(find_gptk_runtime_source || true)"
   fi
 
-  if [[ -z "${app_source}" && -z "${runtime_source}" ]]; then
-    log "⚠️" "No mounted GPTK media found."
+  if [[ "${need_runtime}" == "1" && -z "${runtime_source}" ]]; then
+    log "⚠️" "No mounted GPTK runtime media found."
     wait_for_gptk_media || {
       log "❌" "Download Game Porting Toolkit ${GPTK_REQUIRED_VERSION} from Apple Developer, mount the DMG, then rerun ./install.zsh."
       return 1
@@ -775,48 +861,56 @@ install_mounted_gptk() {
     app_source="$(find_gptk_app_source || true)"
     runtime_source="$(find_gptk_runtime_source || true)"
 
-    if [[ -z "${runtime_source}" ]]; then
+    if [[ "${need_app}" == "1" && -z "${app_source}" ]]; then
+      ensure_gptk_app_cask || true
+      app_source="$(find_gptk_app_source || true)"
+    fi
+
+    if [[ "${need_runtime}" == "1" && -z "${runtime_source}" ]]; then
       attach_nested_gptk_runtime_image
       runtime_source="$(find_gptk_runtime_source || true)"
     fi
   fi
 
-  if [[ -n "${app_source}" ]]; then
-    if [[ -x "${GPTK_APP_PATH}/Contents/Resources/wine/bin/wine64" && "${reinstall_gptk}" != "1" ]]; then
-      log "✅" "GPTK app already installed: ${GPTK_APP_PATH}"
-    else
-      if [[ -e "${GPTK_APP_PATH}" ]]; then
-        local app_backup="${GPTK_APP_PATH}.backup-${stamp}"
-        log "📦" "Backing up existing GPTK app to ${app_backup}"
-        mv "${GPTK_APP_PATH}" "${app_backup}"
-      fi
-      mkdir -p "${GPTK_APP_PATH:h}"
-      log "📦" "Copying GPTK app from mounted media."
-      ditto "${app_source}" "${GPTK_APP_PATH}" >> "${log_file}" 2>&1
-      log "✅" "Installed GPTK app: ${GPTK_APP_PATH}"
-    fi
-  else
-    log "⚠️" "Mounted GPTK app was not found. The installer will use any existing wine64 it can find."
+  if [[ "${need_app}" == "1" && -z "${app_source}" ]]; then
+    log "❌" "Game Porting Toolkit.app was not found."
+    log "❌" "Install ${RIPPERMOON_GPTK_APP_CASK}, or mount/copy a GPTK-compatible app that provides Contents/Resources/wine/bin/wine64."
+    return 1
   fi
 
-  if [[ -n "${runtime_source}" ]]; then
-    if [[ -f "${GPTK_RUNTIME}/lib/wine/x86_64-windows/d3d12.dll" && "${reinstall_gptk}" != "1" ]]; then
-      log "✅" "GPTK runtime already installed: ${GPTK_RUNTIME}"
-    else
-      if [[ -d "${GPTK_RUNTIME}/lib" ]]; then
-        local runtime_backup="${GPTK_RUNTIME}.backup-${stamp}"
-        log "📦" "Backing up existing GPTK runtime to ${runtime_backup}"
-        mv "${GPTK_RUNTIME}" "${runtime_backup}"
-        mkdir -p "${GPTK_RUNTIME}"
-      fi
-      log "📦" "Copying GPTK evaluation runtime from mounted media."
-      mkdir -p "${GPTK_RUNTIME}"
-      ditto "${runtime_source}/lib" "${GPTK_RUNTIME}/lib" >> "${log_file}" 2>&1
-      log "✅" "Installed GPTK runtime: ${GPTK_RUNTIME}"
-    fi
+  if [[ "${need_runtime}" == "1" && -z "${runtime_source}" ]]; then
+    log "❌" "GPTK evaluation runtime was not found."
+    log "❌" "Mount Game Porting Toolkit ${GPTK_REQUIRED_VERSION} and its nested 'Evaluation environment for Windows games' image, then rerun setup."
+    return 1
+  fi
+
+  if [[ "${need_app}" != "1" ]]; then
+    log "✅" "GPTK app already installed: ${GPTK_APP_PATH}"
   else
-    log "⚠️" "Mounted GPTK evaluation runtime was not found."
-    log "⚠️" "Mount the nested 'Evaluation environment for Windows games 3.0' image if the main DMG does not expose it."
+    if [[ -e "${GPTK_APP_PATH}" ]]; then
+      local app_backup="${GPTK_APP_PATH}.backup-${stamp}"
+      log "📦" "Backing up existing GPTK app to ${app_backup}"
+      mv "${GPTK_APP_PATH}" "${app_backup}"
+    fi
+    mkdir -p "${GPTK_APP_PATH:h}"
+    log "📦" "Copying GPTK app from ${app_source}."
+    ditto "${app_source}" "${GPTK_APP_PATH}" >> "${log_file}" 2>&1
+    log "✅" "Installed GPTK app: ${GPTK_APP_PATH}"
+  fi
+
+  if [[ "${need_runtime}" != "1" ]]; then
+    log "✅" "GPTK runtime already installed: ${GPTK_RUNTIME}"
+  else
+    if [[ -d "${GPTK_RUNTIME}/lib" ]]; then
+      local runtime_backup="${GPTK_RUNTIME}.backup-${stamp}"
+      log "📦" "Backing up existing GPTK runtime to ${runtime_backup}"
+      mv "${GPTK_RUNTIME}" "${runtime_backup}"
+      mkdir -p "${GPTK_RUNTIME}"
+    fi
+    log "📦" "Copying GPTK evaluation runtime from ${runtime_source}."
+    mkdir -p "${GPTK_RUNTIME}"
+    ditto "${runtime_source}/lib" "${GPTK_RUNTIME}/lib" >> "${log_file}" 2>&1
+    log "✅" "Installed GPTK runtime: ${GPTK_RUNTIME}"
   fi
 
   export GPTK_WINE_HOME="${GPTK_APP_PATH}/Contents/Resources/wine"

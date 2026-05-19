@@ -49,7 +49,7 @@ export GPTK_RUNTIME="$GPTK_HOME/runtime"
 export GPTK_WINE_HOME="$GPTK_APP_PATH/Contents/Resources/wine"
 ```
 
-The installer copies the mounted Apple GPTK app/runtime into these paths.
+The installer pins the prebuilt `Game Porting Toolkit.app` runner and Apple GPTK runtime into these paths. The app can come from `/Applications` or the Homebrew/Gcenx cask; the D3DMetal runtime comes from the mounted Apple GPTK 3 media.
 
 Patched or experimental runners should live outside git, for example:
 

@@ -2,7 +2,7 @@
 
 ## Does This Repository Include GPTK?
 
-No. Each user downloads **Game Porting Toolkit 3** directly from Apple Developer and mounts the DMG. The installer copies from that mounted Apple media into the user's local toolkit folder.
+No. Each user downloads **Game Porting Toolkit 3** directly from Apple Developer and mounts the DMG for the official evaluation runtime. If `Game Porting Toolkit.app` is not already installed, the installer can fetch the prebuilt Homebrew/Gcenx app runner and then copies the app/runtime into the user's local toolkit folder.
 
 ## Does This Repository Include Games Or Saves?
 
@@ -94,4 +94,3 @@ Download the newer GPTK from Apple, mount the DMG, then run:
 ```zsh
 ./install.zsh --reinstall-gptk
 ```
-
