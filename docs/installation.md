@@ -5,7 +5,7 @@ RipperMoonKit can be installed in two ways:
 - **DMG install**: best for users who want the macOS app first.
 - **Source install**: best for users who want the scripts, docs, command-line tools, and local development workflow.
 
-RipperMoonKit does not include Apple Game Porting Toolkit, games, Steam files, or mods. Each user provides their own GPTK 3 download from Apple and their own legally obtained game files.
+RipperMoonKit does not include Apple Game Porting Toolkit, games, Steam files, or mods. Each user provides their own GPTK 3.0 download from Apple and their own legally obtained game files.
 
 For the simplest app-first checklist, read [normal-user-guide.md](normal-user-guide.md).
 
@@ -39,8 +39,8 @@ After dragging **RipperMoonKit Launcher.app** into Applications, the user should
 1. Open **RipperMoonKit Launcher.app**.
 2. If macOS blocks it, allow it in **System Settings > Privacy & Security**, then open it again.
 3. Follow the first-run setup guide and click **Start Guided Setup**.
-4. When GPTK is missing, click the GPTK prompt, download **Apple Game Porting Toolkit 3** from Apple, and mount the downloaded DMG.
-5. Return to RipperMoonKit and continue **Start Guided Setup** so it can copy GPTK locally, create folders, install helper scripts, and write `~/.rippermoon-gptk.env`.
+4. When GPTK is missing, click the GPTK prompt, download **Apple Game Porting Toolkit 3.0** from Apple, and mount the downloaded DMG.
+5. Return to RipperMoonKit and continue **Start Guided Setup** so it can copy GPTK locally, create folders, install helper scripts, and write `~/.rippermoon-gptk.env`. The setup window should not show the finished state until GPTK 3.0 has been copied and verified.
 6. Open **Settings > Paths** and confirm the GPTK home, prefix root, games root, external root, and Steam library paths match the machine.
 7. Open the **Steam** profile. If it still shows **Install Steam**, click it and wait until validation finds `steam.exe`. The DMG does not include Steam.
 8. For co-op Steamworks test paths such as Elden Ring ERSC, open the **Steam** profile and click **Install Spacewar** once. Wait for AppID 480 setup to finish, then close Spacewar.
@@ -56,9 +56,9 @@ If setup fails, open **Settings > Maintenance** and use the available install/up
 
 ## GPTK Requirement
 
-RipperMoonKit targets **Apple Game Porting Toolkit 3**.
+RipperMoonKit targets **Apple Game Porting Toolkit 3.0**.
 
-Download GPTK 3 from Apple:
+Download GPTK 3.0 from Apple:
 
 ```text
 https://developer.apple.com/games/game-porting-toolkit/
@@ -91,7 +91,7 @@ cd RipperMoonKit
 
 Or download and unpack the latest source ZIP from the release page.
 
-Mount GPTK 3 from Apple, then run:
+Mount GPTK 3.0 from Apple, then run:
 
 ```zsh
 ./install.zsh
@@ -102,7 +102,7 @@ The installer will:
 - create toolkit folders;
 - create or update `~/.rippermoon-gptk.env`;
 - install helper commands into `~/bin`;
-- copy GPTK 3 from mounted Apple media;
+- copy GPTK 3.0 from mounted Apple media;
 - install or verify host dependencies;
 - download `SteamSetup.exe`;
 - create rollback backups before replacing toolkit files;

@@ -25,10 +25,10 @@ Apple GPTK must be downloaded from Apple. Steam is installed later only if a gam
 5. If macOS blocks the app, open **System Settings > Privacy & Security**, allow the app, then open it again.
 6. Follow the first-run setup guide and click **Start Guided Setup**.
 7. The app prepares its own toolkit source clone under `~/Library/Application Support/RipperMoonKit/source`.
-8. If the app says GPTK is missing, download **Game Porting Toolkit 3** from Apple.
+8. If the app says GPTK is missing, download **Game Porting Toolkit 3.0** from Apple.
 9. Open the downloaded GPTK DMG so it appears in Finder under **Locations**.
 10. Return to RipperMoonKit and continue **Start Guided Setup**, or click **Install GPTK** if only the GPTK step needs another try.
-11. If setup was interrupted, keep the GPTK DMG mounted and click **Start Guided Setup** again.
+11. If setup was interrupted, keep the GPTK DMG mounted and click **Start Guided Setup** again. The app should stay on the setup checklist until GPTK 3.0 is copied and verified.
 12. Open **Settings > Paths** and confirm the folders look correct for your Mac.
 13. Open the **Steam** profile. If it still shows **Install Steam**, click it and wait until validation finds `steam.exe`.
 14. For Elden Ring ERSC or other co-op Steamworks test paths, open the **Steam** profile and click **Install Spacewar** once.

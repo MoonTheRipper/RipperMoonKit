@@ -2645,7 +2645,7 @@ private struct SetupGuideView: View {
             if model.guidedSetupRunning {
                 HStack(alignment: .top, spacing: 10) {
                     ProgressView().controlSize(.small)
-                    Text("Setup is running in the Terminal window. Each item above ticks off on its own as it installs — watch for the green SETUP FINISHED banner there.")
+                    Text("Setup is running in the Terminal window. Each item above ticks off on its own as it installs. The app only moves forward after GPTK 3.0 is mounted, copied, and verified.")
                         .font(.system(size: 12))
                         .foregroundStyle(Onyx.textDim)
                         .fixedSize(horizontal: false, vertical: true)
@@ -2696,7 +2696,7 @@ private struct SetupGuideView: View {
             Label("One step needs you", systemImage: "person.badge.key.fill")
                 .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(Onyx.text)
-            Text("Apple's Game Porting Toolkit is a free download that needs a free Apple Developer account. Open the page, sign in, and download it — setup detects the file automatically and continues.")
+            Text("Download Game Porting Toolkit 3.0 from Apple Developer. Sign in with a free Apple Developer account, download the evaluation environment DMG, then open it so it mounts. RipperMoonKit will stay here until GPTK 3.0 is processed and verified.")
                 .font(.system(size: 11.5))
                 .foregroundStyle(Onyx.textDim)
                 .fixedSize(horizontal: false, vertical: true)
@@ -3793,17 +3793,32 @@ private final class LauncherModel: ObservableObject {
 
         echo
         echo "➡️  Step 1 of 3 — installing toolkit scripts and local config…"
-        ./install.zsh --skip-deps || echo "⚠️  Toolkit step had problems — see the output above."
+        setup_status=0
+        ./install.zsh --skip-deps || {
+          setup_status=$?
+          echo "⚠️  Toolkit step had problems — see the output above."
+        }
 
         echo
-        echo "➡️  Step 2 of 3 — dependencies + Apple Game Porting Toolkit 3…"
-        echo "    This is the long one. Copying GPTK can take several minutes"
-        echo "    with no output on screen — please wait, it is not frozen."
-        RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh || echo "⚠️  GPTK step incomplete — you may still need to download GPTK from Apple."
+        echo "➡️  Step 2 of 3 — dependencies + Apple Game Porting Toolkit 3.0…"
+        echo "    If GPTK is missing, download Game Porting Toolkit 3.0 from Apple,"
+        echo "    open the downloaded DMG so it mounts, then let this window continue."
+        echo "    Copying GPTK can take several minutes with no output."
+        RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh || {
+          setup_status=$?
+          echo "⚠️  GPTK 3.0 is not installed yet."
+          echo "    Download Game Porting Toolkit 3.0, mount the DMG, then run setup again."
+        }
 
         echo
         echo "➡️  Step 3 of 3 — installing Windows Steam…"
-        ./install.zsh --install-steam || echo "⚠️  Steam step incomplete — install it later from the Steam profile."
+        if [[ "$setup_status" -eq 0 ]]; then
+          ./install.zsh --install-steam || echo "⚠️  Steam step incomplete — install it later from the Steam profile."
+        else
+          echo "⏭️  Skipping Steam until the required toolkit pieces are installed."
+        fi
+
+        exit "$setup_status"
         """
         runScriptInTerminal(named: "guided-setup", title: "Guided Setup", work: work)
     }
@@ -4606,16 +4621,23 @@ private final class LauncherModel: ObservableObject {
             .appendingPathComponent("Library/Application Support/RipperMoonKit/.setup-complete")
     }
 
+    private var setupIncompleteSentinelURL: URL {
+        URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Application Support/RipperMoonKit/.setup-incomplete")
+    }
+
     /// Runs a setup script in a real Terminal window so macOS can show the
     /// admin-password prompt (Homebrew) and the long GPTK download wait.
-    /// The script ends with a loud banner and writes a sentinel file so the
-    /// app can detect completion and refresh itself with no manual step.
+    /// The script ends with a loud banner and writes a result sentinel so the
+    /// app can refresh without treating an incomplete GPTK install as success.
     private func runScriptInTerminal(named name: String, title: String, work: String) {
         let dir = URL(fileURLWithPath: NSHomeDirectory())
             .appendingPathComponent("Library/Application Support/RipperMoonKit", isDirectory: true)
         let scriptURL = dir.appendingPathComponent("\(name).command")
         let sentinel = setupSentinelURL
+        let incompleteSentinel = setupIncompleteSentinelURL
         try? FileManager.default.removeItem(at: sentinel)
+        try? FileManager.default.removeItem(at: incompleteSentinel)
 
         let body = """
         #!/bin/zsh
@@ -4626,10 +4648,35 @@ private final class LauncherModel: ObservableObject {
         )
         work_status=$?
         mkdir -p \(dir.path.shellQuoted)
-        date "+%Y-%m-%d %H:%M:%S" > \(sentinel.path.shellQuoted)
+
+        verify_status=1
+        if [[ "$work_status" -eq 0 ]]; then
+          config_file="$HOME/.rippermoon-gptk.env"
+          [[ -r "$config_file" ]] && source "$config_file"
+          gptk_home="${GPTK_HOME:-$HOME/GPTK}"
+          gptk_runtime="${GPTK_RUNTIME:-$gptk_home/runtime}"
+          runner_ok=1
+          for runner in "${GPTK_WINE_HOME:-}" "$gptk_home/apps/Game Porting Toolkit.app/Contents/Resources/wine" "/Applications/Game Porting Toolkit.app/Contents/Resources/wine"; do
+            [[ -n "$runner" && -x "$runner/bin/wine64" ]] && runner_ok=0
+          done
+          d3d_ok=1
+          for d3d12 in "$gptk_runtime/lib/wine/x86_64-windows/d3d12.dll" "$gptk_home/apps/Game Porting Toolkit.app/Contents/Resources/wine/lib/wine/x86_64-windows/d3d12.dll" "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/wine/x86_64-windows/d3d12.dll"; do
+            [[ -f "$d3d12" ]] && d3d_ok=0
+          done
+          if [[ -r "$config_file" && -x "$HOME/bin/gptk-launch" && -x "$HOME/bin/gptk-steam" && "$runner_ok" -eq 0 && "$d3d_ok" -eq 0 ]]; then
+            verify_status=0
+          fi
+        fi
+
+        if [[ "$work_status" -eq 0 && "$verify_status" -eq 0 ]]; then
+          result_sentinel=\(sentinel.path.shellQuoted)
+        else
+          result_sentinel=\(incompleteSentinel.path.shellQuoted)
+        fi
+        date "+%Y-%m-%d %H:%M:%S" > "$result_sentinel"
         printf '\\a'
         echo
-        if [[ "$work_status" -eq 0 ]]; then
+        if [[ "$work_status" -eq 0 && "$verify_status" -eq 0 ]]; then
           printf '\\033]0;RipperMoonKit Setup — FINISHED\\007'
           echo "════════════════════════════════════════════════"
           echo "   ✅  SETUP FINISHED"
@@ -4640,11 +4687,13 @@ private final class LauncherModel: ObservableObject {
         else
           printf '\\033]0;RipperMoonKit Setup — STOPPED\\007'
           echo "════════════════════════════════════════════════"
-          echo "   ⚠️  SETUP STOPPED EARLY"
+          echo "   ⚠️  SETUP INCOMPLETE"
           echo "════════════════════════════════════════════════"
           echo
-          echo "Something above did not finish. Switch back to RipperMoonKit,"
-          echo "check which items still need setup, and run setup again."
+          echo "RipperMoonKit did not verify all required pieces."
+          echo "If GPTK is missing, download Game Porting Toolkit 3.0 from Apple,"
+          echo "open the downloaded DMG so it mounts, then run setup again."
+          echo "Switch back to RipperMoonKit to see which items still need setup."
         fi
         echo
         """
@@ -4687,14 +4736,22 @@ private final class LauncherModel: ObservableObject {
     /// Polls for the setup sentinel and refreshes the app when Terminal setup ends.
     private func watchForSetupCompletion() {
         let sentinel = setupSentinelURL
+        let incompleteSentinel = setupIncompleteSentinelURL
         Task { @MainActor [weak self] in
             for _ in 0..<1200 { // up to ~60 minutes
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
                 guard let self, self.guidedSetupRunning else { return }
-                if FileManager.default.fileExists(atPath: sentinel.path) {
+                let complete = FileManager.default.fileExists(atPath: sentinel.path)
+                let incomplete = FileManager.default.fileExists(atPath: incompleteSentinel.path)
+                if complete || incomplete {
                     try? FileManager.default.removeItem(at: sentinel)
+                    try? FileManager.default.removeItem(at: incompleteSentinel)
                     NSApp.activate(ignoringOtherApps: true)
                     self.reload()
+                    if incomplete {
+                        self.lastResult = "Setup incomplete"
+                        self.commandOutput = "Setup stopped before every required item was verified. Download and mount Game Porting Toolkit 3.0 if it is still missing, then run setup again.\n"
+                    }
                     return
                 }
             }

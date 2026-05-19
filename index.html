@@ -490,7 +490,7 @@
           <img src="docs/assets/rippermoonlogo.png" alt="RipperMoonKit">
           <span class="brand-name">RipperMoonKit</span>
         </a>
-        <span class="pill mono">v1.2.8</span>
+        <span class="pill mono" data-release-version>v1.2.10</span>
         <div class="nav-links">
           <a href="#features">Features</a>
           <a href="#games">Games</a>
@@ -530,7 +530,7 @@
         </a>
         <span class="ship">
           <span class="pulse"></span>
-          <span><strong>v1.2.8</strong> · free personal use · source available</span>
+          <span><strong data-release-version>v1.2.10</strong> · free personal use · source available</span>
         </span>
       </div>
     </header>
@@ -808,6 +808,29 @@
           if (!root.getAttribute('data-theme')) apply(null);
         });
       }
+    })();
+  </script>
+  <script>
+    (function () {
+      var nodes = document.querySelectorAll('[data-release-version]');
+      if (!nodes.length || !window.fetch) return;
+
+      fetch('https://api.github.com/repos/MoonTheRipper/RipperMoonKit/releases/latest', {
+        headers: { 'Accept': 'application/vnd.github+json' }
+      })
+        .then(function (response) {
+          if (!response.ok) throw new Error('release lookup failed');
+          return response.json();
+        })
+        .then(function (release) {
+          if (!release || !release.tag_name) return;
+          nodes.forEach(function (node) {
+            node.textContent = release.tag_name;
+          });
+        })
+        .catch(function () {
+          // Keep the packaged fallback version visible when GitHub is unreachable.
+        });
     })();
   </script>
   <script src='https://storage.ko-fi.com/cdn/scripts/overlay-widget.js'></script>
