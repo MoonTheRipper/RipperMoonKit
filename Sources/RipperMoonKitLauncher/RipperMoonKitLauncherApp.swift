@@ -2505,8 +2505,8 @@ private struct SettingsScreen: View {
                         RMKButton(kind: .primary, icon: "square.and.arrow.down.fill", title: "Install Toolkit") {
                             model.installToolkit()
                         }
-                        RMKButton(kind: .ghost, icon: "externaldrive.fill.badge.plus", title: "Install GPTK") {
-                            model.installDependencies()
+                        RMKButton(kind: .ghost, icon: "externaldrive.fill.badge.plus", title: "Begin GPTK Install") {
+                            model.beginGPTKInstall()
                         }
                         RMKButton(kind: .ghost, icon: "arrow.clockwise", title: "Check for Updates") {
                             Task { await model.checkForAvailableUpdate(force: true) }
@@ -2579,11 +2579,16 @@ private struct SetupGuideView: View {
     /// "Ready to game" depends only on the required pieces — Steam is optional.
     private var coreReady: Bool { coreChecks.allSatisfy(\.isOK) }
     private var readyCount: Int { coreChecks.filter(\.isOK).count }
+    private var gptkDownloadURL: URL {
+        URL(string: model.config.gptkDownloadPage) ?? URL(string: "https://developer.apple.com/games/game-porting-toolkit/")!
+    }
 
     var body: some View {
         Group {
             if coreReady {
                 successView
+            } else if model.awaitingGPTKDownload && !model.config.hasLocalGPTK {
+                gptkDownloadView
             } else {
                 progressView
             }
@@ -2654,7 +2659,7 @@ private struct SetupGuideView: View {
 
             RMKButton(kind: .primary, icon: "sparkles",
                       title: model.guidedSetupRunning ? "Restart Setup" : "Set Up RipperMoonKit") {
-                model.runFirstRunSetup()
+                model.startFirstRunSetup()
             }
 
             DisclosureGroup(isExpanded: $showAdvanced) {
@@ -2665,11 +2670,8 @@ private struct SetupGuideView: View {
                     RMKButton(kind: .ghost, icon: "square.and.arrow.down", title: "Install Toolkit", small: true) {
                         model.installToolkit()
                     }
-                    RMKButton(kind: .ghost, icon: "externaldrive.badge.plus", title: "Install GPTK", small: true) {
-                        model.installDependencies()
-                    }
-                    RMKButton(kind: .ghost, icon: "safari", title: "Apple GPTK Page", small: true) {
-                        model.openGPTKPage()
+                    RMKButton(kind: .ghost, icon: "externaldrive.badge.plus", title: "Begin GPTK Install", small: true) {
+                        model.beginGPTKInstall()
                     }
                 }
                 .padding(.top, 10)
@@ -2700,16 +2702,75 @@ private struct SetupGuideView: View {
                 .font(.system(size: 11.5))
                 .foregroundStyle(Onyx.textDim)
                 .fixedSize(horizontal: false, vertical: true)
-            RMKButton(kind: .ghost, icon: "safari.fill", title: "Open Apple GPTK Page", small: true) {
-                model.openGPTKPage()
+            Link(destination: gptkDownloadURL) {
+                Text("Open Apple's Game Porting Toolkit 3.0 download page")
+                    .font(.system(size: 11.5, weight: .bold))
+                    .foregroundStyle(Onyx.accent)
             }
+            .buttonStyle(.plain)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Onyx.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Onyx.accent.opacity(0.4), lineWidth: 0.75)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Onyx.accent.opacity(0.4), lineWidth: 0.75)
+        }
+    }
+
+    private var gptkDownloadView: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 14) {
+                BrandMark(size: 52, glow: true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Download Game Porting Toolkit 3.0")
+                        .font(.system(size: 19, weight: .bold))
+                        .foregroundStyle(Onyx.text)
+                    Text("This is the only required file RipperMoonKit cannot bundle. Download it from Apple, open the DMG, then come back here.")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(Onyx.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                Label("What to do now", systemImage: "externaldrive.badge.plus")
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(Onyx.text)
+                Text("1. Sign in with a free Apple Developer account.\n2. Download Game Porting Toolkit 3.0.\n3. Open the downloaded DMG so it appears in Finder.\n4. Return here and click Begin GPTK Install.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Onyx.textDim)
+                    .fixedSize(horizontal: false, vertical: true)
+                Link(destination: gptkDownloadURL) {
+                    Text("Open Apple's Game Porting Toolkit 3.0 download page")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Onyx.accent)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Onyx.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Onyx.accent.opacity(0.4), lineWidth: 0.75)
+            }
+
+            RMKButton(kind: .primary, icon: "externaldrive.badge.checkmark", title: "Begin GPTK Install") {
+                model.beginGPTKInstall()
+            }
+
+            HStack {
+                Spacer()
+                Button("Set up later") { model.deferSetup() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Onyx.textMute)
+                Spacer()
+            }
+        }
+        .onAppear {
+            model.openGPTKPageForCurrentSetupIfNeeded()
         }
     }
 
@@ -3250,6 +3311,7 @@ private final class LauncherModel: ObservableObject {
     @Published var toolkitSourceFolder: String
     @Published var isRunning = false
     @Published var guidedSetupRunning = false
+    @Published var awaitingGPTKDownload = false
     @Published var setupDeferred = false
     @Published var pendingSelection: SidebarSelection?
     @Published var liveProfileIDs: Set<UUID> = []
@@ -3271,6 +3333,7 @@ private final class LauncherModel: ObservableObject {
     private let tgdbAPIKeyDefaultsKey = "tgdbAPIKey"
     private let pinnedProfilesKey = "pinnedProfiles.v1"
     private var hasCheckedForUpdates = false
+    private var openedGPTKPageForCurrentSetup = false
 
     var defaultSelection: SidebarSelection {
         .library
@@ -3330,8 +3393,8 @@ private final class LauncherModel: ObservableObject {
                 id: "wine",
                 title: "Game Porting Toolkit runner",
                 explanation: "Apple's translator that lets Windows games run on macOS.",
-                detail: config.effectiveWineHome,
-                isOK: config.hasWineRunner,
+                detail: config.localGPTKWineHome,
+                isOK: config.hasLocalWineRunner,
                 isOptional: false
             ),
             SetupCheck(
@@ -3339,7 +3402,7 @@ private final class LauncherModel: ObservableObject {
                 title: "D3DMetal graphics",
                 explanation: "Apple's layer that renders DirectX games on Metal.",
                 detail: config.gptkRuntime,
-                isOK: config.hasD3DMetalRuntime,
+                isOK: config.hasLocalD3DMetalRuntime,
                 isOptional: false
             ),
             SetupCheck(
@@ -3364,7 +3427,7 @@ private final class LauncherModel: ObservableObject {
     var nextSetupActionTitle: String {
         if !toolkitSourceReady { return "Prepare Source" }
         if !config.hasToolkitScripts || !config.exists { return "Install Toolkit" }
-        if !config.hasLocalGPTK { return "Install GPTK" }
+        if !config.hasLocalGPTK { return "Begin GPTK Install" }
         if !steamInstallerReady { return "Download Steam" }
         if !steamReady { return "Install Steam" }
         return "Refresh Setup"
@@ -3412,6 +3475,10 @@ private final class LauncherModel: ObservableObject {
         driveMaps = DriveMap.parse(config.values["GPTK_DRIVE_MAPS"] ?? "")
         refreshBackups()
         guidedSetupRunning = false
+        if config.hasLocalGPTK {
+            awaitingGPTKDownload = false
+            openedGPTKPageForCurrentSetup = false
+        }
         // Surface the setup window when something is still missing; never
         // force it closed — if it is open and now complete it shows success.
         if (config.needsSetupGuide || !toolkitSourceReady) && !setupDeferred {
@@ -3746,7 +3813,7 @@ private final class LauncherModel: ObservableObject {
 
     func installDependencies() {
         let work = """
-        echo "Installing dependencies and Apple Game Porting Toolkit 3…"
+        echo "Installing dependencies and Apple Game Porting Toolkit 3.0…"
         echo "macOS may ask for your Mac password once (to install Homebrew)."
         echo "Copying GPTK can take several minutes with no output — that is normal."
         echo
@@ -3754,9 +3821,15 @@ private final class LauncherModel: ObservableObject {
         \(toolkitSourceBootstrapCommand)
         set +e
 
-        RIPPERMOON_OPEN_GPTK_PAGE=1 ./install.zsh
+        RIPPERMOON_OPEN_GPTK_PAGE=0 ./install.zsh
         """
         runScriptInTerminal(named: "install-gptk", title: "Install GPTK", work: work)
+    }
+
+    func beginGPTKInstall() {
+        awaitingGPTKDownload = false
+        openedGPTKPageForCurrentSetup = false
+        installDependencies()
     }
 
     func runNextSetupStep() {
@@ -3765,7 +3838,7 @@ private final class LauncherModel: ObservableObject {
         } else if !config.hasToolkitScripts || !config.exists {
             installToolkit()
         } else if !config.hasLocalGPTK {
-            installDependencies()
+            showGPTKDownloadStep(openBrowser: true)
         } else if !steamInstallerReady {
             downloadSteamInstaller()
         } else if !steamReady {
@@ -3776,7 +3849,22 @@ private final class LauncherModel: ObservableObject {
         }
     }
 
+    func startFirstRunSetup() {
+        refreshSetupChecks()
+        if !config.hasLocalGPTK {
+            showGPTKDownloadStep(openBrowser: true)
+            return
+        }
+        runFirstRunSetup()
+    }
+
     func runFirstRunSetup() {
+        refreshSetupChecks()
+        if !config.hasLocalGPTK {
+            showGPTKDownloadStep(openBrowser: true)
+            return
+        }
+
         let work = """
         echo "════════ RipperMoonKit — First Run Setup ════════"
         echo
@@ -3857,7 +3945,7 @@ private final class LauncherModel: ObservableObject {
             Missing:
             \(steamExecutablePath(in: steam))
 
-            Use the Steam profile's Install Steam / Repair Steam button, or run Start Guided Setup.
+            Use the Steam profile's Install Steam / Repair Steam button, or run Set Up RipperMoonKit.
             """
             showSetupGuide = true
             return false
@@ -4006,6 +4094,30 @@ private final class LauncherModel: ObservableObject {
         NSWorkspace.shared.open(URL(string: config.gptkDownloadPage)!)
     }
 
+    func showGPTKDownloadStep(openBrowser: Bool) {
+        guidedSetupRunning = false
+        awaitingGPTKDownload = true
+        showSetupGuide = true
+        lastResult = "Download GPTK 3.0"
+        commandOutput = """
+        Download Game Porting Toolkit 3.0 from Apple Developer.
+
+        Open the downloaded DMG so it appears in Finder, then return to RipperMoonKit and click Begin GPTK Install.
+        """
+        if openBrowser {
+            openGPTKPageForCurrentSetupIfNeeded()
+        }
+    }
+
+    func openGPTKPageForCurrentSetupIfNeeded() {
+        guard awaitingGPTKDownload, !openedGPTKPageForCurrentSetup else { return }
+        openedGPTKPageForCurrentSetup = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self, self.awaitingGPTKDownload else { return }
+            self.openGPTKPage()
+        }
+    }
+
     /// Opens the documentation bundled inside the app (offline-safe), falling
     /// back to the GitHub repository if the bundled docs are not present.
     func openHelpDocs(page: String = "index.html") {
@@ -4027,6 +4139,7 @@ private final class LauncherModel: ObservableObject {
     /// Finish Setup banner stays visible so the user can resume any time.
     func deferSetup() {
         setupDeferred = true
+        awaitingGPTKDownload = false
         showSetupGuide = false
     }
 
@@ -4654,16 +4767,9 @@ private final class LauncherModel: ObservableObject {
           config_file="$HOME/.rippermoon-gptk.env"
           [[ -r "$config_file" ]] && source "$config_file"
           gptk_home="${GPTK_HOME:-$HOME/GPTK}"
+          gptk_app_path="${GPTK_APP_PATH:-$gptk_home/apps/Game Porting Toolkit.app}"
           gptk_runtime="${GPTK_RUNTIME:-$gptk_home/runtime}"
-          runner_ok=1
-          for runner in "${GPTK_WINE_HOME:-}" "$gptk_home/apps/Game Porting Toolkit.app/Contents/Resources/wine" "/Applications/Game Porting Toolkit.app/Contents/Resources/wine"; do
-            [[ -n "$runner" && -x "$runner/bin/wine64" ]] && runner_ok=0
-          done
-          d3d_ok=1
-          for d3d12 in "$gptk_runtime/lib/wine/x86_64-windows/d3d12.dll" "$gptk_home/apps/Game Porting Toolkit.app/Contents/Resources/wine/lib/wine/x86_64-windows/d3d12.dll" "/Applications/Game Porting Toolkit.app/Contents/Resources/wine/lib/wine/x86_64-windows/d3d12.dll"; do
-            [[ -f "$d3d12" ]] && d3d_ok=0
-          done
-          if [[ -r "$config_file" && -x "$HOME/bin/gptk-launch" && -x "$HOME/bin/gptk-steam" && "$runner_ok" -eq 0 && "$d3d_ok" -eq 0 ]]; then
+          if [[ -r "$config_file" && -x "$HOME/bin/gptk-launch" && -x "$HOME/bin/gptk-steam" && -x "$gptk_app_path/Contents/Resources/wine/bin/wine64" && -f "$gptk_runtime/lib/wine/x86_64-windows/d3d12.dll" ]]; then
             verify_status=0
           fi
         fi
@@ -4749,8 +4855,11 @@ private final class LauncherModel: ObservableObject {
                     NSApp.activate(ignoringOtherApps: true)
                     self.reload()
                     if incomplete {
+                        if !self.config.hasLocalGPTK {
+                            self.awaitingGPTKDownload = true
+                        }
                         self.lastResult = "Setup incomplete"
-                        self.commandOutput = "Setup stopped before every required item was verified. Download and mount Game Porting Toolkit 3.0 if it is still missing, then run setup again.\n"
+                        self.commandOutput = "Setup stopped before every required item was verified. Download and mount Game Porting Toolkit 3.0 if it is still missing, then click Begin GPTK Install.\n"
                     }
                     return
                 }
@@ -5396,6 +5505,8 @@ private struct ToolkitConfig {
     var externalRoot: String { expand(values["GPTK_EXTERNAL_ROOT"] ?? "$HOME/Library/Application Support/RipperMoonKit") }
     var steamLibrary: String { expand(values["GPTK_STEAM_LIBRARY"] ?? "$GPTK_EXTERNAL_ROOT/SteamLibrary") }
     var logsPath: String { expand(values["GPTK_LOG_DIR"] ?? "$GPTK_HOME/logs") }
+    var gptkAppPath: String { expand(values["GPTK_APP_PATH"] ?? "$GPTK_HOME/apps/Game Porting Toolkit.app") }
+    var localGPTKWineHome: String { "\(gptkAppPath)/Contents/Resources/wine" }
     var gptkWineHome: String { expand(values["GPTK_WINE_HOME"] ?? "$GPTK_HOME/apps/Game Porting Toolkit.app/Contents/Resources/wine") }
     var effectiveWineHome: String { detectedWineHome ?? gptkWineHome }
     var toolWineHome: String {
@@ -5416,11 +5527,17 @@ private struct ToolkitConfig {
             && FileManager.default.isExecutableFile(atPath: gptkSteamPath)
     }
     var hasWineRunner: Bool { detectedWineHome != nil }
+    var hasLocalWineRunner: Bool {
+        FileManager.default.isExecutableFile(atPath: "\(localGPTKWineHome)/bin/wine64")
+    }
     var hasD3DMetalRuntime: Bool {
         d3d12Candidates.contains { FileManager.default.fileExists(atPath: $0) }
     }
+    var hasLocalD3DMetalRuntime: Bool {
+        FileManager.default.fileExists(atPath: "\(gptkRuntime)/lib/wine/x86_64-windows/d3d12.dll")
+    }
     var hasLocalGPTK: Bool {
-        hasWineRunner && hasD3DMetalRuntime
+        hasLocalWineRunner && hasLocalD3DMetalRuntime
     }
     var needsSetupGuide: Bool {
         !exists || !hasToolkitScripts || !hasLocalGPTK
