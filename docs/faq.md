@@ -45,9 +45,9 @@ Steam API access depends on Steam client IPC. If Steam is running in one prefix 
 
 For the documented ERSC workflow, Steam and ERSC run from the same `Steam` prefix.
 
-## Why Does The Installer Download SteamSetup But Not Always Install Steam?
+## Why Does The Source Installer Download SteamSetup But Not Always Install Steam?
 
-Downloading `SteamSetup.exe` is safe and repeatable. Installing Windows Steam creates/modifies the `Steam` prefix and may open UI. The installer only does that when requested:
+Downloading `SteamSetup.exe` is safe and repeatable. Installing Windows Steam creates/modifies the `Steam` prefix. The guided app setup starts Steam installation in the background, moves to the finished screen, and closes Steam after validation. The source installer only installs Steam when requested:
 
 ```zsh
 ./install.zsh --install-steam

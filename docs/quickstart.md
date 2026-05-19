@@ -36,10 +36,13 @@ After the app is installed:
 2. If macOS blocks it, allow it in **System Settings > Privacy & Security**.
 3. Use the first-run setup guide to connect GPTK 3.
 4. If GPTK is missing, download **Game Porting Toolkit 3** from Apple, mount the DMG, then return to the app and run setup.
-5. Check **Settings > Paths** so the app knows where GPTK, prefixes, games, external storage, and Steam libraries live.
-6. Install Windows Steam from the **Steam** profile when a game needs Steam. Steam is not bundled in the DMG.
-7. For Elden Ring ERSC or other co-op Steamworks test paths, use the Steam profile's **Install Spacewar** button once, wait for AppID 480 setup, then close Spacewar.
-8. Open or add a game profile, set its folder/executable, and launch.
+5. Setup starts Windows Steam installation in the background. Steam can take several minutes, but you can move on while it finishes.
+6. When the **You're all set** screen appears, open the **Steam** profile when you are ready to sign in. If Steam is still installing, use the time to set paths and cover art.
+7. Check **Settings > Paths** so the app knows where GPTK, prefixes, games, external storage, and Steam libraries live.
+8. Add or open a game profile. Use a copied, already-installed Windows game folder, not installer files.
+9. Add a free TheGamesDB API key in settings if you want cover art.
+10. For Elden Ring ERSC or other co-op Steamworks test paths, use the Steam profile's **Install Spacewar** button once, wait for AppID 480 setup, then close Spacewar.
+11. Set the game executable and launch.
 
 For the source and command-line helper install, continue below.
 
@@ -86,10 +89,10 @@ which gptk-game
 
 ## 5. Install Steam
 
-If you did not use `./install.zsh --install-steam`, install Steam after bootstrap:
+If you did not use guided setup, start Steam installation after bootstrap in the background:
 
 ```zsh
-gptk-steam --install "$HOME/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe"
+./install.zsh --install-steam-background
 ```
 
 In the GUI, use the Steam tile. It shows **Install Steam** until `steam.exe` validates inside the Steam prefix, then shows **Repair Steam**.

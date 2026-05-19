@@ -128,12 +128,20 @@ For the randomizer GUI, RipperMoonKit prefers Wine Staging 11.8 when available. 
 
 ## Installing Windows Steam
 
-The default install downloads `SteamSetup.exe` but does not run the Windows Steam installer, because that creates or modifies the Steam Wine prefix.
+The default source install downloads `SteamSetup.exe` but does not run the Windows Steam installer, because that creates or modifies the Steam Wine prefix.
+
+The guided app setup starts Steam installation in the background. The user can move to the finished screen, set game folders, and add cover art while Steam validates `steam.exe`. After validation, Steam is closed instead of launched.
 
 To install Steam during bootstrap:
 
 ```zsh
 ./install.zsh --install-steam
+```
+
+To start Steam installation in the background:
+
+```zsh
+./install.zsh --install-steam-background
 ```
 
 ## Apple Game Porting Toolkit

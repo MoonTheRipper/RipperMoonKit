@@ -16,6 +16,29 @@ The app is organized around a library of individual games and apps. Pick **Games
 
 Large technical sections such as resolved commands, validation, and ModEngine configuration can collapse. Section help and hover tooltips explain what each setting does and why it matters.
 
+## First-Run Setup
+
+The first-run setup keeps required GPTK work separate from optional Steam waiting time:
+
+1. The app prepares the bundled toolkit source and helper scripts.
+2. If GPTK 3.0 is missing, the app pauses and sends the user to Apple's download page.
+3. After the GPTK DMG is mounted, the app installs the local GPTK runner/runtime and verifies them.
+4. Steam installation starts in the background.
+5. The app can move to **You're all set** while Steam continues installing.
+
+The finished screen tells the user what to do next:
+
+- sign into Steam from the Steam profile when Steam is ready;
+- set game-folder paths;
+- use copied, already-installed Windows game folders, not installer files;
+- add a TheGamesDB API key if they want cover art.
+
+While Steam is still installing, the app shows that state instead of claiming Steam is ready. The background installer writes a log under:
+
+```text
+$GPTK_HOME/logs/steam-install-background-YYYYmmdd-HHMMSS.log
+```
+
 ## Build
 
 ```zsh

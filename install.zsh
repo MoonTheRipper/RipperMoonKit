@@ -9,6 +9,7 @@ install_deps=1
 bootstrap_homebrew=1
 download_steam=1
 install_steam="${RIPPERMOON_INSTALL_STEAM:-0}"
+steam_background=0
 install_gptk=1
 reinstall_gptk=0
 update_zshrc=1
@@ -30,6 +31,8 @@ Options:
   --no-homebrew-bootstrap  Do not install Homebrew if it is missing
   --skip-steam-download    Do not download SteamSetup.exe
   --install-steam          After downloading SteamSetup.exe, install Windows Steam into the Steam prefix
+  --install-steam-background
+                            Start Windows Steam install in the background and return after it starts
   --skip-gptk              Do not install/copy GPTK app/runtime
   --reinstall-gptk         Replace existing local GPTK app/runtime with detected sources
   --gptk-source PATH       Search a specific mounted GPTK folder or volume first
@@ -81,6 +84,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --install-steam)
       install_steam=1
+      shift
+      ;;
+    --install-steam-background)
+      install_steam=1
+      steam_background=1
       shift
       ;;
     --skip-gptk)
@@ -990,11 +998,59 @@ install_windows_steam() {
     return 1
   fi
 
-  log "🎮" "Installing Windows Steam into the Steam prefix."
-  "${install_bin}/gptk-steam" --install "${steam_setup}" >> "${log_file}" 2>&1
   local steam_exe="${GPTK_PREFIX_ROOT}/Steam/drive_c/Program Files (x86)/Steam/steam.exe"
+  if [[ "${steam_background}" == "1" ]]; then
+    local state_dir="${GPTK_HOME}/state"
+    local pending="${state_dir}/steam-install.pending"
+    local complete="${state_dir}/steam-install.complete"
+    local failed="${state_dir}/steam-install.failed"
+    local bg_log="${GPTK_LOG_DIR}/steam-install-background-${stamp}.log"
+    mkdir -p "${state_dir}"
+    rm -f "${complete}" "${failed}"
+    {
+      print -r -- "started=$(date '+%Y-%m-%d %H:%M:%S')"
+      print -r -- "installer=${steam_setup}"
+      print -r -- "log=${bg_log}"
+      print -r -- "steam_exe=${steam_exe}"
+    } > "${pending}"
+    (
+      set +e
+      {
+        print -r -- "Steam background install started: $(date '+%Y-%m-%d %H:%M:%S')"
+        "${install_bin}/gptk-steam" --install-only --wait-for-steam-exe "${RIPPERMOON_STEAM_BACKGROUND_WAIT_SECONDS:-300}" --install "${steam_setup}"
+        status=$?
+        if [[ "${status}" -eq 0 && -f "${steam_exe}" ]]; then
+          print -r -- "completed=$(date '+%Y-%m-%d %H:%M:%S')" > "${complete}"
+          rm -f "${pending}"
+          print -r -- "Steam installed and validated: ${steam_exe}"
+          exit 0
+        fi
+        {
+          print -r -- "failed=$(date '+%Y-%m-%d %H:%M:%S')"
+          print -r -- "status=${status}"
+          print -r -- "steam_exe=${steam_exe}"
+          print -r -- "log=${bg_log}"
+        } > "${failed}"
+        rm -f "${pending}"
+        print -r -- "Steam background install failed with status ${status}."
+        exit "${status}"
+      } >> "${bg_log}" 2>&1
+    ) >/dev/null 2>&1 &
+    local bg_pid=$!
+    disown "${bg_pid}" 2>/dev/null || true
+    log "🎮" "Windows Steam install started in the background."
+    log "⏳" "Users can continue setting game folders and cover art while Steam installs."
+    log "🪵" "Steam background install log: ${bg_log}"
+    return 0
+  fi
+
+  log "🎮" "Installing Windows Steam into the Steam prefix."
+  log "⏳" "Steam can take several minutes to install. Please be patient and leave this setup window open."
+  log "🛑" "After validation, setup will stop Steam instead of launching the Steam UI."
+  "${install_bin}/gptk-steam" --install-only --wait-for-steam-exe "${RIPPERMOON_STEAM_FOREGROUND_WAIT_SECONDS:-60}" --install "${steam_setup}" >> "${log_file}" 2>&1
   if [[ -f "${steam_exe}" ]]; then
     log "✅" "Windows Steam installed and validated: ${steam_exe}"
+    log "🛑" "Steam is installed and closed. Open the Steam profile later to sign in."
   else
     log "❌" "Steam installer finished, but steam.exe was not created: ${steam_exe}"
     log "❌" "Open the newest log in ${GPTK_LOG_DIR}, then retry with ./install.zsh --install-steam."

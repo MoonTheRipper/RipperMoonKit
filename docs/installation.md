@@ -43,10 +43,13 @@ After dragging **RipperMoonKit Launcher.app** into Applications, the user should
 5. Download **Apple Game Porting Toolkit 3.0** from Apple, then open the downloaded DMG so it mounts in Finder.
 6. Return to RipperMoonKit. The **Begin GPTK Install** button becomes available after the app detects the downloaded DMG or mounted GPTK media.
 7. Click **Begin GPTK Install** so it can install the GPTK app runner if needed, copy the Apple GPTK runtime locally, create folders, install helper scripts, and write `~/.rippermoon-gptk.env`. The setup window should not show the finished state until the runner and GPTK 3.0 runtime have been copied and verified.
-8. Open **Settings > Paths** and confirm the GPTK home, prefix root, games root, external root, and Steam library paths match the machine.
-9. Open the **Steam** profile. If it still shows **Install Steam**, click it and wait until validation finds `steam.exe`. The DMG does not include Steam.
-10. For co-op Steamworks test paths such as Elden Ring ERSC, open the **Steam** profile and click **Install Spacewar** once. Wait for AppID 480 setup to finish, then close Spacewar.
-11. Add or open a game profile, set the game folder and executable, then launch from that profile.
+8. Setup then starts Windows Steam installation in the background. Steam can take several minutes, but the app can move to the finished screen while Steam continues.
+9. When the **You're all set** screen appears, Steam may still be installing. Open the **Steam** profile when you are ready to sign in.
+10. Open **Settings > Paths** and confirm the GPTK home, prefix root, games root, external root, and Steam library paths match the machine.
+11. Add or open a game profile. Set the game folder to a copied, already-installed Windows game folder. Do not point the app at game installer files.
+12. Add a free TheGamesDB API key in settings if you want cover art in the library.
+13. For co-op Steamworks test paths such as Elden Ring ERSC, open the **Steam** profile and click **Install Spacewar** once. Wait for AppID 480 setup to finish, then close Spacewar.
+14. Launch from the game profile.
 
 Logs are written under:
 
@@ -109,6 +112,7 @@ The installer will:
 - install the prebuilt `Game Porting Toolkit.app` runner if needed;
 - copy the Apple GPTK 3.0 runtime from mounted Apple media;
 - download `SteamSetup.exe`;
+- optionally start Windows Steam installation in the background without launching Steam after validation;
 - create rollback backups before replacing toolkit files;
 - write a timestamped log.
 

@@ -60,7 +60,7 @@
       </div>
 
       <h2>What The DMG Includes</h2>
-      <p>The DMG includes the <strong>RipperMoonKit Launcher</strong> app only. It does not include Apple Game Porting Toolkit, Steam, games, saves, or mods. Apple GPTK must be downloaded from Apple. Steam is installed later only if a game needs Steam.</p>
+      <p>The DMG includes the <strong>RipperMoonKit Launcher</strong> app only. It does not include Apple Game Porting Toolkit, Steam, games, saves, or mods. Apple GPTK must be downloaded from Apple. Steam is installed by the guided setup, but it is not bundled in the DMG.</p>
 
       <h2>Step By Step</h2>
       <ol>
@@ -76,14 +76,17 @@
         <li>Open the downloaded GPTK DMG so it appears in Finder under <strong>Locations</strong>.</li>
         <li>Return to RipperMoonKit. The <strong>Begin GPTK Install</strong> button becomes available after the app detects the downloaded DMG or mounted GPTK media.</li>
         <li>Click <strong>Begin GPTK Install</strong>. RipperMoonKit can install the GPTK app runner with Homebrew if it is missing, then copy the Apple GPTK runtime locally.</li>
-        <li>If setup was interrupted, keep the GPTK DMG mounted and click <strong>Begin GPTK Install</strong> again. The app should stay on the setup checklist until the app runner and GPTK 3.0 runtime are copied and verified.</li>
+        <li>The setup then starts Windows Steam installation in the background. Steam can take several minutes, but you do not need to wait on that screen.</li>
+        <li>If setup was interrupted, keep the GPTK DMG mounted and run setup again. The app should stay on the setup checklist until GPTK 3.0 and the runner are verified.</li>
+        <li>When the <strong>You're all set</strong> screen appears, Steam may still be installing in the background. You can set paths and cover art while it finishes.</li>
+        <li>Open the <strong>Steam</strong> profile when you are ready to sign into Steam.</li>
         <li>Open <strong>Settings &gt; Paths</strong> and confirm the folders look correct for your Mac.</li>
-        <li>Open the <strong>Steam</strong> profile. If it still shows <strong>Install Steam</strong>, click it and wait until validation finds <code>steam.exe</code>.</li>
+        <li>Open or add a game profile.</li>
+        <li>Set the game folder to a copied, already-installed Windows game folder. Do not point the app at installer files.</li>
+        <li>Add a free TheGamesDB API key in settings if you want cover art in the game library.</li>
         <li>For Elden Ring ERSC or other co-op Steamworks test paths, open the <strong>Steam</strong> profile and click <strong>Install Spacewar</strong> once.</li>
         <li>Wait for Steam to finish AppID 480 / Spacewar setup, then close Spacewar.</li>
-        <li>Open or add a game profile.</li>
-        <li>Set the game folder and executable.</li>
-        <li>Click <strong>Launch</strong>.</li>
+        <li>Click <strong>Launch</strong> on the game profile.</li>
       </ol>
 
       <h2>If GPTK Setup Stops At The Nested Image</h2>

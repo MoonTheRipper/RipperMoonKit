@@ -80,10 +80,13 @@
         <li>Download <strong>Game Porting Toolkit 3.0</strong> from Apple, then open the downloaded DMG so it mounts in Finder.</li>
         <li>Return to RipperMoonKit. The <strong>Begin GPTK Install</strong> button becomes available after the app detects the downloaded DMG or mounted GPTK media.</li>
         <li>Click <strong>Begin GPTK Install</strong> so it can install the GPTK app runner if needed, copy the Apple GPTK runtime locally, create folders, install helper scripts, and write <code>~/.rippermoon-gptk.env</code>. The setup window should not show the finished state until GPTK 3.0 has been copied and verified.</li>
+        <li>Setup then starts Windows Steam installation in the background. Steam can take several minutes, but the app can move to the finished screen while Steam continues.</li>
+        <li>When the <strong>You're all set</strong> screen appears, Steam may still be installing. Open the <strong>Steam</strong> profile when you are ready to sign in.</li>
         <li>Open <strong>Settings &gt; Paths</strong> and confirm the GPTK home, prefix root, games root, external root, and Steam library paths.</li>
-        <li>Open the <strong>Steam</strong> profile. If it still shows <strong>Install Steam</strong>, click it and wait until validation finds <code>steam.exe</code>.</li>
+        <li>Add or open a game profile. Set the game folder to a copied, already-installed Windows game folder. Do not point the app at game installer files.</li>
+        <li>Add a free TheGamesDB API key in settings if you want cover art in the library.</li>
         <li>For co-op Steamworks test paths such as Elden Ring ERSC, open the <strong>Steam</strong> profile and click <strong>Install Spacewar</strong> once. Wait for AppID 480 setup to finish, then close Spacewar.</li>
-        <li>Add or open a game profile, set the game folder and executable, then launch from that profile.</li>
+        <li>Launch from the game profile.</li>
       </ol>
       <p>Setup and launcher logs are written under <code>$GPTK_HOME/logs/</code>. If setup fails, use <strong>Settings &gt; Maintenance</strong> after checking the newest log.</p>
 
@@ -100,7 +103,7 @@
       </ol>
       <pre><code>cd RipperMoonToolKit
 ./install.zsh</code></pre>
-      <p>The installer creates local configuration, installs helper commands, installs the prebuilt Game Porting Toolkit app runner when needed, copies the Apple GPTK runtime from mounted Apple media, downloads SteamSetup.exe, writes logs, and creates update backups before replacing toolkit files.</p>
+      <p>The installer creates local configuration, installs helper commands, installs the prebuilt Game Porting Toolkit app runner when needed, copies the Apple GPTK runtime from mounted Apple media, downloads SteamSetup.exe, can start Windows Steam installation in the background without launching Steam after validation, writes logs, and creates update backups before replacing toolkit files.</p>
 
       <h2>Build Or Reinstall The App From Source</h2>
       <p>If you installed from source, build and install the local app bundle with:</p>

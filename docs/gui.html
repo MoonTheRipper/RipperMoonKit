@@ -72,6 +72,11 @@
       <h2>Library</h2>
       <p>The sidebar opens a library view with a grid of games and apps. Steam appears as its own app tile, and it can still be started automatically by profiles that depend on Steam. Profile pages now collapse large advanced sections so new users can stay focused while technical users can still inspect exact commands.</p>
 
+      <h2>First-Run Setup</h2>
+      <p>The first-run setup keeps required GPTK work separate from optional Steam waiting time. It prepares the bundled toolkit source, installs helper scripts, pauses for Apple GPTK 3.0 when needed, verifies the local GPTK runner/runtime, then starts Windows Steam installation in the background.</p>
+      <p>The app can move to <strong>You're all set</strong> while Steam continues installing. That finished screen tells users they can sign into Steam later from the Steam profile, set paths, add copied already-installed Windows game folders, and add a TheGamesDB API key for cover art.</p>
+      <p>While Steam is still installing, the app shows that state instead of claiming Steam is ready. The background log is written under <code>$GPTK_HOME/logs/steam-install-background-YYYYmmdd-HHMMSS.log</code>.</p>
+
       <h2>Profiles</h2>
       <p>Use <strong>Add Game</strong> to create a profile. Set the display name, icon, prefix, game folder, executable, and any game-specific runner. The square icon in the page header belongs to the selected game.</p>
 

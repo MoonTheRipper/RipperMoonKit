@@ -14,7 +14,7 @@ It does not include:
 - saves;
 - mods.
 
-Apple GPTK must be downloaded from Apple. Steam is installed later only if a game needs Steam.
+Apple GPTK must be downloaded from Apple. Steam is installed by the guided setup, but it is not bundled in the DMG.
 
 ## Step By Step
 
@@ -30,14 +30,17 @@ Apple GPTK must be downloaded from Apple. Steam is installed later only if a gam
 10. Open the downloaded GPTK DMG so it appears in Finder under **Locations**.
 11. Return to RipperMoonKit. The **Begin GPTK Install** button becomes available after the app detects the downloaded DMG or mounted GPTK media.
 12. Click **Begin GPTK Install**. RipperMoonKit can install the GPTK app runner with Homebrew if it is missing, then copy the Apple GPTK runtime locally.
-13. If setup was interrupted, keep the GPTK DMG mounted and click **Begin GPTK Install** again. The app should stay on the setup checklist until the runner and GPTK 3.0 runtime are copied and verified.
-14. Open **Settings > Paths** and confirm the folders look correct for your Mac.
-15. Open the **Steam** profile. If it still shows **Install Steam**, click it and wait until validation finds `steam.exe`.
-16. For Elden Ring ERSC or other co-op Steamworks test paths, open the **Steam** profile and click **Install Spacewar** once.
-17. Wait for Steam to finish AppID 480 / Spacewar setup, then close Spacewar.
-18. Open or add a game profile.
-19. Set the game folder and executable.
-20. Click **Launch**.
+13. The setup then starts Windows Steam installation in the background. Steam can take several minutes, but you do not need to wait on that screen.
+14. If setup was interrupted, keep the GPTK DMG mounted and run setup again. The app should stay on the setup checklist until GPTK 3.0 and the runner are verified.
+15. When the **You're all set** screen appears, Steam may still be installing in the background. You can set paths and cover art while it finishes.
+16. Open the **Steam** profile when you are ready to sign into Steam.
+17. Open **Settings > Paths** and confirm the folders look correct for your Mac.
+18. Add or open a game profile.
+19. Set the game folder to a copied, already-installed Windows game folder. Do not point the app at installer files.
+20. Add a free TheGamesDB API key in settings if you want cover art in the game library.
+21. For Elden Ring ERSC or other co-op Steamworks test paths, open the **Steam** profile and click **Install Spacewar** once.
+22. Wait for Steam to finish AppID 480 / Spacewar setup, then close Spacewar.
+23. Click **Launch** on the game profile.
 
 ## If GPTK Setup Stops At The Nested Image
 

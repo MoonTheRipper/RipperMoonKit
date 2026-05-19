@@ -17,6 +17,8 @@ Host folders are exposed inside Wine through GPTK_DRIVE_MAPS.
 
 Options:
   --install [SteamSetup.exe]       Install or repair Windows Steam
+  --install-only                   Install or repair Steam, validate steam.exe, then exit without launching Steam
+  --wait-for-steam-exe SECONDS     After installer exit, wait for steam.exe to appear
   --kill                           Stop the Steam Wine prefix
   --repair-compat                  Reapply Steam CEF compatibility registry entries
   --install-spacewar               Launch AppID 480 once so Steam installs Spacewar
@@ -36,6 +38,8 @@ USAGE
 prefix="${GPTK_STEAM_PREFIX:-Steam}"
 installer=""
 install=0
+install_only=0
+install_wait_seconds="${GPTK_STEAM_INSTALL_WAIT_SECONDS:-0}"
 kill_only=0
 repair_compat_only=0
 install_spacewar=0
@@ -53,6 +57,15 @@ while [[ $# -gt 0 ]]; do
         installer="$1"
         shift
       fi
+      ;;
+    --install-only)
+      install_only=1
+      shift
+      ;;
+    --wait-for-steam-exe)
+      [[ $# -ge 2 ]] || gptk_die "--wait-for-steam-exe requires a number of seconds"
+      install_wait_seconds="$2"
+      shift 2
       ;;
     --kill)
       kill_only=1
@@ -135,6 +148,12 @@ if [[ "${install}" == "1" ]]; then
   [[ -n "${installer}" ]] || installer="${STEAM_SETUP_PATH:-${HOME}/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe}"
   [[ -f "${installer}" ]] || gptk_die "Steam installer not found: ${installer}"
   "${launcher}" --prefix "${prefix}" --init --set-winver "${GPTK_DEFAULT_WINVER}" -- "${installer}" /S
+  if [[ ! -f "${steam_exe}" && "${install_wait_seconds}" == <-> && "${install_wait_seconds}" -gt 0 ]]; then
+    deadline=$(( SECONDS + install_wait_seconds ))
+    while [[ ! -f "${steam_exe}" && "${SECONDS}" -lt "${deadline}" ]]; do
+      sleep 2
+    done
+  fi
   [[ -f "${steam_exe}" ]] || gptk_die "Steam installer finished, but steam.exe was not created at ${steam_exe}"
 fi
 
@@ -142,6 +161,11 @@ fi
 
 if [[ "${legacy_cef}" == "1" ]]; then
   apply_steam_compat
+fi
+
+if [[ "${install_only}" == "1" ]]; then
+  "${launcher}" --prefix "${prefix}" --no-log -- wineserver -k >/dev/null 2>&1 || true
+  exit 0
 fi
 
 if [[ "${repair_compat_only}" == "1" ]]; then

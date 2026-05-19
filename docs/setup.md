@@ -80,6 +80,14 @@ https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMo
 
 Open the DMG, drag **RipperMoonKit Launcher.app** into Applications, then open it. The first-run setup can guide the GPTK download/mount step and install the local helper scripts.
 
+After GPTK and the required local runner are verified, the app starts Windows Steam installation in the background. The setup screen can move to **You're all set** while Steam continues, so users can configure paths, add copied game folders, and add a TheGamesDB cover-art API key instead of waiting on Steam updates.
+
+When Steam is ready, open the Steam profile to sign in. If Steam is still installing, the app shows that state and the background log is written under:
+
+```text
+$GPTK_HOME/logs/steam-install-background-YYYYmmdd-HHMMSS.log
+```
+
 ## Install From Source
 
 Before running the installer, download **Game Porting Toolkit 3** from Apple Developer and mount the DMG:
@@ -100,7 +108,7 @@ The installer writes a detailed log:
 $GPTK_HOME/logs/rippermoon-install-YYYYmmdd-HHMMSS.log
 ```
 
-It installs host dependencies, installs the prebuilt `Game Porting Toolkit.app` runner through Homebrew if needed, copies the Apple GPTK 3 runtime from the mounted media, downloads `SteamSetup.exe`, and verifies the local pinned GPTK/Wine runtime path. See [dependencies.md](dependencies.md) and [gptk.md](gptk.md) for details.
+It installs host dependencies, installs the prebuilt `Game Porting Toolkit.app` runner through Homebrew if needed, copies the Apple GPTK 3 runtime from the mounted media, downloads `SteamSetup.exe`, and verifies the local pinned GPTK/Wine runtime path. Steam can be installed later with either the foreground `./install.zsh --install-steam` command or the app-style background `./install.zsh --install-steam-background` command. See [dependencies.md](dependencies.md), [gptk.md](gptk.md), and [steam.md](steam.md) for details.
 
 Install the local SwiftUI app from source with:
 

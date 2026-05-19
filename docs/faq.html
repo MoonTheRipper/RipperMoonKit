@@ -73,6 +73,9 @@
       <h2>Why install Visual C++ runtime per prefix?</h2>
       <p>Wine prefixes behave like separate Windows environments. Installing the runtime into the prefix that launches the game avoids many runtime popups and early exits.</p>
 
+      <h2>Why does source setup download SteamSetup but not always install Steam?</h2>
+      <p>Downloading SteamSetup.exe is safe and repeatable. Installing Windows Steam creates or modifies the Steam prefix. The guided app setup starts Steam installation in the background, moves to the finished screen, and closes Steam after validation. The source installer only installs Steam when requested with <code>./install.zsh --install-steam</code>.</p>
+
       <h2>Will updates delete saves?</h2>
       <p>Normal updates are designed to avoid saves, Wine prefixes, Steam data, games, and GPTK runtime folders. The installer backs up small toolkit files before replacing them.</p>
 

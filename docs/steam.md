@@ -13,10 +13,18 @@ The app and installer download `SteamSetup.exe` to:
 Install or repair Steam:
 
 ```zsh
-gptk-steam --install "$HOME/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe"
+gptk-steam --install-only --install "$HOME/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe"
 ```
 
-The install is considered successful only when `steam.exe` exists inside the Steam prefix. In the GUI, the Steam tile shows **Install Steam** until this validation passes, then changes to **Repair Steam**.
+The install is considered successful only when `steam.exe` exists inside the Steam prefix. The `--install-only` flag validates that file, applies the Steam compatibility settings, then stops Steam instead of launching the Steam UI. This keeps first-run setup from hanging while Steam updates itself.
+
+The guided app setup starts Steam installation in the background, then moves to the finished screen so the user can set game folders and cover art while Steam finishes. The Steam tile shows **Install Steam** until validation passes, then changes to **Repair Steam**. Open that Steam profile later when you are ready to sign in.
+
+From source, the matching background install command is:
+
+```zsh
+./install.zsh --install-steam-background
+```
 
 ## Start Steam
 

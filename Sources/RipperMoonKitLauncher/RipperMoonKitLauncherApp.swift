@@ -1958,7 +1958,7 @@ private struct GameDetailScreen: View {
                               title: model.steamReady ? "Repair Steam" : "Install Steam") {
                         model.installSteam()
                     }
-                    .help("Downloads SteamSetup.exe if needed, runs it in the Steam prefix, then validates that steam.exe exists.")
+                    .help("Downloads SteamSetup.exe if needed, starts Steam installation in the background, then validates that steam.exe exists.")
                 }
                 RMKButton(kind: .primary, icon: "gamecontroller.fill",
                           title: profile.isSteamApp ? "Launch Steam" : (profile.useModEngine == true ? "Launch Modded" : "Launch"),
@@ -2064,7 +2064,7 @@ private struct GameDetailScreen: View {
                     if profile.isSteamApp {
                         CommandPreview(title: model.steamReady ? "Repair Steam" : "Install Steam",
                                        command: model.previewInstallSteamCommand())
-                        .help("Runs the Steam installer in the Steam prefix and validates steam.exe after the installer exits.")
+                        .help("Starts Steam installation in the background and validates steam.exe when it appears.")
                     }
                     CommandPreview(title: profile.isSteamApp ? "Launch Steam" : "Launch From Steam",
                                    command: model.previewSteamManagedLaunchCommand(for: profile))
@@ -2793,7 +2793,11 @@ private struct SetupGuideView: View {
                 Text("You're all set")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Onyx.text)
-                Text("Every required piece is installed. The Mac is ready to reap — go play something.")
+                Text(model.steamReady
+                     ? "Steam is installed and RipperMoonKit is ready. Sign into Steam when a game needs it, then add copied Windows game folders and cover art."
+                     : model.steamInstallPending
+                     ? "RipperMoonKit is ready. Steam is installing in the background, so you can set game folders and cover art while it finishes."
+                     : "Core setup is ready. Install Steam from the Steam profile before Steam-dependent games, then add copied Windows game folders and cover art.")
                     .font(.system(size: 12.5))
                     .foregroundStyle(Onyx.textDim)
                     .multilineTextAlignment(.center)
@@ -2805,12 +2809,26 @@ private struct SetupGuideView: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("OPTIONAL — YOU MIGHT ALSO WANT TO:")
+                Text("NEXT STEPS")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Onyx.textMute)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                if !model.steamReady {
+                if model.steamReady {
+                    optionalCard(
+                        icon: "person.crop.circle.badge.checkmark",
+                        title: "Sign into Steam",
+                        detail: "Open the Steam profile when you need Steam, sign in, and keep it running for Steam-dependent games.",
+                        action: "Steam Profile"
+                    ) { model.goToSteamSetup() }
+                } else if model.steamInstallPending {
+                    optionalCard(
+                        icon: "clock.arrow.circlepath",
+                        title: "Steam is installing",
+                        detail: "Leave the background install alone. In the meantime, set paths, add game profiles, and add cover art.",
+                        action: "Steam Profile"
+                    ) { model.goToSteamSetup() }
+                } else {
                     optionalCard(
                         icon: "arrow.down.app.fill",
                         title: "Finish Steam setup",
@@ -2821,7 +2839,7 @@ private struct SetupGuideView: View {
                 optionalCard(
                     icon: "folder.fill",
                     title: "Set your games folder",
-                    detail: "Tell RipperMoonKit where your game files live so it can find and launch them.",
+                    detail: "Use a copied, already-installed Windows game folder. Do not point the app at installer files.",
                     action: "Settings"
                 ) { model.openSetupRelatedSettings() }
                 optionalCard(
@@ -3368,8 +3386,16 @@ private final class LauncherModel: ObservableObject {
         FileManager.default.fileExists(atPath: steamInstallerPath)
     }
 
+    var steamInstallPendingPath: String {
+        "\(config.gptkHome)/state/steam-install.pending"
+    }
+
     var steamReady: Bool {
         steamExecutableExists(in: steamProfile)
+    }
+
+    var steamInstallPending: Bool {
+        !steamReady && FileManager.default.fileExists(atPath: steamInstallPendingPath)
     }
 
     var setupChecks: [SetupCheck] {
@@ -3438,6 +3464,7 @@ private final class LauncherModel: ObservableObject {
         if !config.hasToolkitScripts || !config.exists { return "Install Toolkit" }
         if !config.hasLocalGPTK { return "Begin GPTK Install" }
         if !steamInstallerReady { return "Download Steam" }
+        if steamInstallPending { return "Steam Installing" }
         if !steamReady { return "Install Steam" }
         return "Refresh Setup"
     }
@@ -3854,6 +3881,9 @@ private final class LauncherModel: ObservableObject {
             config.hasGPTKInstallMedia ? beginGPTKInstall() : showGPTKDownloadStep(openBrowser: true)
         } else if !steamInstallerReady {
             downloadSteamInstaller()
+        } else if steamInstallPending {
+            reload()
+            commandOutput = "Steam is still installing in the background. You can set game folders and cover art while it finishes.\n"
         } else if !steamReady {
             installSteam()
         } else {
@@ -3914,9 +3944,12 @@ private final class LauncherModel: ObservableObject {
         }
 
         echo
-        echo "➡️  Step 3 of 3 — installing Windows Steam…"
+        echo "➡️  Step 3 of 3 — starting Windows Steam install in the background…"
         if [[ "$setup_status" -eq 0 ]]; then
-          ./install.zsh --install-steam || echo "⚠️  Steam step incomplete — install it later from the Steam profile."
+          echo "    Steam can take several minutes, but you do not need to wait here."
+          echo "    RipperMoonKit will move on while Steam installs in the background."
+          echo "    In the meantime, set your game folders and cover art API from the app."
+          ./install.zsh --install-steam-background || echo "⚠️  Steam background install did not start — use the Steam profile's Install Steam action later."
         else
           echo "⏭️  Skipping Steam until the required toolkit pieces are installed."
         fi
@@ -3945,7 +3978,7 @@ private final class LauncherModel: ObservableObject {
     func installSteam() {
         runShell(
             title: steamReady ? "Repair Steam Install" : "Install Steam",
-            command: "\(toolkitSourceBootstrapCommand)\n./install.zsh --no-homebrew-bootstrap --skip-gptk --install-steam",
+            command: "\(toolkitSourceBootstrapCommand)\n./install.zsh --no-homebrew-bootstrap --skip-gptk --install-steam-background",
             completion: { [weak self] in self?.reload() }
         )
     }
@@ -4325,7 +4358,7 @@ private final class LauncherModel: ObservableObject {
     }
 
     func previewInstallSteamCommand() -> String {
-        "\(toolkitSourceBootstrapCommand)\n./install.zsh --no-homebrew-bootstrap --skip-gptk --install-steam"
+        "\(toolkitSourceBootstrapCommand)\n./install.zsh --no-homebrew-bootstrap --skip-gptk --install-steam-background"
     }
 
     func previewStopSteamCommand() -> String {

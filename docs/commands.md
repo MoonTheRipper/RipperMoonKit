@@ -14,6 +14,12 @@ Install Windows Steam during bootstrap:
 ./install.zsh --install-steam
 ```
 
+Start Windows Steam installation in the background during app-style setup:
+
+```zsh
+./install.zsh --install-steam-background
+```
+
 Use a specific mounted GPTK source:
 
 ```zsh
@@ -127,8 +133,10 @@ gptk-launch --prefix MyGame --no-esync -- ./MyGame.exe
 Install Steam:
 
 ```zsh
-gptk-steam --install "$GPTK_EXTERNAL_ROOT/Installers/SteamSetup.exe"
+gptk-steam --install-only --install "$GPTK_EXTERNAL_ROOT/Installers/SteamSetup.exe"
 ```
+
+Use `--install-only` during setup so Steam is validated and then closed instead of launched.
 
 Start Steam:
 

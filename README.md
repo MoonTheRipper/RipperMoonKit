@@ -148,6 +148,14 @@ Install Windows Steam during bootstrap:
 ./install.zsh --install-steam
 ```
 
+That foreground command validates Steam and closes it after install. Open the Steam profile later when you are ready to sign in.
+
+For app-style first-run setup, start Steam in the background so users can configure game folders and cover art while Steam finishes:
+
+```zsh
+./install.zsh --install-steam-background
+```
+
 See [docs/commands.md](docs/commands.md) for the full command reference.
 
 Run the SwiftUI launcher:

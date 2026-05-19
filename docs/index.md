@@ -5,13 +5,13 @@ Use this page as the grouped navigation map for RipperMoonKit. The GitHub Pages 
 <details open>
 <summary><strong>First-Time Setup</strong></summary>
 
-1. [normal-user-guide.md](normal-user-guide.md): easiest DMG-first setup path.
+1. [normal-user-guide.md](normal-user-guide.md): easiest DMG-first setup path, including GPTK and background Steam installation.
 2. [quickstart.md](quickstart.md): shortest working install path.
 3. [installation.md](installation.md): DMG install and source install paths.
 4. [gptk.md](gptk.md): downloading GPTK 3 from Apple, mounting it, and letting the installer copy it locally.
 5. [setup.md](setup.md): first-time setup and path model.
 6. [dependencies.md](dependencies.md): installer bootstrap behavior and logs.
-7. [steam.md](steam.md): Windows Steam install and launch flow.
+7. [steam.md](steam.md): Windows Steam foreground/background install and launch flow.
 8. [commands.md](commands.md): command reference.
 
 </details>
