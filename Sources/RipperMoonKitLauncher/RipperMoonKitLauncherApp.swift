@@ -26,10 +26,20 @@ private enum SidebarSelection: Hashable {
     case settings
 }
 
-private let rmkAppVersion: String =
-    (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.0"
+private let rmkAppVersion: String = resolvedRipperMoonKitVersion()
 
 private let rmkRepositoryURL = "https://github.com/MoonTheRipper/RipperMoonKit.git"
+
+private func resolvedRipperMoonKitVersion() -> String {
+    let bundledVersion = Bundle.main.bundleURL
+        .appendingPathComponent("Contents/Resources/toolkit/VERSION")
+    if let raw = try? String(contentsOf: bundledVersion, encoding: .utf8) {
+        let version = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !version.isEmpty { return version }
+    }
+
+    return (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.0"
+}
 
 private struct UpdateNotice: Identifiable, Equatable {
     let version: String
@@ -4052,13 +4062,35 @@ private final class LauncherModel: ObservableObject {
     }
 
     func updateFromGitHub() {
+        let source = toolkitSourceFolder.shellQuoted
+        let repo = rmkRepositoryURL.shellQuoted
         let command = """
         \(toolkitSourceBootstrapCommand)
-        if [[ -d .git ]]; then
+        src=\(source)
+        repo=\(repo)
+        if [[ -d "$src/.git" ]]; then
+          cd "$src"
           git fetch --tags origin && \
           if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then git pull --ff-only origin main; else echo "Already up to date."; fi
         else
-          echo "Toolkit source exists without Git metadata; using installed source as-is."
+          echo "Toolkit source has no Git metadata; replacing it with a fresh GitHub checkout."
+          parent="$(dirname "$src")"
+          stamp="$(date +%Y%m%d-%H%M%S)"
+          mkdir -p "$parent"
+          rm -rf "$src.update" "$src.update.zip"
+          if git --version >/dev/null 2>&1; then
+            git clone --depth 1 "$repo" "$src.update"
+          else
+            curl -fL "https://github.com/MoonTheRipper/RipperMoonKit/archive/refs/heads/main.zip" -o "$src.update.zip"
+            unzip -q "$src.update.zip" -d "$parent"
+            mv "$parent/RipperMoonKit-main" "$src.update"
+            rm -f "$src.update.zip"
+          fi
+          if [[ -e "$src" ]]; then
+            mv "$src" "$src.previous-$stamp"
+          fi
+          mv "$src.update" "$src"
+          cd "$src"
         fi
         ./install.zsh --skip-deps && \
         zsh scripts/install-gui-app.zsh

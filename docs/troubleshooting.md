@@ -6,6 +6,12 @@ Download the newest DMG from GitHub releases first. Older packages before `v1.2.
 
 If the newest DMG still fails, remove the old copy from Applications, drag the app from the DMG into Applications again, then open **System Settings > Privacy & Security** and allow the app if macOS asks. RipperMoonKit is ad-hoc signed for now, not Apple Developer ID notarized.
 
+## Update Banner Still Appears After Updating
+
+If the app says an update is available, runs **Update From GitHub**, relaunches, and still shows the same update, install the newest DMG from GitHub releases.
+
+The `v1.2.13.1` app could rebuild from its bundled support source when the local support folder was not a Git checkout. That made the app relaunch the old build even though GitHub had a newer release. `v1.2.13.2` fixes this by replacing a non-Git support source with a fresh GitHub checkout before rebuilding, and by reading the installed app version from the bundled `VERSION` file.
+
 ## Steam Starts But Webhelper Times Out
 
 Repair Steam compatibility:
