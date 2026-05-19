@@ -85,6 +85,13 @@ struct GameProfile: Codable, Identifiable, Hashable {
         isSteamApp || isSteamLibraryGame
     }
 
+    var isGodOfWarRagnarok: Bool {
+        prefix.localizedCaseInsensitiveCompare("GOWR") == .orderedSame ||
+            executable.localizedCaseInsensitiveContains("gowr.exe") ||
+            name.localizedCaseInsensitiveContains("god of war ragnarok") ||
+            name.localizedCaseInsensitiveContains("god of war ragnarök")
+    }
+
     var isRequiredLibraryProfile: Bool {
         isSteamApp
     }
@@ -101,6 +108,41 @@ struct GameProfile: Codable, Identifiable, Hashable {
             repaired.requiresSteam = false
             repaired.requiredFiles = []
             repaired.systemImage = "square.grid.2x2.fill"
+            return repaired
+        }
+
+        if isGodOfWarRagnarok {
+            var repaired = self
+            let patchedRunner = "\(config.gptkHome)/runners/gptk-dsound-nocap-20260513"
+            let patchedRunnerExists = FileManager.default.isExecutableFile(atPath: "\(patchedRunner)/bin/wine64")
+            let runner = repaired.runnerPath.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            repaired.prefix = "GOWR"
+            repaired.executable = repaired.executable.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "GoWR.exe" : repaired.executable
+            repaired.winver = "win10"
+            repaired.requiresSteam = false
+            repaired.noDXR = true
+            repaired.noEsync = true
+            repaired.avx = true
+            repaired.metalFX = true
+            repaired.nativeWinmm = false
+            repaired.nativeSteamAPI = false
+            repaired.systemImage = repaired.systemImage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "app.fill" : repaired.systemImage
+
+            if patchedRunnerExists, runner.isEmpty || !FileManager.default.isExecutableFile(atPath: "\(runner)/bin/wine64") {
+                repaired.runnerPath = patchedRunner
+            }
+
+            let gameInputOverride = "GameInput=n"
+            let currentOverride = repaired.extraDllOverrides?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let hasGameInputOverride = currentOverride
+                .split(separator: ";")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+                .contains(gameInputOverride.lowercased())
+            if !hasGameInputOverride {
+                repaired.extraDllOverrides = currentOverride.isEmpty ? gameInputOverride : "\(currentOverride);\(gameInputOverride)"
+            }
+
             return repaired
         }
 
