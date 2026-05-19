@@ -12,6 +12,8 @@ If the app says an update is available, runs **Update From GitHub**, relaunches,
 
 The `v1.2.13.1` app could rebuild from its bundled support source when the local support folder was not a Git checkout. That made the app relaunch the old build even though GitHub had a newer release. `v1.2.13.2` and newer fix this by replacing a non-Git support source with a fresh GitHub checkout before rebuilding, and by reading the installed app version from the bundled `VERSION` file.
 
+If the banner still returns after an update, check for multiple app copies. Older updater builds could install the rebuilt app into `~/Applications` while relaunching the old copy from `/Applications` or a mounted DMG. `v1.2.15` and newer update the currently running app path when possible, and only fall back to `~/Applications` when the app is running from a mounted DMG.
+
 ## Steam Starts But Webhelper Times Out
 
 Repair Steam compatibility:

@@ -4064,6 +4064,8 @@ private final class LauncherModel: ObservableObject {
     func updateFromGitHub() {
         let source = toolkitSourceFolder.shellQuoted
         let repo = rmkRepositoryURL.shellQuoted
+        let installPath = updateInstallPath()
+        let installTarget = installPath.shellQuoted
         let command = """
         \(toolkitSourceBootstrapCommand)
         src=\(source)
@@ -4093,13 +4095,13 @@ private final class LauncherModel: ObservableObject {
           cd "$src"
         fi
         ./install.zsh --skip-deps && \
-        zsh scripts/install-gui-app.zsh
+        zsh scripts/install-gui-app.zsh \(installTarget)
         """
         runShell(
             title: "Update From GitHub",
             command: command,
             completion: { [weak self] in self?.reload() },
-            successCompletion: { [weak self] in self?.relaunchAfterUpdate() }
+            successCompletion: { [weak self] in self?.relaunchAfterUpdate(appPath: installPath) }
         )
     }
 
@@ -5069,8 +5071,19 @@ private final class LauncherModel: ObservableObject {
         }
     }
 
-    private func relaunchAfterUpdate() {
+    private func updateInstallPath() -> String {
         let bundleURL = Bundle.main.bundleURL
+        guard bundleURL.pathExtension == "app" else {
+            return "\(NSHomeDirectory())/Applications/RipperMoonKit Launcher.app"
+        }
+        if bundleURL.path.hasPrefix("/Volumes/") {
+            return "\(NSHomeDirectory())/Applications/RipperMoonKit Launcher.app"
+        }
+        return bundleURL.path
+    }
+
+    private func relaunchAfterUpdate(appPath: String) {
+        let bundleURL = URL(fileURLWithPath: appPath)
         guard bundleURL.pathExtension == "app" else {
             commandOutput += "\nUpdate installed. Relaunch is only automatic from the packaged .app.\n"
             return
