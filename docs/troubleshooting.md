@@ -10,7 +10,7 @@ If the newest DMG still fails, remove the old copy from Applications, drag the a
 
 If the app says an update is available, runs **Update From GitHub**, relaunches, and still shows the same update, install the newest DMG from GitHub releases.
 
-The `v1.2.13.1` app could rebuild from its bundled support source when the local support folder was not a Git checkout. That made the app relaunch the old build even though GitHub had a newer release. `v1.2.13.2` fixes this by replacing a non-Git support source with a fresh GitHub checkout before rebuilding, and by reading the installed app version from the bundled `VERSION` file.
+The `v1.2.13.1` app could rebuild from its bundled support source when the local support folder was not a Git checkout. That made the app relaunch the old build even though GitHub had a newer release. `v1.2.13.2` and newer fix this by replacing a non-Git support source with a fresh GitHub checkout before rebuilding, and by reading the installed app version from the bundled `VERSION` file.
 
 ## Steam Starts But Webhelper Times Out
 
