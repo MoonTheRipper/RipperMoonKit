@@ -256,6 +256,20 @@ a { color: inherit; }
   font-weight: 580;
 }
 
+/* Doc-nav toggle: hidden on desktop — the tree is always open there.
+   On small screens it becomes a tap-to-open menu (see media query below). */
+.doc-tree-switch {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  opacity: 0;
+}
+
+.doc-tree-toggle {
+  display: none;
+}
+
 /* ── Content ─────────────────────────────────────────────────────────────── */
 .content {
   min-width: 0;
@@ -644,12 +658,46 @@ figcaption {
     z-index: 10;
     display: grid;
     gap: 4px;
-    max-height: min(52vh, 440px);
+    max-height: none;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
     margin-top: 18px;
     padding: 10px;
     scrollbar-width: thin;
+  }
+
+  .doc-tree-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 38px;
+    padding: 0 12px;
+    border-radius: 11px;
+    color: var(--text);
+    background: var(--surface-2);
+    font-size: 0.78rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .doc-tree-toggle::after {
+    content: "›";
+    color: var(--accent);
+    font-size: 18px;
+    transform: rotate(90deg);
+    transition: transform 0.14s ease;
+  }
+
+  .doc-tree-switch:not(:checked) ~ details {
+    display: none;
+  }
+
+  .doc-tree-switch:not(:checked) + .doc-tree-toggle::after {
+    transform: rotate(0deg);
+  }
+
+  .doc-tree:has(.doc-tree-switch:checked) {
+    max-height: min(62vh, 520px);
   }
 
   .doc-tree details {
