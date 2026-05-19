@@ -18,7 +18,7 @@ https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMo
 ```
 
 2. Open the DMG.
-3. Drag **RipperMoonKit Launcher.app** into **Applications**, or into your user Applications folder.
+3. Run **Install to My Applications.command**, or copy **RipperMoonKit Launcher.app** into your user Applications folder.
 4. Open the app.
 5. Follow first-run setup prompts and click **Set Up RipperMoonKit**.
 
@@ -34,7 +34,15 @@ The app can guide the first-run setup, create or update its own source clone in 
 
 ## After Installing The App
 
-After dragging **RipperMoonKit Launcher.app** into Applications, the user should:
+RipperMoonKit is designed to be installed per user:
+
+```text
+~/Applications/RipperMoonKit Launcher.app
+```
+
+Do not put the app in `/Applications` unless you intentionally want a system-wide copy. Per-user installs keep separate macOS test accounts isolated and avoid stale copies during updates.
+
+After installing **RipperMoonKit Launcher.app** into `~/Applications`, the user should:
 
 1. Open **RipperMoonKit Launcher.app**.
 2. If macOS blocks it, allow it in **System Settings > Privacy & Security**, then open it again.

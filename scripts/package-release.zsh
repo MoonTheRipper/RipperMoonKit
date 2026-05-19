@@ -161,7 +161,50 @@ if command -v codesign >/dev/null 2>&1; then
 fi
 
 log "💿" "Creating DMG."
-ln -s /Applications "${work_dir}/Applications"
+installer="${work_dir}/Install to My Applications.command"
+cat > "${installer}" <<'INSTALLER'
+#!/bin/zsh
+set -e
+
+app_name="RipperMoonKit Launcher.app"
+source_app="${0:A:h}/${app_name}"
+target_dir="${HOME}/Applications"
+target_app="${target_dir}/${app_name}"
+stamp="$(date +%Y%m%d-%H%M%S)"
+
+if [[ ! -d "${source_app}" ]]; then
+  echo "RipperMoonKit app was not found next to this installer."
+  exit 1
+fi
+
+mkdir -p "${target_dir}" "${HOME}/GPTK/backups"
+
+if [[ -d "${target_app}" ]]; then
+  backup="${HOME}/GPTK/backups/gui-app-manual-${stamp}.noindex/${app_name}.backup"
+  mkdir -p "${backup:h}"
+  ditto "${target_app}" "${backup}"
+  rm -rf "${target_app}"
+  echo "Backed up existing app to:"
+  echo "${backup}"
+fi
+
+ditto "${source_app}" "${target_app}"
+open "${target_app}"
+echo "Installed RipperMoonKit for this user:"
+echo "${target_app}"
+INSTALLER
+chmod +x "${installer}"
+
+cat > "${work_dir}/README-FIRST.txt" <<'README'
+RipperMoonKit is designed as a per-user app.
+
+Use "Install to My Applications.command" or copy "RipperMoonKit Launcher.app" to:
+
+~/Applications
+
+Do not install it into /Applications unless you intentionally want a system-wide copy. User-scoped installs keep test users isolated and avoid stale app copies during updates.
+README
+
 hdiutil create \
   -volname "RipperMoonKit ${version}" \
   -srcfolder "${work_dir}" \

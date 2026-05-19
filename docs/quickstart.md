@@ -22,11 +22,19 @@ Leave it mounted while running the installer. If it contains a nested **Evaluati
 
 ## 2. Choose Install Method
 
-For the macOS app first, download the latest DMG, open it, and drag **RipperMoonKit Launcher.app** into Applications:
+For the macOS app first, download the latest DMG, open it, and run **Install to My Applications.command** or copy **RipperMoonKit Launcher.app** into your user Applications folder:
 
 ```text
 https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg
 ```
+
+The app should be installed here:
+
+```text
+~/Applications/RipperMoonKit Launcher.app
+```
+
+Do not install it into `/Applications` unless you intentionally want every macOS user on the machine to share the same app copy.
 
 Open the app and follow the first-run setup prompts.
 

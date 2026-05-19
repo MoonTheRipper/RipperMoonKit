@@ -65,13 +65,14 @@
       <ol>
         <li>Download the latest <a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">RipperMoonKit Launcher DMG</a>.</li>
         <li>Open the DMG.</li>
-        <li>Drag <strong>RipperMoonKit Launcher.app</strong> into <strong>Applications</strong>, or into your user Applications folder.</li>
+        <li>Run <strong>Install to My Applications.command</strong>, or copy <strong>RipperMoonKit Launcher.app</strong> into your user Applications folder.</li>
         <li>Open the app. If macOS warns that it is from the internet, use <strong>System Settings &gt; Privacy &amp; Security</strong> to allow it.</li>
         <li>Follow the first-run setup prompts and click <strong>Set Up RipperMoonKit</strong>. The app can prepare its own source clone, guide you to GPTK, install helper scripts, and prepare local folders.</li>
       </ol>
 
       <h2>After Installing The App</h2>
-      <p>After the app is in Applications, the first job is to let RipperMoonKit prepare the local GPTK/Wine environment. The DMG only installs RipperMoonKit; it does not bundle Apple GPTK, Steam, games, saves, or mods.</p>
+      <p>RipperMoonKit is designed as a per-user app. Install it to <code>~/Applications/RipperMoonKit Launcher.app</code>, not <code>/Applications</code>, unless you intentionally want a system-wide copy. Per-user installs keep separate macOS test accounts isolated and avoid stale copies during updates.</p>
+      <p>After the app is in your user Applications folder, the first job is to let RipperMoonKit prepare the local GPTK/Wine environment. The DMG only installs RipperMoonKit; it does not bundle Apple GPTK, Steam, games, saves, or mods.</p>
       <ol>
         <li>Open <strong>RipperMoonKit Launcher.app</strong>.</li>
         <li>If macOS blocks it, allow it in <strong>System Settings &gt; Privacy &amp; Security</strong>, then open it again.</li>

@@ -78,7 +78,7 @@ For the app-first install, download the latest DMG:
 https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg
 ```
 
-Open the DMG, drag **RipperMoonKit Launcher.app** into Applications, then open it. The first-run setup can guide the GPTK download/mount step and install the local helper scripts.
+Open the DMG, run **Install to My Applications.command** or copy **RipperMoonKit Launcher.app** into `~/Applications`, then open it. The first-run setup can guide the GPTK download/mount step and install the local helper scripts. RipperMoonKit is intentionally user-scoped; avoid `/Applications` unless you want a system-wide copy.
 
 After GPTK and the required local runner are verified, the app starts Windows Steam installation in the background. The setup screen can move to **You're all set** while Steam continues, so users can configure paths, add copied game folders, and add a TheGamesDB cover-art API key instead of waiting on Steam updates.
 

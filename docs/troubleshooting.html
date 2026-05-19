@@ -61,12 +61,12 @@
 
       <h2>macOS Says The App Is Damaged Or Cannot Be Opened</h2>
       <p>Download the newest DMG from GitHub releases first. Older packages before <code>v1.2.3</code> could contain an app bundle whose internal resources were not sealed correctly, so a fresh macOS user account could reject the app even when the developer account opened it.</p>
-      <p>If the newest DMG still fails, remove the old copy from Applications, drag the app from the DMG into Applications again, then open <strong>System Settings &gt; Privacy &amp; Security</strong> and allow the app if macOS asks. RipperMoonKit is ad-hoc signed for now, not Apple Developer ID notarized.</p>
+      <p>If the newest DMG still fails, remove the old copy from <code>~/Applications</code>, reinstall from the DMG with <strong>Install to My Applications.command</strong>, then open <strong>System Settings &gt; Privacy &amp; Security</strong> and allow the app if macOS asks. RipperMoonKit is ad-hoc signed for now, not Apple Developer ID notarized.</p>
 
       <h2>Update Banner Still Appears After Updating</h2>
       <p>If the app says an update is available, runs <strong>Update From GitHub</strong>, relaunches, and still shows the same update, install the newest DMG from GitHub releases.</p>
       <p>The <code>v1.2.13.1</code> app could rebuild from its bundled support source when the local support folder was not a Git checkout. That made the app relaunch the old build even though GitHub had a newer release. <code>v1.2.13.2</code> and newer fix this by replacing a non-Git support source with a fresh GitHub checkout before rebuilding, and by reading the installed app version from the bundled <code>VERSION</code> file.</p>
-      <p>If the banner still returns after an update, check for multiple app copies. Older updater builds could install the rebuilt app into <code>~/Applications</code> while relaunching the old copy from <code>/Applications</code> or a mounted DMG. <code>v1.2.15</code> and newer update the currently running app path when possible, and only fall back to <code>~/Applications</code> when the app is running from a mounted DMG.</p>
+      <p>If the banner still returns after an update, check for multiple app copies. Older updater builds could install the rebuilt app into <code>~/Applications</code> while relaunching the old copy from <code>/Applications</code> or a mounted DMG. <code>v1.2.16</code> and newer always install launcher updates to <code>~/Applications/RipperMoonKit Launcher.app</code>. Remove stale <code>/Applications</code> copies so Spotlight opens the user-scoped app.</p>
 
       <h2>GPTK Shows Missing</h2>
       <p>Make sure Game Porting Toolkit is installed or mounted. The launcher accepts configured GPTK paths, the Apple app in <code>/Applications</code>, and patched runners under <code>$GPTK_HOME/runners</code>.</p>

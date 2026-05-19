@@ -20,7 +20,7 @@ Apple GPTK must be downloaded from Apple. Steam is installed by the guided setup
 
 1. Download the latest RipperMoonKit DMG.
 2. Open the DMG.
-3. Drag **RipperMoonKit Launcher.app** into **Applications**.
+3. Run **Install to My Applications.command**, or copy **RipperMoonKit Launcher.app** into `~/Applications`.
 4. Open **RipperMoonKit Launcher.app**.
 5. If macOS blocks the app, open **System Settings > Privacy & Security**, allow the app, then open it again.
 6. Follow the first-run setup guide and click **Set Up RipperMoonKit**.
@@ -41,6 +41,8 @@ Apple GPTK must be downloaded from Apple. Steam is installed by the guided setup
 21. For Elden Ring ERSC or other co-op Steamworks test paths, open the **Steam** profile and click **Install Spacewar** once.
 22. Wait for Steam to finish AppID 480 / Spacewar setup, then close Spacewar.
 23. Click **Launch** on the game profile.
+
+RipperMoonKit should be installed per user at `~/Applications/RipperMoonKit Launcher.app`. Avoid `/Applications` unless you intentionally want a system-wide copy. User-scoped installs keep test users clean and prevent one stale app from affecting another account.
 
 ## If GPTK Setup Stops At The Nested Image
 

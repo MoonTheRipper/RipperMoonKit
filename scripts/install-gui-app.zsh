@@ -13,6 +13,10 @@ if [[ -r "${config}" ]]; then
   source "${config}"
 fi
 
+if [[ "${app_path}" == /Applications/* ]]; then
+  app_path="${HOME}/Applications/RipperMoonKit Launcher.app"
+fi
+
 GPTK_HOME="${GPTK_HOME:-${HOME}/GPTK}"
 GPTK_LOG_DIR="${GPTK_LOG_DIR:-${GPTK_HOME}/logs}"
 mkdir -p "${GPTK_LOG_DIR}" "${GPTK_HOME}/backups" "${app_path:h}"

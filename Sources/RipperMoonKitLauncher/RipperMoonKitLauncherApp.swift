@@ -5072,14 +5072,7 @@ private final class LauncherModel: ObservableObject {
     }
 
     private func updateInstallPath() -> String {
-        let bundleURL = Bundle.main.bundleURL
-        guard bundleURL.pathExtension == "app" else {
-            return "\(NSHomeDirectory())/Applications/RipperMoonKit Launcher.app"
-        }
-        if bundleURL.path.hasPrefix("/Volumes/") {
-            return "\(NSHomeDirectory())/Applications/RipperMoonKit Launcher.app"
-        }
-        return bundleURL.path
+        "\(NSHomeDirectory())/Applications/RipperMoonKit Launcher.app"
     }
 
     private func relaunchAfterUpdate(appPath: String) {

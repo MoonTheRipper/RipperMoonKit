@@ -63,11 +63,19 @@ Read [docs/normal-user-guide.md](docs/normal-user-guide.md) first if you install
 
 Short version:
 
-For the app-first path, download the latest DMG, open it, and drag **RipperMoonKit Launcher.app** into Applications:
+For the app-first path, download the latest DMG, open it, and run **Install to My Applications.command** or copy **RipperMoonKit Launcher.app** into your user Applications folder:
 
 ```text
 https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg
 ```
+
+The app should live here:
+
+```text
+~/Applications/RipperMoonKit Launcher.app
+```
+
+Do not install RipperMoonKit into `/Applications` unless you intentionally want a system-wide copy. Per-user installs keep test accounts isolated and avoid stale app copies during updates.
 
 Then open the app and follow the first-run setup:
 
