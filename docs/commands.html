@@ -36,6 +36,7 @@
       <details open>
         <summary>Game Workflows</summary>
         <a href="elden-ring.html">Elden Ring ERSC</a>
+        <a href="native-steam-installs.html">Native Steam Installs</a>
         <a href="reframework.html">REFramework Plan</a>
         <a href="ersc-esync-file-descriptor-fix-2026-05-16.html">ERSC Esync Fix</a>
       </details>
@@ -78,6 +79,15 @@ gptk-steam --kill</code></pre>
       <h2>Install Spacewar / AppID 480</h2>
       <p>Run this once from the Steam prefix when a co-op Steamworks test path needs Spacewar initialized. Let Steam finish installing Spacewar, then close Spacewar before launching the game profile.</p>
       <pre><code>gptk-steam --log --install-spacewar</code></pre>
+
+      <h2>Probe A Failing Steam Install</h2>
+      <p>Run this while Steam is downloading or after it reports a corrupt download. The probe records manifest, staged depot, disk, and Steam content-log state.</p>
+      <pre><code>gptk-steam-probe --appid APPID --library "$GPTK_STEAM_LIBRARY"
+gptk-steam-probe --appid 1196590 --depot 1196591 --library /Volumes/GAMECORE-1/SteamLibrary</code></pre>
+
+      <h2>Download Windows Content With SteamCMD</h2>
+      <p>Use this fallback when Windows Steam under GPTK repeatedly fails during depot unpack/staging. SteamCMD may ask for your password and Steam Guard code in Terminal.</p>
+      <pre><code>gptk-steamcmd --appid APPID --login USERNAME --target-root /Volumes/GAMECORE-1/SteamCMDLibrary</code></pre>
 
       <h2>Run A Game</h2>
       <pre><code>cd "$GPTK_EXTERNAL_ROOT/Games/MyGame"

@@ -1,0 +1,13 @@
+#!/bin/zsh
+
+set -e
+
+SCRIPT_DIR="${0:A:h}"
+script="${HOME}/GPTK/scripts/steam-install-probe.zsh"
+[[ -x "${script}" ]] || script="${SCRIPT_DIR:h}/scripts/steam-install-probe.zsh"
+[[ -x "${script}" ]] || {
+  print -u2 -- "gptk: steam install probe script not found"
+  exit 1
+}
+
+exec zsh "${script}" "$@"

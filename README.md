@@ -49,6 +49,8 @@ The screenshots show the launcher profile and a live Elden Ring GPTK run. See [d
 - `gptk-vcrun`: downloads and installs Microsoft Visual C++ runtimes into Wine prefixes.
 - `gptk-dotnet6`: downloads and installs Microsoft .NET 6 Desktop Runtime into Wine prefixes for tools like Elden Ring Randomizer.
 - `gptk-stubs`: cross-compiles and installs minimal stub DLLs for Wine/GPTK missing APIs (GameInput, etc.) so delay-load crashes are resolved without touching game files.
+- `gptk-steam-probe`: records Steam install/depot state when the Windows Steam client fails during download, unpack, or staging.
+- `gptk-steamcmd`: experimental native SteamCMD fallback for downloading Windows-platform SteamPipe content when the Windows Steam GUI fails under GPTK/Wine.
 - Dynamic path configuration through `~/.rippermoon-gptk.env`.
 - Configurable Wine drive mappings with any letters except `C:`.
 - Installer bootstrap with timestamped logs.
@@ -165,6 +167,20 @@ For app-style first-run setup, start Steam in the background so users can config
 ```
 
 See [docs/commands.md](docs/commands.md) for the full command reference.
+
+Probe a failing Steam GUI install:
+
+```zsh
+gptk-steam-probe --appid APPID --library "$GPTK_STEAM_LIBRARY"
+```
+
+Try the native SteamCMD Windows-content fallback:
+
+```zsh
+gptk-steamcmd --appid APPID --login USERNAME --target-root /Volumes/GAMECORE-1/SteamCMDLibrary
+```
+
+See [docs/native-steam-installs.md](docs/native-steam-installs.md).
 
 Run the SwiftUI launcher:
 

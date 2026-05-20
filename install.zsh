@@ -169,6 +169,7 @@ GPTK_PREFIX_ROOT="${GPTK_PREFIX_ROOT:-${HOME}/WinePrefixes}"
 GPTK_GAMES_ROOT="${GPTK_GAMES_ROOT:-${HOME}/Games}"
 GPTK_EXTERNAL_ROOT="${GPTK_EXTERNAL_ROOT:-${HOME}/Library/Application Support/RipperMoonKit}"
 GPTK_STEAM_LIBRARY="${GPTK_STEAM_LIBRARY:-${GPTK_EXTERNAL_ROOT}/SteamLibrary}"
+GPTK_STEAMCMD_LIBRARY="${GPTK_STEAMCMD_LIBRARY:-${GPTK_EXTERNAL_ROOT}/SteamCMDLibrary}"
 GPTK_APP_PATH="${GPTK_APP_PATH:-${GPTK_HOME}/apps/Game Porting Toolkit.app}"
 GPTK_RUNTIME="${GPTK_RUNTIME:-${GPTK_HOME}/runtime}"
 GPTK_WINE_HOME="${GPTK_WINE_HOME:-${GPTK_APP_PATH}/Contents/Resources/wine}"
@@ -297,9 +298,13 @@ write_backup_readme() {
     print -r -- "- ${install_bin}/gptk-vcrun"
     print -r -- "- ${install_bin}/gptk-dotnet6"
     print -r -- "- ${install_bin}/gptk-stubs"
+    print -r -- "- ${install_bin}/gptk-steam-probe"
+    print -r -- "- ${install_bin}/gptk-steamcmd"
     print -r -- "- ${install_libexec}/gptk-common.zsh"
     print -r -- "- ${install_scripts}/install-elden-mod-pack.zsh"
     print -r -- "- ${install_scripts}/elden-mod-state.zsh"
+    print -r -- "- ${install_scripts}/steam-install-probe.zsh"
+    print -r -- "- ${install_scripts}/steamcmd-windows-install.zsh"
     print -r -- ""
     print -r -- "Files listed in absent.tsv did not exist before the update and are removed during rollback if the update created them."
     print -r -- ""
@@ -332,15 +337,20 @@ create_backup() {
   backup_restore_path "${install_bin}/gptk-vcrun" "home/bin/gptk-vcrun" "VC++ runtime helper"
   backup_restore_path "${install_bin}/gptk-dotnet6" "home/bin/gptk-dotnet6" ".NET 6 Desktop Runtime helper"
   backup_restore_path "${install_bin}/gptk-stubs" "home/bin/gptk-stubs" "API stubs helper"
+  backup_restore_path "${install_bin}/gptk-steam-probe" "home/bin/gptk-steam-probe" "Steam install probe helper"
+  backup_restore_path "${install_bin}/gptk-steamcmd" "home/bin/gptk-steamcmd" "SteamCMD Windows install helper"
   backup_restore_path "${install_libexec}/gptk-common.zsh" "gptk/libexec/gptk-common.zsh" "shared helper library"
   backup_restore_path "${install_scripts}/install-elden-mod-pack.zsh" "gptk/scripts/install-elden-mod-pack.zsh" "Elden Ring mod profile helper"
   backup_restore_path "${install_scripts}/elden-mod-state.zsh" "gptk/scripts/elden-mod-state.zsh" "Elden Ring mod backup/import helper"
+  backup_restore_path "${install_scripts}/steam-install-probe.zsh" "gptk/scripts/steam-install-probe.zsh" "Steam install probe script"
+  backup_restore_path "${install_scripts}/steamcmd-windows-install.zsh" "gptk/scripts/steamcmd-windows-install.zsh" "SteamCMD Windows install script"
 
   record_protected_path "Wine prefix root" "${GPTK_PREFIX_ROOT}"
   record_protected_path "Game script root" "${GPTK_GAMES_ROOT}"
   record_protected_path "External storage root" "${GPTK_EXTERNAL_ROOT}"
   record_protected_path "External games root" "${GPTK_EXTERNAL_ROOT}/Games"
   record_protected_path "Steam library" "${GPTK_STEAM_LIBRARY}"
+  record_protected_path "SteamCMD Windows install library" "${GPTK_STEAMCMD_LIBRARY}"
   record_protected_path "GPTK app" "${GPTK_APP_PATH}"
   record_protected_path "GPTK runtime" "${GPTK_RUNTIME}"
 
@@ -425,10 +435,14 @@ rollback_backup() {
         "${HOME:A}/bin/gptk-vcrun"|\
         "${HOME:A}/bin/gptk-dotnet6"|\
         "${HOME:A}/bin/gptk-stubs"|\
+        "${HOME:A}/bin/gptk-steam-probe"|\
+        "${HOME:A}/bin/gptk-steamcmd"|\
         "${HOME:A}/.zshrc"|\
         "${GPTK_HOME:A}/libexec/gptk-common.zsh"|\
         "${GPTK_HOME:A}/scripts/install-elden-mod-pack.zsh"|\
-        "${GPTK_HOME:A}/scripts/elden-mod-state.zsh")
+        "${GPTK_HOME:A}/scripts/elden-mod-state.zsh"|\
+        "${GPTK_HOME:A}/scripts/steam-install-probe.zsh"|\
+        "${GPTK_HOME:A}/scripts/steamcmd-windows-install.zsh")
           rm -rf "${destination}"
           log "✅" "Removed file that did not exist before backup: ${destination}"
           ;;
@@ -559,7 +573,7 @@ ensure_directories() {
   mkdir -p "${install_bin}" "${install_libexec}" "${install_scripts}" "${GPTK_LOG_DIR}" "${GPTK_PREFIX_ROOT}" "${GPTK_GAMES_ROOT}" "${GPTK_HOME}/apps" "${GPTK_RUNTIME}"
 
   if [[ -d "${GPTK_EXTERNAL_ROOT}" ]]; then
-    mkdir -p "${GPTK_EXTERNAL_ROOT}/Games" "${GPTK_EXTERNAL_ROOT}/Installers" "${GPTK_STEAM_LIBRARY}"
+    mkdir -p "${GPTK_EXTERNAL_ROOT}/Games" "${GPTK_EXTERNAL_ROOT}/Installers" "${GPTK_STEAM_LIBRARY}" "${GPTK_STEAMCMD_LIBRARY}"
     log "✅" "External root is available: ${GPTK_EXTERNAL_ROOT}"
   else
     log "⚠️" "External root is not mounted: ${GPTK_EXTERNAL_ROOT}"
@@ -575,9 +589,13 @@ install_toolkit_files() {
   install -m 755 "${repo_dir}/bin/gptk-vcrun" "${install_bin}/gptk-vcrun"
   install -m 755 "${repo_dir}/bin/gptk-dotnet6" "${install_bin}/gptk-dotnet6"
   install -m 755 "${repo_dir}/bin/gptk-stubs" "${install_bin}/gptk-stubs"
+  install -m 755 "${repo_dir}/bin/gptk-steam-probe" "${install_bin}/gptk-steam-probe"
+  install -m 755 "${repo_dir}/bin/gptk-steamcmd" "${install_bin}/gptk-steamcmd"
   install -m 644 "${repo_dir}/libexec/gptk-common.zsh" "${install_libexec}/gptk-common.zsh"
   install -m 755 "${repo_dir}/scripts/install-elden-mod-pack.zsh" "${install_scripts}/install-elden-mod-pack.zsh"
   install -m 755 "${repo_dir}/scripts/elden-mod-state.zsh" "${install_scripts}/elden-mod-state.zsh"
+  install -m 755 "${repo_dir}/scripts/steam-install-probe.zsh" "${install_scripts}/steam-install-probe.zsh"
+  install -m 755 "${repo_dir}/scripts/steamcmd-windows-install.zsh" "${install_scripts}/steamcmd-windows-install.zsh"
 
   if [[ ! -e "${config}" ]]; then
     install -m 644 "${repo_dir}/env.example" "${config}"
@@ -603,6 +621,7 @@ ensure_gptk_config() {
   ensure_config_export "GPTK_APP_PATH" '${GPTK_HOME}/apps/Game Porting Toolkit.app'
   ensure_config_export "GPTK_RUNTIME" '${GPTK_HOME}/runtime'
   ensure_config_export "GPTK_WINE_HOME" '${GPTK_APP_PATH}/Contents/Resources/wine'
+  ensure_config_export "GPTK_STEAMCMD_LIBRARY" '${GPTK_EXTERNAL_ROOT}/SteamCMDLibrary'
   ensure_config_export "GPTK_REQUIRED_VERSION" "3"
   ensure_config_export "RIPPERMOON_GPTK_APP_CASK" "gcenx/wine/game-porting-toolkit"
   ensure_config_export "RIPPERMOON_INSTALL_GPTK_APP_CASK" "1"
@@ -1018,8 +1037,8 @@ install_windows_steam() {
       {
         print -r -- "Steam background install started: $(date '+%Y-%m-%d %H:%M:%S')"
         "${install_bin}/gptk-steam" --install-only --wait-for-steam-exe "${RIPPERMOON_STEAM_BACKGROUND_WAIT_SECONDS:-300}" --install "${steam_setup}"
-        status=$?
-        if [[ "${status}" -eq 0 && -f "${steam_exe}" ]]; then
+        install_status=$?
+        if [[ "${install_status}" -eq 0 && -f "${steam_exe}" ]]; then
           print -r -- "completed=$(date '+%Y-%m-%d %H:%M:%S')" > "${complete}"
           rm -f "${pending}"
           print -r -- "Steam installed and validated: ${steam_exe}"
@@ -1027,13 +1046,13 @@ install_windows_steam() {
         fi
         {
           print -r -- "failed=$(date '+%Y-%m-%d %H:%M:%S')"
-          print -r -- "status=${status}"
+          print -r -- "status=${install_status}"
           print -r -- "steam_exe=${steam_exe}"
           print -r -- "log=${bg_log}"
         } > "${failed}"
         rm -f "${pending}"
-        print -r -- "Steam background install failed with status ${status}."
-        exit "${status}"
+        print -r -- "Steam background install failed with status ${install_status}."
+        exit "${install_status}"
       } >> "${bg_log}" 2>&1
     ) >/dev/null 2>&1 &
     local bg_pid=$!

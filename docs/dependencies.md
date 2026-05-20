@@ -28,6 +28,7 @@ Profile-specific helpers can install additional Windows runtimes inside Wine pre
 
 - `gptk-vcrun`: Microsoft Visual C++ runtime.
 - `gptk-dotnet6`: Microsoft .NET 6 Desktop Runtime, used by Elden Ring Randomizer.
+- `gptk-steamcmd`: native SteamCMD helper for experimental Windows-platform SteamPipe downloads when the Windows Steam GUI fails during unpack/staging.
 
 ## Homebrew Formulae
 
@@ -97,6 +98,32 @@ Skip the download:
 
 ```zsh
 ./install.zsh --skip-steam-download
+```
+
+## Native SteamCMD Download Helper
+
+`gptk-steamcmd` downloads Valve's native macOS SteamCMD on first use and stores it under:
+
+```text
+$GPTK_HOME/tools/steamcmd-osx
+```
+
+By default, Windows-platform downloads go to:
+
+```text
+$GPTK_STEAMCMD_LIBRARY
+```
+
+Set the folder in `~/.rippermoon-gptk.env`:
+
+```zsh
+export GPTK_STEAMCMD_LIBRARY="/Volumes/GAMECORE-1/SteamCMDLibrary"
+```
+
+Or pass a target folder per command:
+
+```zsh
+gptk-steamcmd --appid APPID --login USERNAME --target-root /Volumes/GAMECORE-1/SteamCMDLibrary
 ```
 
 ## .NET 6 Desktop Runtime

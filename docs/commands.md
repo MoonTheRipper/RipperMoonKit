@@ -168,6 +168,42 @@ Raw Steam argument equivalent:
 gptk-steam --log -applaunch 480
 ```
 
+## gptk-steam-probe
+
+Watch a running Windows Steam game install and log manifest/depot state:
+
+```zsh
+gptk-steam-probe --appid APPID --library "$GPTK_STEAM_LIBRARY"
+```
+
+Watch a specific app/depot failure:
+
+```zsh
+gptk-steam-probe --appid 1196590 --depot 1196591 --library /Volumes/GAMECORE-1/SteamLibrary
+```
+
+Print a one-time snapshot:
+
+```zsh
+gptk-steam-probe --appid APPID --snapshot
+```
+
+## gptk-steamcmd
+
+Download Windows-platform SteamPipe content with native SteamCMD:
+
+```zsh
+gptk-steamcmd --appid APPID --login USERNAME --target-root /Volumes/GAMECORE-1/SteamCMDLibrary
+```
+
+SteamCMD can ask for your Steam password and Steam Guard code in Terminal. RipperMoonKit does not store the password.
+
+Anonymous AppID example:
+
+```zsh
+gptk-steamcmd --appid 480 --anonymous
+```
+
 ## gptk-vcrun
 
 Download and install the latest Microsoft Visual C++ v14 runtime into one prefix:

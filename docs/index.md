@@ -12,7 +12,8 @@ Use this page as the grouped navigation map for RipperMoonKit. The GitHub Pages 
 5. [setup.md](setup.md): first-time setup and path model.
 6. [dependencies.md](dependencies.md): installer bootstrap behavior and logs.
 7. [steam.md](steam.md): Windows Steam foreground/background install and launch flow.
-8. [commands.md](commands.md): command reference.
+8. [native-steam-installs.md](native-steam-installs.md): Steam GUI install probing and the native SteamCMD Windows-content fallback.
+9. [commands.md](commands.md): command reference.
 
 </details>
 
@@ -34,6 +35,7 @@ Use this page as the grouped navigation map for RipperMoonKit. The GitHub Pages 
 
 - [proof-of-concept.md](proof-of-concept.md): screenshots of the launcher and Elden Ring running on macOS through GPTK.
 - [game-folder-workflow.md](game-folder-workflow.md): copying an already-installed Windows game folder.
+- [native-steam-installs.md](native-steam-installs.md): diagnosing Steam download/unpack failures and downloading Windows depots with SteamCMD.
 - [tested-games.md](tested-games.md): known tested games, launch notes, and troubleshooting links.
 - [elden-ring-ersc.md](elden-ring-ersc.md): Elden Ring ERSC tested launch path.
 - [elden-ring-ersc.md#tool-credits](elden-ring-ersc.md#tool-credits): credits for ModEngine 2, Seamless Co-op/ERSC, and the setup reference repo used by the Mod Manager flow.

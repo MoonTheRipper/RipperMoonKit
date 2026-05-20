@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Native Steam Installs And SteamCMD Fallback · RipperMoonKit</title>
+  <meta name="description" content="Diagnose Steam game download failures in RipperMoonKit and use native SteamCMD as a Windows-content fallback when the Windows Steam client fails under GPTK.">
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../index.html">
+        <img src="assets/rippermoonlogo.png" alt="">
+        <span>RipperMoonKit</span>
+      </a>
+      <nav class="topnav" aria-label="Top navigation">
+        <a href="../index.html">Home</a>
+        <a href="index.html">Docs</a>
+        <a href="https://github.com/MoonTheRipper/RipperMoonKit/releases/latest/download/RipperMoonKit-Launcher.dmg">Download DMG</a>
+        <a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub</a>
+      </nav>
+    </div>
+  </header>
+  <div class="page">
+    <aside class="doc-tree" aria-label="Documentation tree">
+      <input type="checkbox" id="docnav" class="doc-tree-switch">
+      <label for="docnav" class="doc-tree-toggle">Documentation</label>
+      <details open>
+        <summary>Start Here</summary>
+        <a href="index.html">Overview</a>
+        <a href="normal-user-guide.html">Normal User Guide</a>
+        <a href="installation.html">Installation</a>
+        <a href="proof-of-concept.html">Proof Of Concept</a>
+      </details>
+      <details open>
+        <summary>Use The App</summary>
+        <a href="gui.html">Launcher Guide</a>
+        <a href="games.html">Games And Saves</a>
+        <a href="tested-games.html">Known Tested Games</a>
+      </details>
+      <details open>
+        <summary>Game Workflows</summary>
+        <a href="elden-ring.html">Elden Ring ERSC</a>
+        <a href="native-steam-installs.html" aria-current="page">Native Steam Installs</a>
+        <a href="reframework.html">REFramework Plan</a>
+        <a href="ersc-esync-file-descriptor-fix-2026-05-16.html">ERSC Esync Fix</a>
+      </details>
+      <details open>
+        <summary>Reference</summary>
+        <a href="commands.html">Commands</a>
+        <a href="troubleshooting.html">Troubleshooting</a>
+        <a href="faq.html">Q&amp;A</a>
+      </details>
+      <details>
+        <summary>Project</summary>
+        <a href="license.html">License</a>
+        <a href="../index.html">Project Home</a>
+        <a href="https://github.com/MoonTheRipper/RipperMoonKit">GitHub Repo</a>
+      </details>
+    </aside>
+    <main class="content">
+      <div class="hero">
+        <p class="eyebrow">Steam Installs</p>
+        <h1>Probe failed downloads, then bypass the broken path.</h1>
+        <p class="lead">When Windows Steam under GPTK reaches the end of a game download and reports a corrupt download, RipperMoonKit now has a probe command and a native SteamCMD fallback.</p>
+      </div>
+
+      <h2>Why This Exists</h2>
+      <p>The Resident Evil Village test repeatedly failed during final depot staging with <code>Unpack failed</code> and <code>Corrupt download</code>. The same failure happened with esync disabled, on an external library, and on the local C: drive. That points away from drive format and toward the Windows Steam install path under GPTK/Wine.</p>
+
+      <h2>Probe First</h2>
+      <p>Start or retry the download in Steam, then run the probe from Terminal. It records manifest state, staged depots, install folders, disk state, and recent Steam content errors.</p>
+      <pre><code class="language-zsh">gptk-steam-probe \
+  --appid 1196590 \
+  --depot 1196591 \
+  --library /Volumes/GAMECORE-1/SteamLibrary</code></pre>
+      <p>Use a snapshot when you only need the current state:</p>
+      <pre><code class="language-zsh">gptk-steam-probe --appid 1196590 --snapshot</code></pre>
+
+      <h2>Use SteamCMD Fallback</h2>
+      <p>If Steam fails the same way again, try native SteamCMD. This asks Valve's command-line client to fetch Windows-platform content outside the Windows Steam GUI.</p>
+      <pre><code class="language-zsh">gptk-steamcmd \
+  --appid 1196590 \
+  --login USERNAME \
+  --target-root /Volumes/GAMECORE-1/SteamCMDLibrary \
+  --name ResidentEvilVillage</code></pre>
+      <p>SteamCMD may ask for your password and Steam Guard code in Terminal. RipperMoonKit does not store the password.</p>
+
+      <h2>Limits</h2>
+      <ul>
+        <li>Some client games do not allow SteamCMD downloads even when the account owns them.</li>
+        <li>Some games still need Windows Steam running at launch for Steam APIs, ownership checks, or networking.</li>
+        <li>The downloaded folder may not automatically appear as installed in the Windows Steam GUI.</li>
+        <li>Treat the result as a copied game folder: make a RipperMoonKit profile pointing at the downloaded executable.</li>
+      </ul>
+
+      <h2>Patch Track</h2>
+      <p>The probe output gives future Wine/GPTK patch work a stable target: Winsock assertions, missing Steam networking IOCTL behavior, file locking, staged depot replacement, and final manifest commit behavior.</p>
+
+      <h2>Source References</h2>
+      <ul>
+        <li><a href="https://partner.steamgames.com/doc/sdk/uploading">Valve SteamPipe documentation</a></li>
+        <li><a href="https://developer.valvesoftware.com/wiki/SteamCMD">Valve SteamCMD documentation</a></li>
+      </ul>
+
+      <div class="next-links">
+        <a class="button-link primary" href="commands.html">View Commands</a>
+        <a class="button-link" href="troubleshooting.html">Troubleshooting</a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

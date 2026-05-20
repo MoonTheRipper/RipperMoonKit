@@ -60,6 +60,30 @@ Repair those entries:
 gptk-steam --repair-compat
 ```
 
+## Steam Game Downloads That Fail Near The End
+
+If a Steam game repeatedly reaches the final download/unpack phase and then reports `Corrupt download`, use the install probe before deleting anything:
+
+```zsh
+gptk-steam-probe --appid APPID --library "$GPTK_STEAM_LIBRARY"
+```
+
+If a known depot is failing, include it:
+
+```zsh
+gptk-steam-probe --appid 1196590 --depot 1196591 --library /Volumes/GAMECORE-1/SteamLibrary
+```
+
+If the same app fails on an external library and on the local C: drive, treat it as a Steam-under-GPTK/Wine install-path issue rather than a drive-format issue.
+
+For an experimental fallback, download Windows-platform SteamPipe content with native SteamCMD:
+
+```zsh
+gptk-steamcmd --appid APPID --login USERNAME --target-root /Volumes/GAMECORE-1/SteamCMDLibrary
+```
+
+See [native-steam-installs.md](native-steam-installs.md) for the full probe/fallback workflow and limits.
+
 ## AppID 480 / Spacewar
 
 Some Steamworks test paths use Spacewar/AppID 480. In co-op workflows such as Elden Ring Seamless Co-op, the mod may use Steam networking while the game itself is launched from a copied folder. Steam still needs the local AppID 480 state available inside the Steam prefix.

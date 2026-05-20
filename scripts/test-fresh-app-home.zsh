@@ -21,9 +21,11 @@ Options:
   --no-launch      Install the app into the test home but do not launch it
   -h, --help       Show this help
 
-This launches the packaged app with HOME pointed at an isolated disposable
-folder. It tests the fresh-user first-run path without logging out or switching
-macOS accounts.
+This is a secondary smoke test. The primary fresh-install path is the real
+moontheripper macOS user prepared by scripts/test-user-prepare.zsh.
+
+This launches a separately named test app with HOME pointed at an isolated
+disposable folder. It does not install over the normal local app.
 USAGE
 }
 
@@ -105,7 +107,7 @@ mounted_volume="$(print -r -- "${attach_output}" | awk 'NF >= 3 && $NF ~ /^\// {
 }
 
 source_app="${mounted_volume}/RipperMoonKit Launcher.app"
-target_app="${test_home}/Applications/RipperMoonKit Launcher.app"
+target_app="${test_home}/Applications/RipperMoonKit Test Launcher.app"
 [[ -d "${source_app}" ]] || {
   print -u2 -- "Packaged app not found in mounted DMG: ${source_app}"
   exit 1
@@ -113,6 +115,15 @@ target_app="${test_home}/Applications/RipperMoonKit Launcher.app"
 
 rm -rf "${target_app}"
 ditto "${source_app}" "${target_app}"
+plist="${target_app}/Contents/Info.plist"
+if [[ -f "${plist}" && -x /usr/libexec/PlistBuddy ]]; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.rippermoon.toolkit.launcher.test" "${plist}" >/dev/null 2>&1 || true
+  /usr/libexec/PlistBuddy -c "Set :CFBundleName RipperMoonKit Test Launcher" "${plist}" >/dev/null 2>&1 || true
+  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName RipperMoonKit Test" "${plist}" >/dev/null 2>&1 || true
+fi
+if command -v codesign >/dev/null 2>&1; then
+  codesign --force --deep --sign - "${target_app}" >/dev/null 2>&1 || true
+fi
 print -r -- "✅ Installed test app: ${target_app}"
 
 if [[ "${launch_app}" != "1" ]]; then

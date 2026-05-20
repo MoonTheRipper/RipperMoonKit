@@ -79,6 +79,28 @@ gptk-steam --repair-compat
 
 Restart Steam after repair. If the issue continues, inspect the Steam logs inside the Steam prefix before deleting downloaded data.
 
+## Steam Game Reaches The End Then Says Corrupt Download
+
+If the log shows `Failed updating depot`, `Unpack failed`, or `Corrupt download`, capture the install state before cleaning the app:
+
+```zsh
+gptk-steam-probe --appid APPID --library "$GPTK_STEAM_LIBRARY"
+```
+
+Resident Evil Village example:
+
+```zsh
+gptk-steam-probe --appid 1196590 --depot 1196591 --library /Volumes/GAMECORE-1/SteamLibrary
+```
+
+If it fails the same way with esync disabled and on both local C: and the external drive, the likely fault is Steam's Windows client running through GPTK/Wine during SteamPipe unpack/staging. Use the SteamCMD fallback to test whether native SteamCMD can fetch the Windows depot:
+
+```zsh
+gptk-steamcmd --appid APPID --login USERNAME --target-root /Volumes/GAMECORE-1/SteamCMDLibrary
+```
+
+See [native-steam-installs.md](native-steam-installs.md).
+
 ## Clair Obscur Shows NVIDIA Driver Prompt
 
 Some Windows games see GPTK's compatibility GPU report and show a NVIDIA driver warning. On Apple Silicon, do not install NVIDIA drivers. Use the profile's GPTK/Metal launch options, then change the game's own graphics settings from inside the game.

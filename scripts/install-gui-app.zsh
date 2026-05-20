@@ -6,15 +6,20 @@ setopt pipe_fail
 repo_dir="${0:A:h:h}"
 config="${HOME}/.rippermoon-gptk.env"
 stamp="$(date +%Y%m%d-%H%M%S)"
-app_path="${1:-${HOME}/Applications/RipperMoonKit Launcher.app}"
+default_app_name="RipperMoonKit Launcher.app"
+app_path="${1:-${HOME}/Applications/${default_app_name}}"
 app_version="${RIPPERMOON_APP_VERSION:-$(<"${repo_dir}/VERSION")}"
+app_bundle_identifier="${RIPPERMOON_BUNDLE_ID:-com.rippermoon.toolkit.launcher}"
+app_bundle_name="${RIPPERMOON_BUNDLE_NAME:-RipperMoonKit Launcher}"
+app_display_name="${RIPPERMOON_DISPLAY_NAME:-RipperMoonKit}"
+app_backup_name="${RIPPERMOON_BACKUP_NAME:-${app_path:t}.backup}"
 
 if [[ -r "${config}" ]]; then
   source "${config}"
 fi
 
 if [[ "${app_path}" == /Applications/* ]]; then
-  app_path="${HOME}/Applications/RipperMoonKit Launcher.app"
+  app_path="${HOME}/Applications/${app_path:t}"
 fi
 
 GPTK_HOME="${GPTK_HOME:-${HOME}/GPTK}"
@@ -145,11 +150,11 @@ cat > "${tmp_app}/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key>
   <string>RipperMoonKitLauncher</string>
   <key>CFBundleIdentifier</key>
-  <string>com.rippermoon.toolkit.launcher</string>
+  <string>${app_bundle_identifier}</string>
   <key>CFBundleName</key>
-  <string>RipperMoonKit Launcher</string>
+  <string>${app_bundle_name}</string>
   <key>CFBundleDisplayName</key>
-  <string>RipperMoonKit</string>
+  <string>${app_display_name}</string>
   <key>CFBundleIconFile</key>
   <string>RipperMoonKitLogo</string>
   <key>CFBundlePackageType</key>
@@ -180,7 +185,7 @@ if command -v codesign >/dev/null 2>&1; then
 fi
 
 if [[ -d "${app_path}" ]]; then
-  backup="${GPTK_HOME}/backups/gui-app-${stamp}.noindex/RipperMoonKit Launcher.app.backup"
+  backup="${GPTK_HOME}/backups/gui-app-${stamp}.noindex/${app_backup_name}"
   mkdir -p "${backup:h}"
   ditto "${app_path}" "${backup}"
   log "🛟" "Backed up existing GUI app: ${backup}"

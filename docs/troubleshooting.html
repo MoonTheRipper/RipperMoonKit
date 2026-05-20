@@ -36,6 +36,7 @@
       <details open>
         <summary>Game Workflows</summary>
         <a href="elden-ring.html">Elden Ring ERSC</a>
+        <a href="native-steam-installs.html">Native Steam Installs</a>
         <a href="reframework.html">REFramework Plan</a>
         <a href="ersc-esync-file-descriptor-fix-2026-05-16.html">ERSC Esync Fix</a>
       </details>
@@ -79,6 +80,14 @@
       <p>If a Steam download ends with <code>content unavailable</code>, or Steam tries to install a Web Runtime and fails, first confirm the Steam library path is on a mounted writable drive with enough free space. Then repair the Steam prefix compatibility files:</p>
       <pre><code>gptk-steam --repair-compat</code></pre>
       <p>Restart Steam after repair. If the issue continues, inspect the Steam logs inside the Steam prefix before deleting downloaded data.</p>
+
+      <h2>Steam Game Reaches The End Then Says Corrupt Download</h2>
+      <p>If the log shows <code>Failed updating depot</code>, <code>Unpack failed</code>, or <code>Corrupt download</code>, capture the install state before cleaning the app:</p>
+      <pre><code>gptk-steam-probe --appid APPID --library "$GPTK_STEAM_LIBRARY"
+gptk-steam-probe --appid 1196590 --depot 1196591 --library /Volumes/GAMECORE-1/SteamLibrary</code></pre>
+      <p>If it fails the same way with esync disabled and on both local C: and the external drive, the likely fault is Steam's Windows client running through GPTK/Wine during SteamPipe unpack/staging. Use the SteamCMD fallback to test whether native SteamCMD can fetch the Windows depot:</p>
+      <pre><code>gptk-steamcmd --appid APPID --login USERNAME --target-root /Volumes/GAMECORE-1/SteamCMDLibrary</code></pre>
+      <p>Read the <a href="native-steam-installs.html">native Steam installs guide</a>.</p>
 
       <h2>Clair Obscur Shows NVIDIA Driver Prompt</h2>
       <p>Some Windows games see GPTK's compatibility GPU report and show a NVIDIA driver warning. On Apple Silicon, do not install NVIDIA drivers. Use the profile's GPTK/Metal launch options, then change the game's own graphics settings from inside the game.</p>

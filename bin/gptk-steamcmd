@@ -1,0 +1,13 @@
+#!/bin/zsh
+
+set -e
+
+SCRIPT_DIR="${0:A:h}"
+script="${HOME}/GPTK/scripts/steamcmd-windows-install.zsh"
+[[ -x "${script}" ]] || script="${SCRIPT_DIR:h}/scripts/steamcmd-windows-install.zsh"
+[[ -x "${script}" ]] || {
+  print -u2 -- "gptk: SteamCMD Windows install script not found"
+  exit 1
+}
+
+exec zsh "${script}" "$@"
