@@ -22,6 +22,31 @@ struct ToolkitConfig {
         toolWineHomeCandidates.first(where: hasWineExecutable) ?? effectiveWineHome
     }
     var gptkRuntime: String { expand(values["GPTK_RUNTIME"] ?? "$GPTK_HOME/runtime") }
+
+    /// Wine Staging is the macOS 27 fallback for 32-bit PE binaries. Returns "" if not installed.
+    var stagingWineHome: String {
+        let candidate = "/Applications/Wine Staging.app/Contents/Resources/wine"
+        return FileManager.default.isExecutableFile(atPath: "\(candidate)/bin/wine") ? candidate : ""
+    }
+
+    /// GPTK 4 evaluation runtime staged from Apple's beta DMG. d3d12.dll lives here when present.
+    var gptk4Runtime: String? {
+        let candidates = [
+            expand(values["GPTK_V4_RUNTIME"] ?? ""),
+            "\(gptkHome)/runtime-v4",
+            "\(gptkHome)/runtime4"
+        ].filter { !$0.isEmpty }
+        return candidates.first { FileManager.default.fileExists(atPath: "\($0)/lib/wine/x86_64-windows/d3d12.dll") }
+    }
+
+    /// GPTK 4 wine binary — Apple beta 1 ships no wine; this is reserved for a later beta.
+    var gptk4WineHome: String? {
+        let candidates = [
+            expand(values["GPTK_V4_WINE_HOME"] ?? ""),
+            "\(gptkHome)/apps/Game Porting Toolkit 4.app/Contents/Resources/wine"
+        ].filter { !$0.isEmpty }
+        return candidates.first { FileManager.default.isExecutableFile(atPath: "\($0)/bin/wine64") }
+    }
     var gptkDownloadDir: String { expand(values["GPTK_DOWNLOAD_DIR"] ?? "$HOME/Downloads") }
     var gptkDownloadPage: String { expand(values["GPTK_DOWNLOAD_PAGE"] ?? "https://developer.apple.com/games/game-porting-toolkit/") }
     var steamSetupPath: String {

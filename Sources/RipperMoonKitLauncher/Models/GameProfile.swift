@@ -2,6 +2,34 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum WineRunner: String, Codable, CaseIterable, Hashable {
+    case auto
+    case gptk
+    case staging
+    case gptk4
+    case custom
+
+    var displayName: String {
+        switch self {
+        case .auto: return "Auto"
+        case .gptk: return "GPTK 3 (wine64 + D3DMetal)"
+        case .staging: return "Wine Staging 11.8"
+        case .gptk4: return "GPTK 4 (preview)"
+        case .custom: return "Custom path"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .auto: return "Toolkit picks the best available runner for this profile."
+        case .gptk: return "Best for 64-bit games. Required for D3DMetal. Blocked on macOS 27 for 32-bit binaries."
+        case .staging: return "Use for 32-bit installers, Steam launching, .NET tools. No D3DMetal — renders via vkd3d/MoltenVK."
+        case .gptk4: return "Apple GPTK 4 preview wine. Requires an installed GPTK 4 runner; falls back to GPTK 3 otherwise."
+        case .custom: return "Use the Runner path below to point at any wine bundle."
+        }
+    }
+}
+
 struct GameProfile: Codable, Identifiable, Hashable {
     private static let eldenRingERSCID = UUID(uuidString: "00000000-0000-0000-0000-000000000480") ?? UUID()
     private static let steamClientID = UUID(uuidString: "00000000-0000-0000-0000-000000000481") ?? UUID()
@@ -34,6 +62,11 @@ struct GameProfile: Codable, Identifiable, Hashable {
     var modEngineLaunchBat: String?
     var randomizerExecutable: String?
     var seamlessDllPath: String?
+    /// Optional so existing on-disk profiles decode cleanly. `nil` == `.auto` —
+    /// preserve the legacy behavior of obeying `runnerPath` directly.
+    var wineRunner: WineRunner?
+
+    var effectiveWineRunner: WineRunner { wineRunner ?? .auto }
 
     var safeName: String {
         name.replacingOccurrences(of: "[^A-Za-z0-9._-]+", with: "-", options: .regularExpression)

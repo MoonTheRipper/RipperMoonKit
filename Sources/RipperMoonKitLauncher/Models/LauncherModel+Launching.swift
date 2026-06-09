@@ -173,8 +173,25 @@ extension LauncherModel {
         return targets.filter { seen.insert($0.localizedLowercase).inserted }
     }
 
+    /// Resolves the wine home that should be exported as `GPTK_WINE_HOME` for this profile,
+    /// taking the per-profile `wineRunner` choice into account. Falls back to GPTK 3 / `runnerPath`
+    /// when the requested runner is not actually installed, so beta profiles never silently fail.
+    func resolvedWineHome(for profile: GameProfile) -> String {
+        switch profile.effectiveWineRunner {
+        case .auto, .custom:
+            return profile.runnerPath
+        case .gptk:
+            return config.localGPTKWineHome
+        case .staging:
+            return config.stagingWineHome.isEmpty ? profile.runnerPath : config.stagingWineHome
+        case .gptk4:
+            return config.gptk4WineHome ?? (profile.runnerPath.isEmpty ? config.localGPTKWineHome : profile.runnerPath)
+        }
+    }
+
     func runnerEnvAssignment(for profile: GameProfile) -> String {
-        profile.runnerPath.isEmpty ? "" : "GPTK_WINE_HOME=\(profile.runnerPath.shellQuoted)"
+        let wineHome = resolvedWineHome(for: profile)
+        return wineHome.isEmpty ? "" : "GPTK_WINE_HOME=\(wineHome.shellQuoted)"
     }
 
     func toolPrefixName(for profile: GameProfile) -> String {
@@ -189,8 +206,9 @@ extension LauncherModel {
 
     func steamEnvAssignment(for profile: GameProfile) -> String {
         var assignments: [String] = []
-        if !profile.runnerPath.isEmpty {
-            assignments.append("GPTK_WINE_HOME=\(profile.runnerPath.shellQuoted)")
+        let wineHome = resolvedWineHome(for: profile)
+        if !wineHome.isEmpty {
+            assignments.append("GPTK_WINE_HOME=\(wineHome.shellQuoted)")
         }
         assignments.append("GPTK_MTL_HUD_ENABLED=\(profile.hud ? "1" : "0")")
         assignments.append("GPTK_WINEESYNC=\(profile.noEsync ? "0" : "1")")

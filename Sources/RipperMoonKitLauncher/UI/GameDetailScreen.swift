@@ -228,10 +228,25 @@ struct GameDetailScreen: View {
                     }
                     .help("The .exe RipperMoonKit starts for this profile. For Elden Ring Seamless, this is usually ersc_launcher.exe.")
                 }
-                PathEditor(title: "Runner", path: $profile.runnerPath) {
-                    model.chooseFolder(current: profile.runnerPath) { profile.runnerPath = $0 }
+                FieldRow(label: "Wine runner") {
+                    Picker("", selection: Binding(
+                        get: { profile.effectiveWineRunner },
+                        set: { profile.wineRunner = $0 }
+                    )) {
+                        ForEach(WineRunner.allCases, id: \.self) { runner in
+                            Text(runner.displayName).tag(runner)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .labelsHidden()
                 }
-                .help("Optional Wine/GPTK runner override. Leave this alone unless a game needs a specific runner build.")
+                .help(profile.effectiveWineRunner.summary)
+                if profile.effectiveWineRunner == .auto || profile.effectiveWineRunner == .custom {
+                    PathEditor(title: "Runner path", path: $profile.runnerPath) {
+                        model.chooseFolder(current: profile.runnerPath) { profile.runnerPath = $0 }
+                    }
+                    .help("Optional Wine/GPTK runner override. Leave this alone unless a game needs a specific runner build.")
+                }
             }
         }
     }
