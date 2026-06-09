@@ -7,7 +7,7 @@ extension LauncherModel {
         let profile = repairedProfile(profile)
         runShell(
             title: "Install VC++ Runtime",
-            command: "\(sourceConfig); \(config.gptkVCRunPath.shellQuoted) --prefix \(profile.prefix.shellQuoted)"
+            command: "\(sourceConfig); env \(toolRunnerEnvAssignment()) \(config.gptkVCRunPath.shellQuoted) --prefix \(profile.prefix.shellQuoted)"
         )
     }
 
@@ -15,14 +15,14 @@ extension LauncherModel {
         let profile = repairedProfile(profile)
         runShell(
             title: "Install .NET 6 Desktop Runtime",
-            command: "\(sourceConfig); \(config.gptkDotNet6Path.shellQuoted) --prefix \(profile.prefix.shellQuoted)"
+            command: "\(sourceConfig); env \(toolRunnerEnvAssignment()) \(config.gptkDotNet6Path.shellQuoted) --prefix \(profile.prefix.shellQuoted)"
         )
     }
 
     func installVCRuntimeGlobally() {
         runShell(
             title: "Install VC++ Runtime",
-            command: "\(sourceConfig); \(config.gptkVCRunPath.shellQuoted) --all"
+            command: "\(sourceConfig); env \(toolRunnerEnvAssignment()) \(config.gptkVCRunPath.shellQuoted) --all"
         )
     }
 
