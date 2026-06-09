@@ -6,15 +6,51 @@ setopt pipe_fail
 repo_dir="${0:A:h:h}"
 config="${HOME}/.rippermoon-gptk.env"
 stamp="$(date +%Y%m%d-%H%M%S)"
-app_path="${1:-${HOME}/Applications/RipperMoonKit Launcher.app}"
+variant=""
+app_path=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --variant)
+      [[ $# -ge 2 ]] || { print -u2 -- "--variant requires a name"; exit 2; }
+      variant="$2"
+      shift 2
+      ;;
+    --variant=*)
+      variant="${1#--variant=}"
+      shift
+      ;;
+    *)
+      app_path="$1"
+      shift
+      ;;
+  esac
+done
+
+# Sanitize variant: kebab-case, letters/digits/dash only.
+variant_slug="$(print -r -- "${variant}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9-' '-' | sed -e 's/^-//' -e 's/-$//')"
+
+if [[ -n "${variant}" ]]; then
+  app_label="RipperMoonKit Launcher ${variant}"
+  bundle_id="com.rippermoon.toolkit.launcher.${variant_slug}"
+  display_name="RipperMoonKit ${variant}"
+else
+  app_label="RipperMoonKit Launcher"
+  bundle_id="com.rippermoon.toolkit.launcher"
+  display_name="RipperMoonKit"
+fi
+
+[[ -n "${app_path}" ]] || app_path="${HOME}/Applications/${app_label}.app"
+
 app_version="${RIPPERMOON_APP_VERSION:-$(<"${repo_dir}/VERSION")}"
 
 if [[ -r "${config}" ]]; then
   source "${config}"
 fi
 
-if [[ "${app_path}" == /Applications/* ]]; then
-  app_path="${HOME}/Applications/RipperMoonKit Launcher.app"
+# Force user-scope install only for the stable build; variants are user-scope by default.
+if [[ -z "${variant}" && "${app_path}" == /Applications/* ]]; then
+  app_path="${HOME}/Applications/${app_label}.app"
 fi
 
 GPTK_HOME="${GPTK_HOME:-${HOME}/GPTK}"
@@ -145,11 +181,11 @@ cat > "${tmp_app}/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key>
   <string>RipperMoonKitLauncher</string>
   <key>CFBundleIdentifier</key>
-  <string>com.rippermoon.toolkit.launcher</string>
+  <string>${bundle_id}</string>
   <key>CFBundleName</key>
-  <string>RipperMoonKit Launcher</string>
+  <string>${app_label}</string>
   <key>CFBundleDisplayName</key>
-  <string>RipperMoonKit</string>
+  <string>${display_name}</string>
   <key>CFBundleIconFile</key>
   <string>RipperMoonKitLogo</string>
   <key>CFBundlePackageType</key>
@@ -180,7 +216,8 @@ if command -v codesign >/dev/null 2>&1; then
 fi
 
 if [[ -d "${app_path}" ]]; then
-  backup="${GPTK_HOME}/backups/gui-app-${stamp}.noindex/RipperMoonKit Launcher.app.backup"
+  backup_tag="gui-app${variant:+-${variant_slug}}-${stamp}"
+  backup="${GPTK_HOME}/backups/${backup_tag}.noindex/${app_path:t}.backup"
   mkdir -p "${backup:h}"
   ditto "${app_path}" "${backup}"
   log "🛟" "Backed up existing GUI app: ${backup}"
@@ -194,7 +231,9 @@ system_app="/Applications/RipperMoonKit Launcher.app"
 system_alias="/Applications/RipperMoonKit Launcher.app alias"
 lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 
-if [[ "${app_path}" != "${system_app}" && (-d "${system_app}" || -L "${system_app}") ]]; then
+# Variant installs leave the stable install alone — they intentionally
+# coexist with the stable launcher under a different bundle ID.
+if [[ -z "${variant}" && "${app_path}" != "${system_app}" && (-d "${system_app}" || -L "${system_app}") ]]; then
   system_backup="${GPTK_HOME}/backups/gui-app-system-${stamp}.noindex/RipperMoonKit Launcher.app.backup"
   mkdir -p "${system_backup:h}"
   if ditto "${system_app}" "${system_backup}" 2>/dev/null; then
@@ -210,9 +249,13 @@ if [[ "${app_path}" != "${system_app}" && (-d "${system_app}" || -L "${system_ap
   [[ -x "${lsregister}" ]] && "${lsregister}" -u "${system_app}" >/dev/null 2>&1 || true
 fi
 
-if [[ -e "${system_alias}" || -L "${system_alias}" ]]; then
+if [[ -z "${variant}" && (-e "${system_alias}" || -L "${system_alias}") ]]; then
   rm -f "${system_alias}" 2>/dev/null && log "🧹" "Removed stale system-wide alias: ${system_alias}" || \
     log "⚠️" "Could not remove alias ${system_alias}; remove it manually."
 fi
 
 [[ -x "${lsregister}" ]] && "${lsregister}" -f "${app_path}" >/dev/null 2>&1 || true
+
+if [[ -n "${variant}" ]]; then
+  log "🧪" "Installed variant '${variant}' with bundle id ${bundle_id}. This build reads ~/.rippermoon-gptk-${variant_slug}.env, isolated from the stable launcher."
+fi

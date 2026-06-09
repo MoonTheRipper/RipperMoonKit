@@ -252,9 +252,29 @@ struct ToolkitConfig {
         return values.filter { seen.insert($0).inserted }
     }
 
+    /// Variant-aware config file path. Stable builds (bundle ID
+    /// `com.rippermoon.toolkit.launcher`) keep reading the legacy
+    /// `~/.rippermoon-gptk.env`. Variant builds (e.g. `…launcher.beta`)
+    /// read `~/.rippermoon-gptk-beta.env` so they cannot trample the
+    /// stable install's config when the user edits Settings → Paths.
+    static func configPath(home: String) -> String {
+        let bundleID = Bundle.main.bundleIdentifier ?? ""
+        let stableID = "com.rippermoon.toolkit.launcher"
+        let stablePath = "\(home)/.rippermoon-gptk.env"
+
+        guard bundleID.hasPrefix("\(stableID).") else {
+            return stablePath
+        }
+        let variant = String(bundleID.dropFirst(stableID.count + 1))
+            .lowercased()
+            .filter { $0.isLetter || $0.isNumber || $0 == "-" }
+        guard !variant.isEmpty else { return stablePath }
+        return "\(home)/.rippermoon-gptk-\(variant).env"
+    }
+
     static func load() -> ToolkitConfig {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let configPath = "\(home)/.rippermoon-gptk.env"
+        let configPath = configPath(home: home)
         let url = URL(fileURLWithPath: configPath)
         let text = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
         return ToolkitConfig(
