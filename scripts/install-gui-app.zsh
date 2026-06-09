@@ -189,3 +189,30 @@ fi
 
 mv "${tmp_app}" "${app_path}"
 log "✅" "Installed GUI app: ${app_path}"
+
+system_app="/Applications/RipperMoonKit Launcher.app"
+system_alias="/Applications/RipperMoonKit Launcher.app alias"
+lsregister="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+
+if [[ "${app_path}" != "${system_app}" && (-d "${system_app}" || -L "${system_app}") ]]; then
+  system_backup="${GPTK_HOME}/backups/gui-app-system-${stamp}.noindex/RipperMoonKit Launcher.app.backup"
+  mkdir -p "${system_backup:h}"
+  if ditto "${system_app}" "${system_backup}" 2>/dev/null; then
+    log "🧹" "Backed up stale system-wide install: ${system_backup}"
+  else
+    log "⚠️" "Could not back up ${system_app}; continuing with removal."
+  fi
+  if rm -rf "${system_app}" 2>/dev/null; then
+    log "🧹" "Removed stale system-wide install: ${system_app}"
+  else
+    log "⚠️" "Could not remove ${system_app} (permission denied). Remove it manually: sudo rm -rf \"${system_app}\""
+  fi
+  [[ -x "${lsregister}" ]] && "${lsregister}" -u "${system_app}" >/dev/null 2>&1 || true
+fi
+
+if [[ -e "${system_alias}" || -L "${system_alias}" ]]; then
+  rm -f "${system_alias}" 2>/dev/null && log "🧹" "Removed stale system-wide alias: ${system_alias}" || \
+    log "⚠️" "Could not remove alias ${system_alias}; remove it manually."
+fi
+
+[[ -x "${lsregister}" ]] && "${lsregister}" -f "${app_path}" >/dev/null 2>&1 || true
