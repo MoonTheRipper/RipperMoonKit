@@ -144,70 +144,47 @@ bundle_docs() {
   fi
 }
 
-# Pick a GPTK runtime for a variant install. Honors the RIPPERMOON_VARIANT_GPTK
-# env var (3 or 4) for non-interactive callers; otherwise prompts on a TTY.
-choose_variant_gptk_version() {
-  local default="${1:-3}"
-  local choice="${RIPPERMOON_VARIANT_GPTK:-}"
-  if [[ -z "${choice}" && -t 0 ]]; then
-    print -u2 -- ""
-    print -u2 -- "Which Apple Game Porting Toolkit runtime should this variant use?"
-    print -u2 -- "  [3] GPTK 3  — stable, full D3DMetal path. Best for 64-bit games."
-    print -u2 -- "  [4] GPTK 4  — Apple beta runtime (no Apple-supplied wine yet; reuses the GPTK 3 wine bundle)."
-    print -u2 -n -- "Choice [${default}]: "
-    if ! read choice; then choice=""; fi
-    choice="${choice:-${default}}"
-  fi
-  case "${choice}" in
-    4|gptk4|"GPTK 4") print -r -- "4" ;;
-    *)                print -r -- "3" ;;
-  esac
-}
-
 # When --variant is set, seed ~/.rippermoon-gptk-<slug>.env with paths under
-# ~/GPTK-<slug>, symlink the GPTK app + runtime from the stable install, and
-# create the prefix/games directories. Idempotent: existing files are kept.
+# ~/GPTK-<slug>, symlink the GPTK 4 runtime + GPTK 3 wine bundle, and create
+# the prefix/games directories. Idempotent: existing files are kept.
+#
+# This branch (GPTK4.0-Development) is the GPTK 4 beta line. The variant
+# installer therefore commits to the GPTK 4 evaluation runtime; it does not
+# offer or fall back to GPTK 3. Apple's GPTK 4 beta 1 ships no wine binary,
+# so the GPTK 3 wine bundle is reused as the wine runner.
 setup_variant_environment() {
   local variant_home="${HOME}/GPTK-${variant_slug}"
   local variant_env="${HOME}/.rippermoon-gptk-${variant_slug}.env"
   local stable_app="${HOME}/GPTK/apps/Game Porting Toolkit.app"
   local variant_app="${variant_home}/apps/Game Porting Toolkit.app"
+  local v4_runtime="${HOME}/GPTK/runtime-v4"
+
+  if [[ ! -d "${v4_runtime}/lib/wine/x86_64-windows" ]]; then
+    log "❌" "GPTK 4 runtime not staged at ${v4_runtime}."
+    log "❌" "Mount Apple's GPTK 4 DMG, attach the nested 'Evaluation environment for Windows games 4.0 …' image, then run:"
+    log "❌" "    ditto '/Volumes/Evaluation environment for Windows games 4.0 beta 1/redist' \"${v4_runtime}\""
+    log "❌" "and re-run this installer. This branch is GPTK 4 only — there is no GPTK 3 fallback."
+    exit 1
+  fi
+
+  if [[ ! -d "${stable_app}" ]]; then
+    log "❌" "No GPTK wine app found at ${stable_app}."
+    log "❌" "Install GPTK (Homebrew cask gcenx/wine/game-porting-toolkit, or copy the app into ${HOME}/GPTK/apps/) and re-run."
+    log "❌" "Apple's GPTK 4 beta 1 ships no wine binary; this branch reuses the GPTK 3 wine bundle as the runner."
+    exit 1
+  fi
 
   mkdir -p "${variant_home}/apps" "${variant_home}/logs" "${variant_home}/backups" \
            "${HOME}/WinePrefixes-${variant_slug}" "${HOME}/Games-${variant_slug}"
 
-  if [[ -d "${stable_app}" && ! -e "${variant_app}" ]]; then
+  if [[ ! -e "${variant_app}" ]]; then
     ln -s "${stable_app}" "${variant_app}"
-    log "🔗" "Linked GPTK app into variant: ${variant_app}"
+    log "🔗" "Linked GPTK 3 wine bundle into variant: ${variant_app}"
   fi
 
-  local gptk_version
-  gptk_version="$(choose_variant_gptk_version 3)"
-  local v3_runtime="${HOME}/GPTK/runtime"
-  local v4_runtime="${HOME}/GPTK/runtime-v4"
-  local chosen_runtime=""
-
-  case "${gptk_version}" in
-    4)
-      if [[ -d "${v4_runtime}/lib/wine/x86_64-windows" ]]; then
-        chosen_runtime="${v4_runtime}"
-      else
-        log "⚠️" "GPTK 4 runtime missing at ${v4_runtime}. Mount Apple's GPTK 4 DMG and copy redist/ there first. Falling back to GPTK 3."
-        chosen_runtime="${v3_runtime}"
-      fi
-      ;;
-    *)
-      chosen_runtime="${v3_runtime}"
-      ;;
-  esac
-
-  if [[ -d "${chosen_runtime}/lib/wine/x86_64-windows" ]]; then
-    rm -f "${variant_home}/runtime" 2>/dev/null
-    [[ -e "${variant_home}/runtime" ]] || ln -s "${chosen_runtime}" "${variant_home}/runtime"
-    log "🔗" "Linked GPTK ${gptk_version} runtime into variant: ${variant_home}/runtime -> ${chosen_runtime}"
-  else
-    log "⚠️" "No usable GPTK runtime found at ${chosen_runtime}. Install GPTK before launching the variant."
-  fi
+  rm -f "${variant_home}/runtime" 2>/dev/null
+  ln -s "${v4_runtime}" "${variant_home}/runtime"
+  log "🔗" "Linked GPTK 4 runtime into variant: ${variant_home}/runtime -> ${v4_runtime}"
 
   if [[ -e "${variant_env}" ]]; then
     log "📝" "Variant env file already exists, leaving untouched: ${variant_env}"
@@ -249,7 +226,7 @@ export GPTK_USE_DXVK="0"
 export GPTK_MTL_HUD_ENABLED="0"
 ENV
   log "📝" "Created variant env file: ${variant_env}"
-  log "🧪" "Variant '${variant}' is wired to GPTK ${gptk_version}. Override RIPPERMOON_VARIANT_GPTK=3|4 next time to skip the prompt."
+  log "🧪" "Variant '${variant}' is wired to GPTK 4 (runtime ${v4_runtime}, wine bundle ${stable_app})."
 }
 
 log "🚀" "Building RipperMoonKitLauncher."
