@@ -3,6 +3,15 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 extension LauncherModel {
+    /// Beta builds (version contains "beta") track the GPTK4.0-Development branch
+    /// and only see prerelease tags. Stable builds keep using /releases/latest,
+    /// which already skips prereleases on GitHub's side.
+    static var isBetaChannel: Bool {
+        rmkAppVersion.lowercased().contains("beta")
+    }
+
+    static let betaBranchName = "GPTK4.0-Development"
+
     func checkForAvailableUpdate(force: Bool = false) async {
         if isCheckingForUpdates || (!force && hasCheckedForUpdates) {
             return
@@ -12,7 +21,11 @@ extension LauncherModel {
         hasCheckedForUpdates = true
         defer { isCheckingForUpdates = false }
 
-        guard let url = URL(string: "https://api.github.com/repos/MoonTheRipper/RipperMoonKit/releases/latest") else {
+        let endpoint = Self.isBetaChannel
+            ? "https://api.github.com/repos/MoonTheRipper/RipperMoonKit/releases?per_page=20"
+            : "https://api.github.com/repos/MoonTheRipper/RipperMoonKit/releases/latest"
+
+        guard let url = URL(string: endpoint) else {
             return
         }
 
@@ -30,7 +43,23 @@ extension LauncherModel {
                 return
             }
 
-            let release = try JSONDecoder().decode(GitHubReleaseInfo.self, from: data)
+            let release: GitHubReleaseInfo
+            if Self.isBetaChannel {
+                let all = try JSONDecoder().decode([GitHubReleaseInfo].self, from: data)
+                let betas = all.filter { $0.tagName.lowercased().contains("beta") }
+                guard let newest = betas.max(by: { Self.isVersion($1.tagName, newerThan: $0.tagName) }) else {
+                    if force {
+                        lastResult = "No beta releases yet"
+                        commandOutput = "No GPTK 4.0 beta releases have been published. Installed: \(rmkAppVersion)\n"
+                    }
+                    updateNotice = nil
+                    return
+                }
+                release = newest
+            } else {
+                release = try JSONDecoder().decode(GitHubReleaseInfo.self, from: data)
+            }
+
             let releaseURL = release.htmlURL ?? URL(string: "https://github.com/MoonTheRipper/RipperMoonKit/releases/latest")!
             if Self.isVersion(release.tagName, newerThan: rmkAppVersion) {
                 updateNotice = UpdateNotice(version: release.tagName, url: releaseURL)
@@ -58,14 +87,19 @@ extension LauncherModel {
         let repo = rmkRepositoryURL.shellQuoted
         let installPath = updateInstallPath()
         let installTarget = installPath.shellQuoted
+        let branch = Self.isBetaChannel ? Self.betaBranchName : "main"
+        let branchQuoted = branch.shellQuoted
+        let archivePathQuoted = "RipperMoonKit-\(branch)".shellQuoted
         let command = """
         \(toolkitSourceBootstrapCommand)
         src=\(source)
         repo=\(repo)
+        branch=\(branchQuoted)
         if [[ -d "$src/.git" ]]; then
           cd "$src"
           git fetch --tags origin && \
-          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then git pull --ff-only origin main; else echo "Already up to date."; fi
+          git checkout "$branch" 2>/dev/null || git checkout -b "$branch" "origin/$branch" && \
+          if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/$branch)" ]]; then git pull --ff-only origin "$branch"; else echo "Already up to date."; fi
         else
           echo "Toolkit source has no Git metadata; replacing it with a fresh GitHub checkout."
           parent="$(dirname "$src")"
@@ -73,11 +107,11 @@ extension LauncherModel {
           mkdir -p "$parent"
           rm -rf "$src.update" "$src.update.zip"
           if git --version >/dev/null 2>&1; then
-            git clone --depth 1 "$repo" "$src.update"
+            git clone --depth 1 --branch "$branch" "$repo" "$src.update"
           else
-            curl -fL "https://github.com/MoonTheRipper/RipperMoonKit/archive/refs/heads/main.zip" -o "$src.update.zip"
+            curl -fL "https://github.com/MoonTheRipper/RipperMoonKit/archive/refs/heads/$branch.zip" -o "$src.update.zip"
             unzip -q "$src.update.zip" -d "$parent"
-            mv "$parent/RipperMoonKit-main" "$src.update"
+            mv "$parent/"\(archivePathQuoted) "$src.update"
             rm -f "$src.update.zip"
           fi
           if [[ -e "$src" ]]; then
