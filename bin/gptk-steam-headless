@@ -1,0 +1,294 @@
+#!/bin/zsh
+
+set -e
+SCRIPT_DIR="${0:A:h}"
+COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
+[[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
+source "${COMMON}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  gptk-steam-headless <command> [args]
+
+Commands:
+  status                    Show Steam backend running state and cached login.
+  install-cmd               Download Windows steamcmd into the Steam prefix.
+  login [USERNAME]          Run steamcmd interactive login (handles Steam Guard).
+  start [--show-window]     Start steam.exe -silent in the background.
+                            Hides the wine Steam window via osascript by default.
+  kill                      Stop Steam backend (wineserver -k on the Steam prefix).
+  launch <APPID>            Ensure Steam is running, then steam -applaunch <APPID>.
+  install <APPID>           steamcmd-install a Steam app by AppID.
+  library                   List installed games in the Steam prefix library.
+
+Environment:
+  GPTK_STEAM_PREFIX         Override the Steam prefix name (default: Steam).
+  GPTK_STEAMCMD_DIR         Override where steamcmd is installed inside the
+                            prefix (default: $GPTK_PREFIX/steamcmd).
+  GPTK_HEADLESS_WINE_HOME   Force a specific wine home for headless commands
+                            (default: Wine Staging when present on macOS 27,
+                            otherwise the configured GPTK_WINE_HOME).
+USAGE
+}
+
+# -- environment + paths -----------------------------------------------------
+
+prefix="${GPTK_STEAM_PREFIX:-Steam}"
+prefix_path="$(gptk_resolve_prefix "${prefix}")"
+steam_exe="${prefix_path}/drive_c/Program Files (x86)/Steam/steam.exe"
+loginusers="${prefix_path}/drive_c/Program Files (x86)/Steam/config/loginusers.vdf"
+steamcmd_dir="${GPTK_STEAMCMD_DIR:-${prefix_path}/drive_c/steamcmd}"
+steamcmd_exe="${steamcmd_dir}/steamcmd.exe"
+steamcmd_url="${RIPPERMOON_STEAMCMD_URL:-https://media.steampowered.com/installer/steamcmd.zip}"
+
+# Prefer Wine Staging on macOS 27 so 32-bit binaries (steam.exe, steamcmd.exe)
+# can actually load. The user can force a runner via GPTK_HEADLESS_WINE_HOME.
+pick_wine_home() {
+  local override="${GPTK_HEADLESS_WINE_HOME:-}"
+  if [[ -n "${override}" && -d "${override}/bin" ]]; then
+    print -r -- "${override}"
+    return
+  fi
+  local staging="/Applications/Wine Staging.app/Contents/Resources/wine"
+  local stable="/Applications/Wine Stable.app/Contents/Resources/wine"
+  if [[ -x "${staging}/bin/wine" || -x "${staging}/bin/wine64" ]]; then
+    print -r -- "${staging}"; return
+  fi
+  if [[ -x "${stable}/bin/wine" || -x "${stable}/bin/wine64" ]]; then
+    print -r -- "${stable}"; return
+  fi
+  print -r -- "${GPTK_WINE_HOME:-}"
+}
+
+export GPTK_WINE_HOME="$(pick_wine_home)"
+export GPTK_WINEESYNC=0
+launcher="${HOME}/bin/gptk-launch"
+[[ -x "${launcher}" ]] || launcher="${SCRIPT_DIR}/gptk-launch"
+
+# -- helpers -----------------------------------------------------------------
+
+steam_pids() {
+  pgrep -f "${prefix_path}/drive_c/Program Files \(x86\)/Steam/steam.exe" 2>/dev/null || true
+}
+
+steam_is_running() {
+  [[ -n "$(steam_pids)" ]]
+}
+
+logged_in_account() {
+  # Returns the cached AccountName if any user block has AllowAutoLogin=1.
+  # Portable across BSD/GNU awk: no match-into-array, just grep + sed.
+  [[ -f "${loginusers}" ]] || return 1
+  grep -qE '"AllowAutoLogin"[[:space:]]+"1"' "${loginusers}" 2>/dev/null || return 1
+  grep -E '"AccountName"[[:space:]]+"' "${loginusers}" \
+    | head -n 1 \
+    | sed -E 's/.*"AccountName"[[:space:]]+"([^"]+)".*/\1/'
+}
+
+hide_steam_windows() {
+  # Wine windows are reported under whatever process name wine uses; matching
+  # by window title is the only reliable cross-runner approach.
+  /usr/bin/osascript <<'AS' 2>/dev/null || true
+tell application "System Events"
+  set hideTargets to {}
+  repeat with proc in (every process)
+    try
+      repeat with win in (every window of proc)
+        try
+          set wTitle to name of win
+          if wTitle contains "Steam" or wTitle starts with "Sign in" then
+            if hideTargets does not contain (name of proc) then
+              set end of hideTargets to (name of proc)
+            end if
+            exit repeat
+          end if
+        end try
+      end repeat
+    end try
+  end repeat
+  repeat with procName in hideTargets
+    try
+      set visible of process procName to false
+    end try
+  end repeat
+end tell
+AS
+}
+
+start_hider_watcher() {
+  # Repeatedly try to hide Steam windows for up to 60s — CEF can take a moment
+  # to draw its (broken) window after steam.exe starts.
+  (
+    local deadline=$(( SECONDS + 60 ))
+    while (( SECONDS < deadline )); do
+      hide_steam_windows
+      sleep 2
+    done
+  ) &
+  disown
+}
+
+ensure_steamcmd() {
+  if [[ -f "${steamcmd_exe}" ]]; then
+    return 0
+  fi
+  gptk_note "downloading steamcmd into ${steamcmd_dir}"
+  mkdir -p "${steamcmd_dir}"
+  local tmp_zip="${steamcmd_dir}/.steamcmd.zip"
+  command -v curl >/dev/null 2>&1 || gptk_die "curl is required to download steamcmd"
+  curl -fL --retry 3 --connect-timeout 30 -o "${tmp_zip}" "${steamcmd_url}"
+  command -v unzip >/dev/null 2>&1 || gptk_die "unzip is required to unpack steamcmd"
+  unzip -oq "${tmp_zip}" -d "${steamcmd_dir}"
+  rm -f "${tmp_zip}"
+  [[ -f "${steamcmd_exe}" ]] || gptk_die "steamcmd download did not produce steamcmd.exe"
+  gptk_note "installed steamcmd: ${steamcmd_exe}"
+}
+
+run_steamcmd() {
+  # Steam Guard prompts steamcmd reads from stdin/tty; pass --interactive
+  # use so the calling terminal becomes the prompt surface. Caller's stdin
+  # is forwarded directly.
+  ensure_steamcmd
+  cd "${steamcmd_dir}"
+  exec "${launcher}" --prefix "${prefix}" --no-log -- ./steamcmd.exe "$@"
+}
+
+# -- commands ----------------------------------------------------------------
+
+cmd_status() {
+  print -r -- "Steam prefix: ${prefix_path}"
+  print -r -- "Wine home:    ${GPTK_WINE_HOME}"
+  if steam_is_running; then
+    print -r -- "Backend:      running (pids $(steam_pids | tr '\n' ' '))"
+  else
+    print -r -- "Backend:      stopped"
+  fi
+  if [[ -x "${steam_exe}" ]]; then
+    print -r -- "steam.exe:    ${steam_exe}"
+  else
+    print -r -- "steam.exe:    MISSING — install Steam into the prefix first"
+  fi
+  local user
+  if user="$(logged_in_account)"; then
+    print -r -- "Login:        cached for ${user} (AllowAutoLogin=1)"
+  else
+    print -r -- "Login:        not signed in — run: gptk-steam-headless login"
+  fi
+  if [[ -f "${steamcmd_exe}" ]]; then
+    print -r -- "steamcmd:     ${steamcmd_exe}"
+  else
+    print -r -- "steamcmd:     not installed — run: gptk-steam-headless install-cmd"
+  fi
+}
+
+cmd_install_cmd() {
+  ensure_steamcmd
+}
+
+cmd_login() {
+  local user="${1:-}"
+  ensure_steamcmd
+  if [[ -z "${user}" ]]; then
+    print -u2 -- "Enter Steam account name: "
+    read user
+  fi
+  [[ -n "${user}" ]] || gptk_die "username required"
+  gptk_note "running steamcmd login — Steam Guard prompts appear here when needed"
+  run_steamcmd "+login" "${user}" "+quit"
+}
+
+cmd_start() {
+  local show_window=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --show-window) show_window=1; shift ;;
+      *) gptk_die "unknown start option: $1" ;;
+    esac
+  done
+  [[ -f "${steam_exe}" ]] || gptk_die "Steam is not installed in ${prefix_path}"
+  if steam_is_running; then
+    gptk_note "Steam backend already running"
+  else
+    gptk_note "starting Steam backend (silent)"
+    nohup "${launcher}" --prefix "${prefix}" --no-log -- \
+      "${steam_exe}" -tcp -silent -no-cef-sandbox -cef-disable-sandbox \
+                     -cef-disable-seccomp-sandbox -cef-disable-gpu-sandbox \
+                     -cef-disable-gpu -cef-disable-gpu-compositing \
+      >"${GPTK_LOG_DIR}/steam-headless-$(date +%Y%m%d-%H%M%S).log" 2>&1 &
+    disown
+  fi
+  if [[ "${show_window}" == "0" ]]; then
+    start_hider_watcher
+    gptk_note "hider watcher launched (60s)"
+  fi
+}
+
+cmd_kill() {
+  if steam_is_running; then
+    gptk_note "stopping Steam backend"
+    "${launcher}" --prefix "${prefix}" --no-log -- wineserver -k >/dev/null 2>&1 || true
+    sleep 1
+    if steam_is_running; then
+      gptk_note "wineserver -k did not stop Steam; using SIGKILL"
+      pkill -9 -f "${prefix_path}/drive_c/Program Files \(x86\)/Steam/" 2>/dev/null || true
+    fi
+  else
+    gptk_note "Steam backend not running"
+  fi
+}
+
+cmd_launch() {
+  local appid="${1:-}"
+  [[ -n "${appid}" ]] || gptk_die "usage: gptk-steam-headless launch APPID"
+  if ! steam_is_running; then
+    cmd_start
+    # Give Steam a beat to register its IPC pipes; -applaunch fails if Steam
+    # isn't ready yet.
+    local deadline=$(( SECONDS + 45 ))
+    while (( SECONDS < deadline )) && ! steam_is_running; do
+      sleep 2
+    done
+    steam_is_running || gptk_die "Steam backend failed to start"
+    sleep 5
+  fi
+  gptk_note "launching AppID ${appid}"
+  "${launcher}" --prefix "${prefix}" --no-log -- "${steam_exe}" -applaunch "${appid}"
+}
+
+cmd_install() {
+  local appid="${1:-}"
+  [[ -n "${appid}" ]] || gptk_die "usage: gptk-steam-headless install APPID"
+  ensure_steamcmd
+  run_steamcmd "+login" "anonymous" "+app_update" "${appid}" "validate" "+quit"
+}
+
+cmd_library() {
+  local steamapps="${prefix_path}/drive_c/Program Files (x86)/Steam/steamapps/common"
+  if [[ ! -d "${steamapps}" ]]; then
+    gptk_die "Steam library not found at ${steamapps}"
+  fi
+  for dir in "${steamapps}"/*(N/); do
+    print -r -- "${dir:t}"
+  done
+}
+
+# -- dispatch ----------------------------------------------------------------
+
+cmd="${1:-}"
+case "${cmd}" in
+  -h|--help|"") usage; exit 0 ;;
+  *) shift ;;
+esac
+
+case "${cmd}" in
+  status)       cmd_status ;;
+  install-cmd)  cmd_install_cmd ;;
+  login)        cmd_login "$@" ;;
+  start)        cmd_start "$@" ;;
+  kill)         cmd_kill ;;
+  launch)       cmd_launch "$@" ;;
+  install)      cmd_install "$@" ;;
+  library)      cmd_library ;;
+  *)            usage; exit 2 ;;
+esac
