@@ -144,6 +144,114 @@ bundle_docs() {
   fi
 }
 
+# Pick a GPTK runtime for a variant install. Honors the RIPPERMOON_VARIANT_GPTK
+# env var (3 or 4) for non-interactive callers; otherwise prompts on a TTY.
+choose_variant_gptk_version() {
+  local default="${1:-3}"
+  local choice="${RIPPERMOON_VARIANT_GPTK:-}"
+  if [[ -z "${choice}" && -t 0 ]]; then
+    print -u2 -- ""
+    print -u2 -- "Which Apple Game Porting Toolkit runtime should this variant use?"
+    print -u2 -- "  [3] GPTK 3  — stable, full D3DMetal path. Best for 64-bit games."
+    print -u2 -- "  [4] GPTK 4  — Apple beta runtime (no Apple-supplied wine yet; reuses the GPTK 3 wine bundle)."
+    print -u2 -n -- "Choice [${default}]: "
+    if ! read choice; then choice=""; fi
+    choice="${choice:-${default}}"
+  fi
+  case "${choice}" in
+    4|gptk4|"GPTK 4") print -r -- "4" ;;
+    *)                print -r -- "3" ;;
+  esac
+}
+
+# When --variant is set, seed ~/.rippermoon-gptk-<slug>.env with paths under
+# ~/GPTK-<slug>, symlink the GPTK app + runtime from the stable install, and
+# create the prefix/games directories. Idempotent: existing files are kept.
+setup_variant_environment() {
+  local variant_home="${HOME}/GPTK-${variant_slug}"
+  local variant_env="${HOME}/.rippermoon-gptk-${variant_slug}.env"
+  local stable_app="${HOME}/GPTK/apps/Game Porting Toolkit.app"
+  local variant_app="${variant_home}/apps/Game Porting Toolkit.app"
+
+  mkdir -p "${variant_home}/apps" "${variant_home}/logs" "${variant_home}/backups" \
+           "${HOME}/WinePrefixes-${variant_slug}" "${HOME}/Games-${variant_slug}"
+
+  if [[ -d "${stable_app}" && ! -e "${variant_app}" ]]; then
+    ln -s "${stable_app}" "${variant_app}"
+    log "🔗" "Linked GPTK app into variant: ${variant_app}"
+  fi
+
+  local gptk_version
+  gptk_version="$(choose_variant_gptk_version 3)"
+  local v3_runtime="${HOME}/GPTK/runtime"
+  local v4_runtime="${HOME}/GPTK/runtime-v4"
+  local chosen_runtime=""
+
+  case "${gptk_version}" in
+    4)
+      if [[ -d "${v4_runtime}/lib/wine/x86_64-windows" ]]; then
+        chosen_runtime="${v4_runtime}"
+      else
+        log "⚠️" "GPTK 4 runtime missing at ${v4_runtime}. Mount Apple's GPTK 4 DMG and copy redist/ there first. Falling back to GPTK 3."
+        chosen_runtime="${v3_runtime}"
+      fi
+      ;;
+    *)
+      chosen_runtime="${v3_runtime}"
+      ;;
+  esac
+
+  if [[ -d "${chosen_runtime}/lib/wine/x86_64-windows" ]]; then
+    rm -f "${variant_home}/runtime" 2>/dev/null
+    [[ -e "${variant_home}/runtime" ]] || ln -s "${chosen_runtime}" "${variant_home}/runtime"
+    log "🔗" "Linked GPTK ${gptk_version} runtime into variant: ${variant_home}/runtime -> ${chosen_runtime}"
+  else
+    log "⚠️" "No usable GPTK runtime found at ${chosen_runtime}. Install GPTK before launching the variant."
+  fi
+
+  if [[ -e "${variant_env}" ]]; then
+    log "📝" "Variant env file already exists, leaving untouched: ${variant_env}"
+    return 0
+  fi
+
+  # Use a quoted heredoc + explicit literals so values get written as-is rather
+  # than picking up stale runtime values from the stable env file we sourced.
+  local external_root="${RIPPERMOON_VARIANT_EXTERNAL_ROOT:-${HOME}/Library/Application Support/RipperMoonKit-${variant_slug}}"
+  cat > "${variant_env}" <<ENV
+# RipperMoonKit ${variant} variant config — managed by install-gui-app.zsh.
+# Isolated from the stable launcher's ~/.rippermoon-gptk.env.
+
+export GPTK_HOME="${variant_home}"
+export GPTK_PREFIX_ROOT="${HOME}/WinePrefixes-${variant_slug}"
+export GPTK_GAMES_ROOT="${HOME}/Games-${variant_slug}"
+
+# External storage root. Defaults to a variant-specific Application Support
+# folder so beta state can never overwrite stable files. Point this at a
+# mounted external volume in Settings > Paths once your game library lives
+# there — the stable launcher uses its own independent value.
+export GPTK_EXTERNAL_ROOT="${external_root}"
+ENV
+  cat >> "${variant_env}" <<'ENV'
+export GPTK_STEAM_LIBRARY="$GPTK_EXTERNAL_ROOT/SteamLibrary"
+export GPTK_DRIVE_MAPS="S=$GPTK_STEAM_LIBRARY;X=$GPTK_EXTERNAL_ROOT/Games;I=$GPTK_EXTERNAL_ROOT/Installers"
+
+# GPTK runner + runtime are symlinks under $GPTK_HOME; change them to point at
+# a different wine app or runtime if you want to test alternatives.
+export GPTK_APP_PATH="$GPTK_HOME/apps/Game Porting Toolkit.app"
+export GPTK_RUNTIME="$GPTK_HOME/runtime"
+export GPTK_WINE_HOME="$GPTK_APP_PATH/Contents/Resources/wine"
+
+export GPTK_DEFAULT_WINVER="win10"
+export GPTK_LOG_ENABLED="1"
+export GPTK_WINEESYNC="1"
+export GPTK_DXR="1"
+export GPTK_USE_DXVK="0"
+export GPTK_MTL_HUD_ENABLED="0"
+ENV
+  log "📝" "Created variant env file: ${variant_env}"
+  log "🧪" "Variant '${variant}' is wired to GPTK ${gptk_version}. Override RIPPERMOON_VARIANT_GPTK=3|4 next time to skip the prompt."
+}
+
 log "🚀" "Building RipperMoonKitLauncher."
 log "🪵" "GUI install log: ${log_file}"
 
@@ -257,5 +365,6 @@ fi
 [[ -x "${lsregister}" ]] && "${lsregister}" -f "${app_path}" >/dev/null 2>&1 || true
 
 if [[ -n "${variant}" ]]; then
+  setup_variant_environment
   log "🧪" "Installed variant '${variant}' with bundle id ${bundle_id}. This build reads ~/.rippermoon-gptk-${variant_slug}.env, isolated from the stable launcher."
 fi
