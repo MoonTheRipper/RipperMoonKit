@@ -32,6 +32,7 @@ struct ToolkitConfig {
     var gptkVCRunPath: String { "\(home)/bin/gptk-vcrun" }
     var gptkDotNet6Path: String { "\(home)/bin/gptk-dotnet6" }
     var gptkStubsPath: String { "\(home)/bin/gptk-stubs" }
+    var gptkDsoundNoCapPath: String { "\(home)/bin/gptk-dsound-nocap" }
     var hasToolkitScripts: Bool {
         FileManager.default.isExecutableFile(atPath: gptkLaunchPath)
             && FileManager.default.isExecutableFile(atPath: gptkSteamPath)

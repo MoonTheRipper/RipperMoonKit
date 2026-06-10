@@ -331,6 +331,34 @@ struct GameDetailScreen: View {
             }
         }
 
+        if profile.needsVoiceCaptureFix {
+            Card(title: "Voice Capture Fix", icon: "mic.slash.fill") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Disables Wine DirectSound microphone capture in this prefix so Steam Voice cannot stall the Golden Pot lobby. Playback is unaffected; mic capture is off (use Discord/FaceTime for chat). Applied automatically before launch.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Onyx.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 9) {
+                        Image(systemName: model.voiceCaptureFixApplied(for: profile) ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(model.voiceCaptureFixApplied(for: profile) ? Onyx.good : Onyx.warn)
+                        Text(model.voiceCaptureFixApplied(for: profile) ? "Applied to prefix \(profile.prefix)" : "Not applied yet (will apply on next launch)")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Onyx.text)
+                    }
+                    FlowLayout(spacing: 8) {
+                        RMKButton(kind: .primary, icon: "mic.slash.fill", title: "Apply Fix") {
+                            model.applyVoiceCaptureFix(profile)
+                        }
+                        .help("Installs the no-capture dsound proxy into this prefix and sets the Wine override. Restart Steam afterward if it is already running.")
+                        RMKButton(kind: .ghost, icon: "arrow.uturn.backward", title: "Revert") {
+                            model.revertVoiceCaptureFix(profile)
+                        }
+                        .help("Restores the prefix's original dsound.dll and removes the override.")
+                    }
+                }
+            }
+        }
+
         Card(title: "Actions", icon: "play.circle.fill") {
           VStack(alignment: .leading, spacing: 12) {
             if profile.isEldenRingERSC {

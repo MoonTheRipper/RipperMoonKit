@@ -216,35 +216,24 @@ This is mainly for tools such as `EldenRingRandomizer.exe`, not for the base gam
 
 ## Elden Ring ERSC With Golden Pot Fix
 
-Start Steam with the DirectSound no-capture runner:
+Apply the DirectSound no-capture fix to the Steam prefix once (the SwiftUI
+launcher does this automatically; see `gptk-dsound-nocap` below):
 
 ```zsh
-env GPTK_WINE_HOME="$HOME/GPTK/runners/gptk-dsound-nocap-20260513" \
-  gptk-steam --no-log
+gptk-dsound-nocap apply --prefix Steam
 ```
 
-Launch ERSC from the copied game folder:
+Then start Steam and launch ERSC from the copied game folder — no special runner:
 
 ```zsh
+gptk-steam --no-log
 cd "$GPTK_EXTERNAL_ROOT/Games/EldenRing/Game"
-env GPTK_WINE_HOME="$HOME/GPTK/runners/gptk-dsound-nocap-20260513" \
-  WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
-  gptk-launch --prefix Steam --set-winver win10 --no-dxr --log-file "$GPTK_HOME/logs/ERSC-dsound-nocap.log" -- ./ersc_launcher.exe
+WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
+  gptk-launch --prefix Steam --set-winver win10 --no-dxr --no-esync --log-file "$GPTK_HOME/logs/ERSC.log" -- ./ersc_launcher.exe
 ```
 
-Fully expanded placeholder form:
-
-```zsh
-cd "EXE PATH"
-env GPTK_WINE_HOME="/Users/USERNAME/GPTK/runners/gptk-dsound-nocap-20260513" \
-  WINEDLLOVERRIDES='winmm=n,b;steam_api64=n,b' \
-  /Users/USERNAME/bin/gptk-launch \
-    --prefix Steam \
-    --set-winver win10 \
-    --no-dxr \
-    --log-file "/Users/USERNAME/GPTK/logs/ERSC-dsound-nocap.log" \
-    -- ./ersc_launcher.exe
-```
+See [steam-voice-capture-fix-2026-05-13.md](steam-voice-capture-fix-2026-05-13.md)
+for the diagnosis and what the fix does.
 
 ## gptk-stubs
 
@@ -279,6 +268,42 @@ gptk-stubs --force-build --prefix GOWR
 Requires `x86_64-w64-mingw32-gcc` — install with `brew install mingw-w64`.
 
 See [stubs.md](stubs.md) for background on delay-load crashes and the full GoWR launch command.
+
+## gptk-dsound-nocap
+
+Disable Wine DirectSound microphone capture in a prefix so Steam Voice cannot
+stall the Elden Ring ERSC Golden Pot lobby. Playback is unaffected; only
+microphone capture is disabled (use Discord/FaceTime for voice chat).
+
+Apply to the Steam prefix:
+
+```zsh
+gptk-dsound-nocap apply --prefix Steam
+```
+
+Apply to every initialized prefix, or check / undo:
+
+```zsh
+gptk-dsound-nocap apply --all
+gptk-dsound-nocap status --prefix Steam
+gptk-dsound-nocap revert --prefix Steam
+```
+
+`apply` installs a small forwarder `dsound.dll` into the prefix's `system32`
+(x64) and `syswow64` (x86), preserves the prefix's own dsound as
+`dsound_real.dll`, and sets the Wine `dsound=native` override. The forwarder
+returns `DSERR_NODRIVER` from the capture-create entry points (flat API and the
+COM class factory) and forwards everything else to the real dsound.
+
+Nothing copyrighted is redistributed: the forwarder is this project's own code
+(`stubs/dsound-nocap/`), and `dsound_real.dll` is the prefix's own dsound, renamed
+in place. Maintainers can rebuild the prebuilt proxies (needs `brew install mingw-w64`):
+
+```zsh
+gptk-dsound-nocap build
+```
+
+See [steam-voice-capture-fix-2026-05-13.md](steam-voice-capture-fix-2026-05-13.md) for the full diagnosis.
 
 ## gptk-game
 

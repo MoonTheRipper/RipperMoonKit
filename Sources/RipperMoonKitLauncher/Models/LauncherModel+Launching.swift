@@ -44,6 +44,22 @@ extension LauncherModel {
         )
     }
 
+    func applyVoiceCaptureFix(_ profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(
+            title: "Apply voice-capture fix",
+            command: "\(sourceConfig); \(config.gptkDsoundNoCapPath.shellQuoted) apply --prefix \(profile.prefix.shellQuoted)"
+        )
+    }
+
+    func revertVoiceCaptureFix(_ profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(
+            title: "Revert voice-capture fix",
+            command: "\(sourceConfig); \(config.gptkDsoundNoCapPath.shellQuoted) revert --prefix \(profile.prefix.shellQuoted)"
+        )
+    }
+
     func runRandomizer(for profile: GameProfile) {
         let profile = repairedProfile(profile)
         runShell(
@@ -59,11 +75,13 @@ extension LauncherModel {
         let appArgs = appLaunch.isEmpty ? "" : " -applaunch \(appLaunch.shellQuoted)"
         let envPart = steamEnvAssignment(for: profile)
         let launch = "nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log\(appArgs) >> \(logPath.shellQuoted) 2>&1 &"
+        let dsoundFix = dsoundNoCapturePreflightCommand(for: profile)
+        let pre = dsoundFix.isEmpty ? "" : "\(dsoundFix); "
 
         if detached {
-            return "\(sourceConfig); \(launch)"
+            return "\(sourceConfig); \(pre)\(launch)"
         }
-        return "\(sourceConfig); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log\(appArgs)"
+        return "\(sourceConfig); \(pre)env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log\(appArgs)"
     }
 
     func launchCommand(for profile: GameProfile, detached: Bool = false) -> String {
@@ -100,14 +118,15 @@ extension LauncherModel {
         let extraPart = extra.isEmpty ? "" : " \(extra)"
         let overrides = dllOverrides(for: profile)
         let launch = "cd \(profile.gameFolder.shellQuoted) && nohup env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart) >> \(logPath.shellQuoted) 2>&1 &"
+        let dsoundFix = dsoundNoCapturePreflightCommand(for: profile)
         let preflight = steamDependencyPreflightCommand(for: profile)
-        let detachedLaunch = [preflight, launch].filter { !$0.isEmpty }.joined(separator: "; ")
+        let detachedLaunch = [dsoundFix, preflight, launch].filter { !$0.isEmpty }.joined(separator: "; ")
 
         if detached {
             return "\(sourceConfig); \(detachedLaunch)"
         }
         let foregroundLaunch = "cd \(profile.gameFolder.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart)"
-        return "\(sourceConfig); \([preflight, foregroundLaunch].filter { !$0.isEmpty }.joined(separator: "; "))"
+        return "\(sourceConfig); \([dsoundFix, preflight, foregroundLaunch].filter { !$0.isEmpty }.joined(separator: "; "))"
     }
 
     func previewModEngineLaunchCommand(for profile: GameProfile, detached: Bool = false) -> String {
@@ -130,14 +149,15 @@ extension LauncherModel {
 
         let overrides = dllOverrides(for: profile)
         let launch = "cd \(modEngineDir.shellQuoted) && nohup env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " ")) >> \(logPath.shellQuoted) 2>&1 &"
+        let dsoundFix = dsoundNoCapturePreflightCommand(for: profile)
         let preflight = steamDependencyPreflightCommand(for: profile)
-        let detachedLaunch = [preflight, launch].filter { !$0.isEmpty }.joined(separator: "; ")
+        let detachedLaunch = [dsoundFix, preflight, launch].filter { !$0.isEmpty }.joined(separator: "; ")
 
         if detached {
             return "\(sourceConfig); \(detachedLaunch)"
         }
         let foregroundLaunch = "cd \(modEngineDir.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))"
-        return "\(sourceConfig); \([preflight, foregroundLaunch].filter { !$0.isEmpty }.joined(separator: "; "))"
+        return "\(sourceConfig); \([dsoundFix, preflight, foregroundLaunch].filter { !$0.isEmpty }.joined(separator: "; "))"
     }
 
     func previewRandomizerCommand(for profile: GameProfile, detached: Bool = false) -> String {
@@ -175,6 +195,26 @@ extension LauncherModel {
 
     func runnerEnvAssignment(for profile: GameProfile) -> String {
         profile.runnerPath.isEmpty ? "" : "GPTK_WINE_HOME=\(profile.runnerPath.shellQuoted)"
+    }
+
+    /// True once the no-capture proxy has been installed into the prefix
+    /// (the real dsound is preserved as dsound_real.dll in system32).
+    func voiceCaptureFixApplied(for profile: GameProfile) -> Bool {
+        FileManager.default.fileExists(
+            atPath: "\(prefixPath(for: profile))/drive_c/windows/system32/dsound_real.dll"
+        )
+    }
+
+    func shouldApplyVoiceCaptureFix(for profile: GameProfile) -> Bool {
+        profile.needsVoiceCaptureFix || voiceCaptureFixApplied(for: profile)
+    }
+
+    /// Idempotent preflight that installs the DirectSound no-capture proxy into
+    /// the profile's prefix before Steam/the game starts. Must run before Steam
+    /// launches, since the fix takes effect at dsound load time.
+    func dsoundNoCapturePreflightCommand(for profile: GameProfile) -> String {
+        guard shouldApplyVoiceCaptureFix(for: profile) else { return "" }
+        return "\(config.gptkDsoundNoCapPath.shellQuoted) apply --prefix \(profile.prefix.shellQuoted) >/dev/null 2>&1 || true"
     }
 
     func toolPrefixName(for profile: GameProfile) -> String {

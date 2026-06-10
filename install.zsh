@@ -297,6 +297,7 @@ write_backup_readme() {
     print -r -- "- ${install_bin}/gptk-vcrun"
     print -r -- "- ${install_bin}/gptk-dotnet6"
     print -r -- "- ${install_bin}/gptk-stubs"
+    print -r -- "- ${install_bin}/gptk-dsound-nocap"
     print -r -- "- ${install_libexec}/gptk-common.zsh"
     print -r -- "- ${install_scripts}/install-elden-mod-pack.zsh"
     print -r -- "- ${install_scripts}/elden-mod-state.zsh"
@@ -332,6 +333,7 @@ create_backup() {
   backup_restore_path "${install_bin}/gptk-vcrun" "home/bin/gptk-vcrun" "VC++ runtime helper"
   backup_restore_path "${install_bin}/gptk-dotnet6" "home/bin/gptk-dotnet6" ".NET 6 Desktop Runtime helper"
   backup_restore_path "${install_bin}/gptk-stubs" "home/bin/gptk-stubs" "API stubs helper"
+  backup_restore_path "${install_bin}/gptk-dsound-nocap" "home/bin/gptk-dsound-nocap" "DirectSound no-capture helper"
   backup_restore_path "${install_libexec}/gptk-common.zsh" "gptk/libexec/gptk-common.zsh" "shared helper library"
   backup_restore_path "${install_scripts}/install-elden-mod-pack.zsh" "gptk/scripts/install-elden-mod-pack.zsh" "Elden Ring mod profile helper"
   backup_restore_path "${install_scripts}/elden-mod-state.zsh" "gptk/scripts/elden-mod-state.zsh" "Elden Ring mod backup/import helper"
@@ -425,6 +427,7 @@ rollback_backup() {
         "${HOME:A}/bin/gptk-vcrun"|\
         "${HOME:A}/bin/gptk-dotnet6"|\
         "${HOME:A}/bin/gptk-stubs"|\
+        "${HOME:A}/bin/gptk-dsound-nocap"|\
         "${HOME:A}/.zshrc"|\
         "${GPTK_HOME:A}/libexec/gptk-common.zsh"|\
         "${GPTK_HOME:A}/scripts/install-elden-mod-pack.zsh"|\
@@ -575,9 +578,18 @@ install_toolkit_files() {
   install -m 755 "${repo_dir}/bin/gptk-vcrun" "${install_bin}/gptk-vcrun"
   install -m 755 "${repo_dir}/bin/gptk-dotnet6" "${install_bin}/gptk-dotnet6"
   install -m 755 "${repo_dir}/bin/gptk-stubs" "${install_bin}/gptk-stubs"
+  install -m 755 "${repo_dir}/bin/gptk-dsound-nocap" "${install_bin}/gptk-dsound-nocap"
   install -m 644 "${repo_dir}/libexec/gptk-common.zsh" "${install_libexec}/gptk-common.zsh"
   install -m 755 "${repo_dir}/scripts/install-elden-mod-pack.zsh" "${install_scripts}/install-elden-mod-pack.zsh"
   install -m 755 "${repo_dir}/scripts/elden-mod-state.zsh" "${install_scripts}/elden-mod-state.zsh"
+
+  # Prebuilt DirectSound no-capture proxies (this project's own binaries; they
+  # forward to the prefix's own dsound, so nothing copyrighted is redistributed).
+  if [[ -d "${repo_dir}/stubs/dsound-nocap/prebuilt" ]]; then
+    mkdir -p "${GPTK_HOME}/dsound-nocap"
+    install -m 644 "${repo_dir}/stubs/dsound-nocap/prebuilt/"*.dll "${GPTK_HOME}/dsound-nocap/" 2>/dev/null || true
+    log "🔇" "Installed no-capture dsound proxies to ${GPTK_HOME}/dsound-nocap"
+  fi
 
   if [[ ! -e "${config}" ]]; then
     install -m 644 "${repo_dir}/env.example" "${config}"
