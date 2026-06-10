@@ -28,7 +28,9 @@ What this does:
   provide. The stub returns ERROR_NOT_SUPPORTED so games fall back gracefully.
 
 Requirements:
-  x86_64-w64-mingw32-gcc must be on PATH. Install with: brew install mingw-w64
+  A prebuilt GameInput.dll ships with the toolkit, so no compiler is needed for
+  normal use. Rebuilding from source (--force-build) needs x86_64-w64-mingw32-gcc:
+  brew install mingw-w64
 
 Environment:
   RIPPERMOON_STUBS_DIR   Override the local stub cache folder (default: GPTK_HOME/stubs)
@@ -86,6 +88,10 @@ gameinput_dll="${stubs_cache}/GameInput.dll"
 # Locate C source: prefer repo-relative path, fall back to embedded heredoc
 repo_stubs_c="${SCRIPT_DIR:h}/stubs/gameinput.c"
 repo_stubs_def="${SCRIPT_DIR:h}/stubs/gameinput.def"
+
+# Prebuilt stub shipped with the toolkit (this project's own binary). Lets the
+# stub install without a mingw-w64 toolchain on the user's machine.
+repo_prebuilt="${SCRIPT_DIR:h}/stubs/prebuilt/GameInput.dll"
 
 build_gameinput_stub() {
   local compiler
@@ -170,12 +176,29 @@ install_into_prefix() {
   gptk_note "installed GameInput.dll stub → ${system32}/GameInput.dll"
 }
 
-# Build if not cached or forced
-if [[ ! -s "${gameinput_dll}" || "${force_build}" == "1" ]]; then
+ensure_gameinput_stub() {
+  # Explicit rebuild request always builds from source (needs mingw-w64).
+  if [[ "${force_build}" == "1" ]]; then
+    build_gameinput_stub
+    return
+  fi
+  # Reuse a previously cached stub.
+  if [[ -s "${gameinput_dll}" ]]; then
+    gptk_note "using cached ${gameinput_dll} (pass --force-build to rebuild)"
+    return
+  fi
+  # Prefer the committed prebuilt stub so no compiler is required.
+  if [[ -s "${repo_prebuilt}" ]]; then
+    mkdir -p "${stubs_cache}"
+    cp "${repo_prebuilt}" "${gameinput_dll}"
+    gptk_note "installed prebuilt GameInput.dll stub (no build needed): ${gameinput_dll}"
+    return
+  fi
+  # Last resort: build from source.
   build_gameinput_stub
-else
-  gptk_note "using cached ${gameinput_dll} (pass --force-build to rebuild)"
-fi
+}
+
+ensure_gameinput_stub
 
 [[ "${build_only}" == "1" ]] && { gptk_note "stubs built and cached"; exit 0; }
 

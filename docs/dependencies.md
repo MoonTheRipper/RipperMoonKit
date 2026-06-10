@@ -13,16 +13,24 @@ $GPTK_HOME/logs/rippermoon-install-YYYYmmdd-HHMMSS.log
 The default install does this:
 
 1. Creates the local toolkit folders.
-2. Installs `gptk-launch`, `gptk-steam`, and `gptk-game`.
-3. Creates `~/.rippermoon-gptk.env` from `env.example` if it does not exist.
-4. Adds `~/bin` and the config source line to `~/.zshrc`.
-5. Installs Rosetta on Apple Silicon if needed.
-6. Installs Homebrew if it is missing.
-7. Installs Homebrew formulae used by the toolkit and common Wine/GPTK troubleshooting.
-8. Installs the prebuilt `Game Porting Toolkit.app` runner with Homebrew if no local/system copy exists.
-9. Installs/copies the Apple GPTK 3 evaluation runtime from the user's mounted Apple GPTK media, or prompts/waits for the user to download and mount it.
-10. Downloads `SteamSetup.exe` to the configured installer path.
-11. Checks whether Apple Game Porting Toolkit or another `wine64` is available.
+2. Installs `gptk-launch`, `gptk-steam`, `gptk-game`, `gptk-stubs`, and `gptk-dsound-nocap`.
+3. Installs the prebuilt helper binaries (`GameInput.dll` stub and the no-capture `dsound` proxies) so no compiler is needed at runtime.
+4. Creates `~/.rippermoon-gptk.env` from `env.example` if it does not exist.
+5. Adds `~/bin` and the config source line to `~/.zshrc`.
+6. Installs Rosetta on Apple Silicon if needed.
+7. Installs the Xcode Command Line Tools if they are missing (required before Homebrew).
+8. Installs Homebrew if it is missing.
+9. Installs Homebrew formulae used by the toolkit and common Wine/GPTK troubleshooting.
+10. Installs the prebuilt `Game Porting Toolkit.app` runner with Homebrew if no local/system copy exists.
+11. Installs/copies the Apple GPTK 3 evaluation runtime from the user's mounted Apple GPTK media, or prompts/waits for the user to download and mount it.
+12. Downloads `SteamSetup.exe` to the configured installer path.
+13. Checks whether Apple Game Porting Toolkit or another `wine64` is available.
+
+The dependency steps are resilient: one failed step (for example a single
+Homebrew formula) is logged as a warning and does not abort the rest, so the
+critical Apple GPTK runtime copy still runs. The installer prints a
+prerequisite summary at the end, and `./install.zsh --check` reports the same
+status at any time without changing anything.
 
 Profile-specific helpers can install additional Windows runtimes inside Wine prefixes:
 
