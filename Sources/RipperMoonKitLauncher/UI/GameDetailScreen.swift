@@ -245,7 +245,7 @@ struct GameDetailScreen: View {
             )
             pathHintRow(
                 icon: "internaldrive.fill",
-                title: "A standalone game or repack",
+                title: "A standalone game",
                 text: "No Steam needed. Set the Folder and Executable below to the game's .exe, pick the Windows version, then press Launch."
             )
             Button { model.openHelpDocs(page: "gui.html") } label: {

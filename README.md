@@ -18,7 +18,7 @@ Tested workflows:
 
 - Apple Game Porting Toolkit 3.
 - Windows Steam running through a dedicated `Steam` prefix.
-- Elden Ring ERSC from a copied pre-installed offline/non-Steam Windows `Game` folder.
+- Elden Ring ERSC from a copy of an installed Windows `Game` folder.
 - Elden Ring ModEngine 2 plus Item and Enemy Randomizer profile preparation.
 - Elden Ring randomized output launching through ModEngine 2; launching without ModEngine returns the game to the non-randomized path.
 - Save transfer into the real Wine prefix save directory after confirming the game-created save path.
@@ -30,7 +30,7 @@ Tested workflows:
 - Game compatibility is not guaranteed. Each game can need a different prefix, runner, runtime, launch flag, or workaround.
 - Online features that depend on kernel anti-cheat are expected to fail under Wine/GPTK.
 - The project does not bypass DRM, anti-cheat, game ownership checks, or platform rules.
-- Installers are often less reliable than copied, already-installed Windows game folders.
+- Installers are often less reliable than a copy of an installed Windows game folder.
 - External drives must stay mounted at the same paths, or drive mappings need to be updated in Settings.
 
 ## Proof Of Concept
@@ -213,8 +213,8 @@ See [docs/elden-ring-ersc.md](docs/elden-ring-ersc.md).
 
 Important tested constraint:
 
-- Use a copied, already-installed Windows `Game` folder.
-- Do not use the original installation files as the runtime source.
+- Run from a copy of your installed Windows `Game` folder.
+- Point the toolkit at the installed game folder, not at game installer files.
 - Start Steam first.
 - From the Steam profile, run **Install Spacewar** once so Steam installs AppID 480 / Spacewar. Close Spacewar after setup finishes.
 - Launch ERSC from the same `Steam` prefix.

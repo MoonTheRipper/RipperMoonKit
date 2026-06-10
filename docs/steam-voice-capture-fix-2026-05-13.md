@@ -13,8 +13,7 @@ The tested workaround is a GPTK runner that disables Wine DirectSound microphone
 - Apple Game Porting Toolkit 3 on Apple Silicon macOS.
 - Windows Steam in the `Steam` Wine prefix.
 - ERSC launched from the same `Steam` prefix.
-- Elden Ring game folder copied from an already-installed Windows machine.
-- Offline/non-Steam Elden Ring install, also called a repack.
+- Elden Ring game folder copied from an installed Windows machine.
 - Seamless Coop using AppID 480/Spacewar through Steam.
 
 ## Symptoms
