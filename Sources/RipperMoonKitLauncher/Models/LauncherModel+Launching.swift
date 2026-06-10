@@ -61,12 +61,88 @@ extension LauncherModel {
     }
 
     func runRandomizer(for profile: GameProfile) {
+        // Re-read config so a freshly installed Wine Staging is picked up.
+        config = ToolkitConfig.load()
+        guard config.hasWineStaging else {
+            lastResult = "Wine Staging required for the Randomizer GUI"
+            commandOutput = """
+            The Elden Ring Randomizer GUI needs Wine Staging.
+
+            Under the Game Porting Toolkit runner (Wine 7.7) the Randomizer's .NET
+            window crashes with a UIAutomation stack overflow before it appears, so
+            RipperMoonKit will not launch it there.
+
+            Click "Install Wine Staging", or install it yourself and click Run
+            Randomizer again:
+
+              brew install --cask wine@staging
+              xattr -dr com.apple.quarantine "/Applications/Wine Staging.app"
+            """
+            return
+        }
         let profile = repairedProfile(profile)
         runShell(
             title: "Run Randomizer",
             command: previewRandomizerCommand(for: profile, detached: true),
             detached: true
         )
+    }
+
+    /// Installs Wine Staging in a Terminal window so its GStreamer dependency can
+    /// prompt for the Mac password. After it finishes, Run Randomizer re-reads
+    /// config and picks up the new runner.
+    func installWineStaging() {
+        let work = """
+        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+        echo "Installing Wine Staging for the Elden Ring Randomizer GUI…"
+        echo "macOS may ask for your Mac password (Wine Staging needs the GStreamer runtime)."
+        echo
+        if brew install --cask wine@staging; then
+          xattr -dr com.apple.quarantine "/Applications/Wine Staging.app" 2>/dev/null || true
+          echo
+          echo "✅ Wine Staging installed. Return to RipperMoonKit and click Run Randomizer."
+        else
+          echo
+          echo "⚠️ Wine Staging install did not finish — see the output above."
+        fi
+        echo
+        echo "You can close this window."
+        """
+        runTerminalScript(named: "install-wine-staging", title: "Install Wine Staging", work: work)
+    }
+
+    /// Opens a one-off script in Terminal (so admin/password prompts work),
+    /// without the first-run setup sentinel/refresh machinery.
+    func runTerminalScript(named name: String, title: String, work: String) {
+        let dir = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Application Support/RipperMoonKit", isDirectory: true)
+        let scriptURL = dir.appendingPathComponent("\(name).command")
+        let body = """
+        #!/bin/zsh
+        clear
+        \(work)
+        """
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try body.write(to: scriptURL, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
+        } catch {
+            lastResult = "\(title) failed"
+            commandOutput = "Could not prepare the script:\n\(error.localizedDescription)\n"
+            return
+        }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = ["-a", "Terminal", scriptURL.path]
+        do {
+            try process.run()
+        } catch {
+            lastResult = "\(title) failed"
+            commandOutput = "Could not open Terminal:\n\(error.localizedDescription)\n"
+            return
+        }
+        lastResult = "\(title) running in Terminal"
+        commandOutput = "\(title) is running in a Terminal window. Follow the prompts there, then return and click Run Randomizer.\n"
     }
 
     func previewSteamManagedLaunchCommand(for profile: GameProfile, detached: Bool = false) -> String {

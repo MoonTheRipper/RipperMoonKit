@@ -132,7 +132,18 @@ RIPPERMOON_DOTNET6_DIR="$GPTK_HOME/downloads/dotnet6" gptk-dotnet6 --download-on
 
 .NET 6 is end-of-life, but the randomizer is built for it. The runtime is installed only into the selected Wine prefix.
 
-For the randomizer GUI, RipperMoonKit prefers Wine Staging 11.8 when available. This avoids a GPTK/Wine 7.7 WinForms UIAutomation stack overflow seen before the randomizer window appears. Game launches still use GPTK/D3DMetal unless a profile explicitly selects a different runner.
+### Wine Staging (required for the randomizer GUI)
+
+The randomizer GUI runs under **Wine Staging**, not the Game Porting Toolkit runner. Under GPTK's Wine 7.7 its .NET WinForms window crashes with a UIAutomation stack overflow before it appears, so the launcher refuses to run it there and prompts you to install Wine Staging instead. Game launches still use GPTK/D3DMetal — only the randomizer tool window uses Wine Staging, in its own `EldenRingToolsStaging` prefix.
+
+RipperMoonKit does not bundle Wine Staging (it is a separate, third-party runtime). Install it once with Homebrew:
+
+```zsh
+brew install --cask wine@staging
+xattr -dr com.apple.quarantine "/Applications/Wine Staging.app"
+```
+
+The app's Mod Files panel has an **Install Wine Staging** button that runs this in a Terminal window (it may ask for your Mac password, for Wine Staging's GStreamer runtime). After it installs, click **Run Randomizer** again. `install.zsh --check` reports whether Wine Staging is present.
 
 ## Installing Windows Steam
 

@@ -73,6 +73,31 @@ struct ModsTab: View {
             storageKey: "profile.section.mod-files.collapsed",
             help: "Install, back up, import, prepare, randomize, and launch the Elden Ring mod toolchain."
         ) {
+            VStack(alignment: .leading, spacing: 10) {
+            if !model.config.hasWineStaging {
+                HStack(alignment: .top, spacing: 9) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Onyx.warn)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("The Randomizer GUI needs Wine Staging. Under the Game Porting Toolkit runner its .NET window crashes (UIAutomation stack overflow), so RipperMoonKit won't launch it there.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(Onyx.textDim)
+                            .fixedSize(horizontal: false, vertical: true)
+                        RMKButton(kind: .primary, icon: "arrow.down.circle.fill", title: "Install Wine Staging") {
+                            model.installWineStaging()
+                        }
+                        .help("Installs Wine Staging via Homebrew in a Terminal window. It may ask for your Mac password (GStreamer runtime).")
+                    }
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Onyx.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Onyx.hairline, lineWidth: 0.75)
+                }
+            }
             FlowLayout(spacing: 8) {
                 RMKButton(kind: .primary, icon: "square.and.arrow.down.fill",
                           title: "Install ModEngine + Randomizer") {
@@ -103,6 +128,7 @@ struct ModsTab: View {
                     model.launchModEngine(profile)
                 }
                 .help("Launches Elden Ring through ModEngine2 with the current mod configuration.")
+            }
             }
         }
     }

@@ -1176,6 +1176,7 @@ doctor_check() {
   check_item "no-capture dsound proxy available" "test -s \"${GPTK_HOME}/dsound-nocap/dsound-nocap-x86_64.dll\" || test -s \"${repo_dir}/stubs/dsound-nocap/prebuilt/dsound-nocap-x86_64.dll\""
   check_item "Windows Steam" "test -f \"${GPTK_PREFIX_ROOT}/Steam/drive_c/Program Files (x86)/Steam/steam.exe\""
   check_item "mingw-w64 (optional; only to rebuild stubs)" 'command -v x86_64-w64-mingw32-gcc'
+  check_item "Wine Staging (optional; Elden Ring randomizer GUI)" 'test -x "/Applications/Wine Staging.app/Contents/Resources/wine/bin/wine64" || test -x "/Applications/Wine Staging.app/Contents/Resources/wine/bin/wine"'
 }
 
 print_dependency_summary() {

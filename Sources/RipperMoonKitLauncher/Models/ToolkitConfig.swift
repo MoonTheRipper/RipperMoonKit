@@ -33,6 +33,11 @@ struct ToolkitConfig {
     var gptkDotNet6Path: String { "\(home)/bin/gptk-dotnet6" }
     var gptkStubsPath: String { "\(home)/bin/gptk-stubs" }
     var gptkDsoundNoCapPath: String { "\(home)/bin/gptk-dsound-nocap" }
+    var wineStagingHome: String { "/Applications/Wine Staging.app/Contents/Resources/wine" }
+    /// The Elden Ring Randomizer GUI (a .NET WinForms app) needs Wine Staging;
+    /// under the GPTK Wine 7.7 runner its window crashes with a UIAutomation
+    /// stack overflow. The launcher requires this before running the randomizer.
+    var hasWineStaging: Bool { hasWineExecutable(wineStagingHome) }
     var hasToolkitScripts: Bool {
         FileManager.default.isExecutableFile(atPath: gptkLaunchPath)
             && FileManager.default.isExecutableFile(atPath: gptkSteamPath)
