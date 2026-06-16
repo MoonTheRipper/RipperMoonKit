@@ -1,0 +1,225 @@
+#!/bin/zsh
+
+set -e
+SCRIPT_DIR="${0:A:h}"
+COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
+[[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
+source "${COMMON}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  gptk-steam-layout apply  [--prefix NAME] --app-id ID --layout FILE.vdf [--name NAME.vdf]
+  gptk-steam-layout remove [--prefix NAME] --app-id ID [--keep-template]
+  gptk-steam-layout status [--prefix NAME] --app-id ID
+
+Assigns a Steam Input controller layout (a .vdf config exported from Steam) to a
+Steam app id without using Steam's in-client configurator UI, which renders blank
+under GPTK/Wine because its CEF view cannot create a GPU shared-image context.
+
+The layout .vdf is copied into the Steam prefix's controller_base/templates, and a
+"<app-id>" { "template" "<name>" } selection is written into the controller config
+sets for the layout's controller type plus every matching physical pad. Steam loads
+it as the "Local Selection Path" on the next launch of that app id.
+
+Steam must be stopped first (edits are read at Steam start; a running client would
+overwrite them on exit). Existing config sets are backed up before any edit.
+
+Commands:
+  apply    Install the layout and write the selection for --app-id (idempotent)
+  remove   Remove the selection for --app-id (and the template, unless --keep-template)
+  status   Report whether a layout is assigned to --app-id
+
+Options:
+  -p, --prefix NAME|PATH   Steam prefix (default: GPTK_STEAM_PREFIX or Steam)
+      --app-id ID          Steam app id to target (480 = Spacewar/Steamworks sample)
+      --layout FILE.vdf    (apply) Path to the controller_mappings .vdf to install
+      --name NAME.vdf      (apply) Template file name to install as (default rmk_app<ID>.vdf)
+      --keep-template      (remove) Leave the installed template file in place
+  -h, --help               Show this help
+USAGE
+}
+
+mode="${1:-}"
+case "${mode}" in
+  -h|--help|"") usage; exit 0 ;;
+  apply|remove|status) shift ;;
+  *) gptk_die "unknown command: ${mode} (apply|remove|status)" ;;
+esac
+
+prefix="${GPTK_STEAM_PREFIX:-Steam}"
+app_id=""
+layout=""
+tpl_name=""
+keep_template=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--prefix) [[ $# -ge 2 ]] || gptk_die "--prefix requires a value"; prefix="$2"; shift 2 ;;
+    --prefix=*) prefix="${1#--prefix=}"; shift ;;
+    --app-id) [[ $# -ge 2 ]] || gptk_die "--app-id requires a value"; app_id="$2"; shift 2 ;;
+    --app-id=*) app_id="${1#--app-id=}"; shift ;;
+    --layout) [[ $# -ge 2 ]] || gptk_die "--layout requires a value"; layout="$2"; shift 2 ;;
+    --layout=*) layout="${1#--layout=}"; shift ;;
+    --name) [[ $# -ge 2 ]] || gptk_die "--name requires a value"; tpl_name="$2"; shift 2 ;;
+    --name=*) tpl_name="${1#--name=}"; shift ;;
+    --keep-template) keep_template=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) gptk_die "unknown option: $1" ;;
+  esac
+done
+
+app_id="$(gptk_trim "${app_id}")"
+[[ -n "${app_id}" ]] || gptk_die "--app-id is required"
+[[ "${app_id}" == <-> || "${app_id}" == [A-Za-z0-9_]* ]] || gptk_die "invalid --app-id: ${app_id}"
+
+prefix_path="$(gptk_resolve_prefix "${prefix}")"
+steam_dir="${prefix_path}/drive_c/Program Files (x86)/Steam"
+[[ -f "${steam_dir}/steam.exe" ]] || gptk_die "Steam is not installed in prefix '${prefix}' (${steam_dir}/steam.exe missing)"
+
+templates_dir="${steam_dir}/controller_base/templates"
+configs_root="${steam_dir}/steamapps/common/Steam Controller Configs"
+
+steam_running() {
+  ps -axww -o command= 2>/dev/null | grep -q "[S]team/steam.exe"
+}
+
+resolve_account() {
+  [[ -d "${configs_root}" ]] || gptk_die "no controller config store yet: ${configs_root}
+Sign in to Steam once (it creates the per-account config store), then retry."
+  local id
+  id="$(/bin/ls "${configs_root}" 2>/dev/null | grep -E '^[0-9]+$' | head -1)"
+  [[ -n "${id}" ]] || gptk_die "no signed-in Steam account found under ${configs_root}"
+  print -r -- "${id}"
+}
+
+# Vendor id prefix used in configset_<vid>-<pid>-<hash>.vdf file names, by type.
+vendor_for_type() {
+  case "$1" in
+    controller_xbox360|controller_xboxone|controller_xbox*) print -r -- "45e" ;;
+    controller_ps3|controller_ps4|controller_ps5|controller_sony*) print -r -- "54c" ;;
+    controller_switch*|controller_neptune) print -r -- "57e" ;;
+    *) print -r -- "" ;;
+  esac
+}
+
+# Build the list of configset files to edit: the type-level set plus every
+# physical-pad set whose vendor matches the layout's controller type.
+collect_targets() {
+  local cfgdir="$1" ctype="$2"
+  typeset -ga TARGETS
+  TARGETS=()
+  local typelevel="${cfgdir}/configset_${ctype}.vdf"
+  TARGETS+=("${typelevel}")
+  local vid f
+  vid="$(vendor_for_type "${ctype}")"
+  if [[ -n "${vid}" ]]; then
+    for f in "${cfgdir}"/configset_${vid}-*-*.vdf(N); do
+      TARGETS+=("${f}")
+    done
+  fi
+}
+
+upsert_entry() {
+  local file="$1" app="$2" tpl="$3"
+  RMK_APP="${app}" RMK_TPL="${tpl}" perl -0777 -i -pe '
+    my $a = $ENV{RMK_APP};
+    my $t = $ENV{RMK_TPL};
+    my $blk = "\t\"$a\"\n\t{\n\t\t\"template\"\t\t\"$t\"\n\t}\n";
+    if (/"\Q$a\E"\s*\{[^{}]*\}/s) {
+      s/[ \t]*"\Q$a\E"\s*\{[^{}]*\}\n?/$blk/s;
+    } else {
+      s/("controller_config"[ \t\r\n]*\{[ \t\r\n]*)/$1$blk/s;
+    }
+  ' "${file}"
+}
+
+remove_entry() {
+  local file="$1" app="$2"
+  RMK_APP="${app}" perl -0777 -i -pe 's/[ \t]*"\Q$ENV{RMK_APP}\E"\s*\{[^{}]*\}\n?//s;' "${file}"
+}
+
+account_id="$(resolve_account)"
+cfgdir="${configs_root}/${account_id}/config"
+[[ -d "${cfgdir}" ]] || gptk_die "controller config dir missing: ${cfgdir}"
+
+case "${mode}" in
+  status)
+    tpl="${tpl_name:-rmk_app${app_id}.vdf}"
+    if [[ -f "${templates_dir}/${tpl}" ]]; then
+      gptk_note "template installed: controller_base/templates/${tpl}"
+    else
+      gptk_note "no RipperMoonKit template installed for app ${app_id}"
+    fi
+    print -r -- "Config sets referencing app ${app_id}:"
+    found=0
+    for f in "${cfgdir}"/configset_*.vdf(N); do
+      if grep -q "\"${app_id}\"" "${f}" 2>/dev/null; then
+        sel="$(grep -A2 "\"${app_id}\"" "${f}" | grep -E '"(template|workshop)"' | head -1)"
+        sel="$(gptk_trim "${sel}")"
+        print -r -- "  ${f:t}: ${sel}"
+        found=1
+      fi
+    done
+    [[ "${found}" == "1" ]] || print -r -- "  (none)"
+    exit 0
+    ;;
+
+  apply)
+    layout="$(gptk_trim "${layout}")"
+    [[ -n "${layout}" ]] || gptk_die "--layout is required for apply"
+    [[ -f "${layout}" ]] || gptk_die "layout file not found: ${layout}"
+    grep -q '"controller_mappings"' "${layout}" \
+      || gptk_die "not a Steam Input config (missing \"controller_mappings\"): ${layout}"
+
+    if steam_running; then
+      gptk_die "Steam is running. Close it first (gptk-steam --kill), then apply the layout.
+Steam reads these config sets at startup and would overwrite the edit on exit."
+    fi
+
+    ctype="$(grep -m1 '"controller_type"' "${layout}" 2>/dev/null \
+      | sed -E 's/.*"controller_type"[[:space:]]*"([^"]+)".*/\1/')"
+    [[ -n "${ctype}" ]] || ctype="controller_xboxone"
+    tpl="${tpl_name:-rmk_app${app_id}.vdf}"
+
+    mkdir -p "${templates_dir}"
+    cp -f "${layout}" "${templates_dir}/${tpl}"
+    gptk_note "installed template: controller_base/templates/${tpl} (type ${ctype})"
+
+    collect_targets "${cfgdir}" "${ctype}"
+    stamp="$(date +%Y%m%d-%H%M%S)"
+    backup_dir="${cfgdir}/.rmk-backup-${stamp}"
+    mkdir -p "${backup_dir}"
+    for t in "${TARGETS[@]}"; do
+      [[ -f "${t}" ]] || printf '"controller_config"\n{\n}\n' > "${t}"
+      cp -p "${t}" "${backup_dir}/${t:t}"
+      upsert_entry "${t}" "${app_id}" "${tpl}"
+      gptk_note "assigned app ${app_id} -> ${tpl} in ${t:t}"
+    done
+    print -r -- "Backed up edited config sets to: ${backup_dir}"
+    print -r -- "Done. Start Steam and launch app ${app_id} with the controller connected."
+    exit 0
+    ;;
+
+  remove)
+    if steam_running; then
+      gptk_die "Steam is running. Close it first (gptk-steam --kill), then remove the layout."
+    fi
+    tpl="${tpl_name:-rmk_app${app_id}.vdf}"
+    stamp="$(date +%Y%m%d-%H%M%S)"
+    backup_dir="${cfgdir}/.rmk-backup-${stamp}"
+    mkdir -p "${backup_dir}"
+    for t in "${cfgdir}"/configset_*.vdf(N); do
+      grep -q "\"${app_id}\"" "${t}" 2>/dev/null || continue
+      cp -p "${t}" "${backup_dir}/${t:t}"
+      remove_entry "${t}" "${app_id}"
+      gptk_note "removed app ${app_id} selection from ${t:t}"
+    done
+    if [[ "${keep_template}" != "1" && -f "${templates_dir}/${tpl}" ]]; then
+      rm -f "${templates_dir}/${tpl}"
+      gptk_note "removed template: controller_base/templates/${tpl}"
+    fi
+    print -r -- "Backed up edited config sets to: ${backup_dir}"
+    exit 0
+    ;;
+esac

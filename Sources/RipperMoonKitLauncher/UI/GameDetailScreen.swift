@@ -331,6 +331,62 @@ struct GameDetailScreen: View {
             }
         }
 
+        if profile.isSteamApp {
+            CollapsibleCard(
+                title: "Controller Layout",
+                icon: "gamecontroller.fill",
+                storageKey: "profile.section.controller-layout.collapsed",
+                defaultCollapsed: true,
+                help: "Assigns a Steam Input controller layout (.vdf) to a Steam app id without Steam's in-client configurator, which renders blank under GPTK because its CEF view cannot create a GPU surface. Steam must be stopped when applying."
+            ) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("Use a controller layout for a Steam app", isOn: optionalBinding(\.controllerLayoutEnabled))
+                        .toggleStyle(.checkbox)
+                        .help("Copies a chosen Steam Input config into the Steam prefix and selects it for the app id below, so Steam loads it instead of an empty layout.")
+                    if profile.controllerLayoutEnabled == true {
+                        FieldRow(label: "App ID") {
+                            OnyxField(text: Binding(
+                                get: { profile.controllerLayoutAppID ?? "" },
+                                set: { profile.controllerLayoutAppID = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+                            ), placeholder: "480", mono: true)
+                        }
+                        .help("The Steam app id to assign the layout to. 480 is Spacewar, Valve's free Steamworks sample — handy for testing your own builds.")
+                        PathEditor(title: "Layout (.vdf)", path: Binding(
+                            get: { profile.controllerLayoutPath ?? "" },
+                            set: { profile.controllerLayoutPath = $0.isEmpty ? nil : $0 }
+                        )) {
+                            model.chooseControllerLayout(for: &profile)
+                        }
+                        .help("A Steam Input config exported from Steam (a controller_mappings .vdf file).")
+                        HStack(spacing: 9) {
+                            Image(systemName: model.controllerLayoutApplied(for: profile) ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                                .foregroundStyle(model.controllerLayoutApplied(for: profile) ? Onyx.good : Onyx.warn)
+                            Text(model.controllerLayoutApplied(for: profile)
+                                 ? "Layout assigned to app \(profile.controllerLayoutAppIDValue) — start Steam to use it"
+                                 : "Not assigned yet for app \(profile.controllerLayoutAppIDValue)")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Onyx.text)
+                        }
+                        Text("Close Steam before applying. Steam reads controller selections at startup, so a running client overwrites the edit on exit.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Onyx.textDim)
+                            .fixedSize(horizontal: false, vertical: true)
+                        FlowLayout(spacing: 8) {
+                            RMKButton(kind: .primary, icon: "gamecontroller.fill", title: "Apply Layout",
+                                      disabled: (profile.controllerLayoutPath ?? "").isEmpty) {
+                                model.applyControllerLayout(profile)
+                            }
+                            .help("Installs the layout into the Steam prefix and selects it for the app id, for the connected pad type plus matching controllers.")
+                            RMKButton(kind: .ghost, icon: "arrow.uturn.backward", title: "Remove") {
+                                model.removeControllerLayout(profile)
+                            }
+                            .help("Removes the layout selection and template for this app id.")
+                        }
+                    }
+                }
+            }
+        }
+
         if profile.needsVoiceCaptureFix {
             Card(title: "Voice Capture Fix", icon: "mic.slash.fill") {
                 VStack(alignment: .leading, spacing: 10) {

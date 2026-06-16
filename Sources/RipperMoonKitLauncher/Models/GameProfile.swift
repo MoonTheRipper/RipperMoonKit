@@ -34,6 +34,18 @@ struct GameProfile: Codable, Identifiable, Hashable {
     var modEngineLaunchBat: String?
     var randomizerExecutable: String?
     var seamlessDllPath: String?
+    // Steam Input controller layout assignment (Steam profile feature).
+    // Defaulted optionals keep existing persisted profiles decodable.
+    var controllerLayoutEnabled: Bool? = nil
+    var controllerLayoutPath: String? = nil
+    var controllerLayoutAppID: String? = nil
+
+    /// The Steam app id a controller layout targets. Defaults to 480 (Spacewar,
+    /// Valve's free Steamworks sample) when not set.
+    var controllerLayoutAppIDValue: String {
+        let trimmed = (controllerLayoutAppID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "480" : trimmed
+    }
 
     var safeName: String {
         name.replacingOccurrences(of: "[^A-Za-z0-9._-]+", with: "-", options: .regularExpression)

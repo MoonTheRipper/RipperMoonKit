@@ -50,6 +50,7 @@ The screenshots show the launcher profile and a live Elden Ring GPTK run. See [d
 - `gptk-dotnet6`: downloads and installs Microsoft .NET 6 Desktop Runtime into Wine prefixes for tools like Elden Ring Randomizer.
 - `gptk-stubs`: cross-compiles and installs minimal stub DLLs for Wine/GPTK missing APIs (GameInput, etc.) so delay-load crashes are resolved without touching game files.
 - `gptk-dsound-nocap`: installs a DirectSound no-capture forwarder into a prefix (and sets the Wine override) so Steam Voice cannot stall the Elden Ring ERSC Golden Pot lobby. It forwards to the prefix's own dsound and redistributes nothing copyrighted.
+- `gptk-steam-layout`: assigns a Steam Input controller layout (`.vdf`) to a Steam app id by writing the selection into the prefix's controller config sets, so a layout applies even though Steam's in-client configurator renders blank under GPTK. Steam must be stopped; config sets are backed up before editing.
 - Dynamic path configuration through `~/.rippermoon-gptk.env`.
 - Configurable Wine drive mappings with any letters except `C:`.
 - Installer bootstrap with timestamped logs.
