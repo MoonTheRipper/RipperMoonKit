@@ -112,3 +112,15 @@ gptk-steam-layout status --app-id 480
 The selection is written for the layout's controller type plus matching physical pads. Steam loads it as the "Local Selection Path" for that app id. Edited config sets are backed up under the account's `config/.rmk-backup-<timestamp>` folder first. Use `gptk-steam-layout remove --app-id 480` to clear it.
 
 Steam must be stopped when applying or removing: Steam reads these config sets at startup and rewrites them on exit, so an edit made while it is running is lost.
+
+## Adding an installed Steam game as a profile
+
+A game you downloaded inside Steam (for example It Takes Two) needs Steam's own launch environment, so it cannot run from the plain copied-folder path. Instead it runs as a Steam-managed profile that launches through `gptk-steam -applaunch <app-id>` — which starts Steam in the background, so you never open the Steam UI by hand.
+
+From the GUI:
+
+1. Install the game in Steam (open the Steam profile, sign in, install to the internal `S:` library to avoid external-drive download failures).
+2. In the library, click **Add Steam Game**. It scans the installed Steam library across mounted drives (games on an unplugged external drive are skipped) and lists what it finds.
+3. Pick the game and click **Add**. It appears as a tile; its **Launch** button starts Steam and the game in one click.
+
+You can also set a profile's **Steam App ID** by hand in App Settings to make any profile launch this way. The download path itself prefers the internal `S:` library; a Steam library on an external drive that unmounts mid-download is the usual cause of "Unpack failed" content errors.

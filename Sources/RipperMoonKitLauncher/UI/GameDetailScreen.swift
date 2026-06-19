@@ -205,6 +205,16 @@ struct GameDetailScreen: View {
                     .frame(width: 220)
                     Spacer()
                 }
+                if !profile.isSteamApp {
+                    FieldRow(label: "Steam App ID") {
+                        OnyxField(text: Binding(
+                            get: { profile.steamAppID ?? "" },
+                            set: { profile.steamAppID = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+                        ), placeholder: "e.g. 1426210", mono: true)
+                        Spacer()
+                    }
+                    .help("Set this to make the profile launch through Steam (gptk-steam -applaunch). The Launch button then starts Steam for you — no need to open Steam first. Use Add Steam Game to fill this from your installed library.")
+                }
             }
         }
 

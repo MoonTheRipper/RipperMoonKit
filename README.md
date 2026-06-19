@@ -56,6 +56,7 @@ The screenshots show the launcher profile and a live Elden Ring GPTK run. See [d
 - Installer bootstrap with timestamped logs.
 - Update backups and rollback for existing local installs.
 - A SwiftUI launcher target with per-app profiles, ERSC defaults, validation, logs, path editing, drive mapping, close-game control, VC++ runtime install actions, and rollback.
+- Add Steam Game: scans the installed Windows Steam library (across mounted drives) and adds a chosen game as a one-click profile that launches through Steam (`gptk-steam -applaunch`), auto-starting Steam so you never open the Steam UI by hand.
 - An Elden Ring Mod Manager panel that installs selected mod ZIPs, prepares ModEngine 2 config/launch files, runs the randomizer GUI, and launches the modded profile without copying another PC's drive letters.
 - Documentation for GPTK 3, Steam, ERSC, copied game folders, saves, and troubleshooting.
 

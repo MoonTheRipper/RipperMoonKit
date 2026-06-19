@@ -8,6 +8,7 @@ struct LibraryScreen: View {
     @State private var filter: LibraryFilter = .all
     @State private var query = ""
     @State private var featuredIndex = Int.random(in: 0 ..< 999)
+    @State private var showAddSteam = false
 
     private let columns = [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 10)]
 
@@ -222,6 +223,18 @@ struct LibraryScreen: View {
                     AddGameTile()
                 }
                 .buttonStyle(.plain)
+                Button {
+                    showAddSteam = true
+                } label: {
+                    AddSteamGameTile()
+                }
+                .buttonStyle(.plain)
+                .help("Add a game already installed in your Steam library. It launches in one click and starts Steam for you.")
+            }
+        }
+        .sheet(isPresented: $showAddSteam) {
+            AddSteamGameSheet { profile in
+                selection = .profile(profile.id)
             }
         }
     }
@@ -328,6 +341,28 @@ struct AddGameTile: View {
                 .background(Onyx.surface, in: Circle())
                 .overlay { Circle().strokeBorder(Onyx.hairline, lineWidth: 0.75) }
             Text("Add Game")
+                .font(.system(size: 11, weight: .medium))
+        }
+        .foregroundStyle(Onyx.textDim)
+        .frame(maxWidth: .infinity, minHeight: 138)
+        .background(Onyx.surface.opacity(0.4),
+                    in: RoundedRectangle(cornerRadius: Onyx.tileRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Onyx.tileRadius, style: .continuous)
+                .strokeBorder(Onyx.hairline2, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+        }
+    }
+}
+
+struct AddSteamGameTile: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "arrow.down.circle")
+                .font(.system(size: 15, weight: .semibold))
+                .frame(width: 32, height: 32)
+                .background(Onyx.surface, in: Circle())
+                .overlay { Circle().strokeBorder(Onyx.hairline, lineWidth: 0.75) }
+            Text("Add Steam Game")
                 .font(.system(size: 11, weight: .medium))
         }
         .foregroundStyle(Onyx.textDim)
