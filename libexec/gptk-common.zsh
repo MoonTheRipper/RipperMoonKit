@@ -83,6 +83,7 @@ gptk_init_defaults() {
     GPTK_STEAM_PREFIX
     GPTK_STEAM_LEGACY_CEF
     GPTK_STEAM_RESET_WEBHELPER_CACHE
+    GPTK_CONTROLLER_SDL
   )
   typeset -A env_overrides=()
 
@@ -118,6 +119,7 @@ gptk_init_defaults() {
   export GPTK_METALFX="${GPTK_METALFX:-0}"
   export GPTK_ADVERTISE_AVX="${GPTK_ADVERTISE_AVX:-0}"
   export GPTK_NOFILE_LIMIT="${GPTK_NOFILE_LIMIT:-49152}"
+  export GPTK_CONTROLLER_SDL="${GPTK_CONTROLLER_SDL:-1}"
 }
 
 gptk_find_wine_home() {
@@ -310,6 +312,33 @@ gptk_log_file() {
   local stamp
   stamp="$(date +%Y%m%d-%H%M%S)"
   print -r -- "${GPTK_LOG_DIR}/${prefix_name}-${stamp}.log"
+}
+
+# Make Wine read game controllers through the SDL backend. macOS's GameController
+# framework takes exclusive ownership of Xbox/PlayStation pads, which starves
+# Wine's default raw-HID backend: the controller enumerates (so it shows up in
+# games and Steam) but delivers no button/stick input. The SDL backend reads the
+# pad through that same framework cooperatively, so input actually reaches games.
+# Applied once per prefix (marker-guarded); the value loads when the prefix's
+# wineserver next starts. Disable with GPTK_CONTROLLER_SDL=0.
+gptk_apply_input_backend() {
+  local prefix_path="$1"
+  if [[ "${GPTK_CONTROLLER_SDL:-1}" != "1" ]]; then
+    return 0
+  fi
+  if [[ ! -d "${prefix_path}/drive_c/windows" ]]; then
+    return 0
+  fi
+  local marker="${prefix_path}/.gptk-input-backend-sdl"
+  if [[ -e "${marker}" ]]; then
+    return 0
+  fi
+  if gptk_run_tool reg add "HKLM\\System\\CurrentControlSet\\Services\\winebus" \
+       /v "Enable SDL" /t REG_DWORD /d 1 /f >/dev/null 2>&1; then
+    : > "${marker}"
+    gptk_note "enabled SDL game-controller backend for ${prefix_path:t}"
+  fi
+  return 0
 }
 
 gptk_run_logged() {

@@ -124,3 +124,11 @@ From the GUI:
 3. Pick the game and click **Add**. It appears as a tile; its **Launch** button starts Steam and the game in one click.
 
 You can also set a profile's **Steam App ID** by hand in App Settings to make any profile launch this way. The download path itself prefers the internal `S:` library; a Steam library on an external drive that unmounts mid-download is the usual cause of "Unpack failed" content errors.
+
+## Controllers don't respond in games
+
+If a controller shows up in Steam and in the game's settings but does nothing when you press buttons, the cause is macOS, not Wine. macOS's GameController framework takes **exclusive ownership** of Xbox and PlayStation pads (visible as `UsbExclusiveOwner` in `ioreg`), which starves Wine's default raw-HID backend — the pad enumerates (so it appears everywhere) but no button or stick input reaches the game. This affects USB and Bluetooth equally and is independent of Steam Input.
+
+RipperMoonKit fixes this by enabling Wine's **SDL controller backend** per prefix (`winebus` `Enable SDL`), which reads the pad through that same macOS framework cooperatively, so input flows to games. It is applied automatically the first time a prefix is launched (and on prefix init), and loads when the prefix's Steam/Wine next starts. Set `GPTK_CONTROLLER_SDL=0` in `~/.rippermoon-gptk.env` to opt out.
+
+To apply it immediately to a prefix that is already running, close Steam/the game so the Wine driver reloads, then launch again. A controller that still works through Steam Input but not natively is a separate, game-specific issue.
