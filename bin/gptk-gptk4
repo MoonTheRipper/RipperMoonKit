@@ -1,0 +1,178 @@
+#!/bin/zsh
+#
+# gptk-gptk4 — stage Apple's GPTK 4 graphics bridge (D3DMetal 4) and assemble a
+# GPTK 4 / Wine 11 runner the toolkit can select via the "GPTK 4" wine runner.
+#
+# Background (verified): Apple's GPTK 4 DMG ships only the D3DMetal graphics
+# bridge (no wine). Its libraries require a Wine 11+ base — they fail to
+# initialize on the GPTK 3 / Wine 7.7 runner ("dxgi.dll failed to initialize").
+# There is not yet a free, installable Wine 11 + D3DMetal cask (the gcenx
+# game-porting-toolkit cask is still Wine 7.7); the only Wine 11 + D3DMetal today
+# is CrossOver, which this toolkit does NOT require. So this helper:
+#   • stage        — extract D3DMetal 4 from Apple's GPTK 4 DMG into GPTK_V4_RUNTIME
+#   • build-runner — overlay that onto a Wine 11 base to produce GPTK_V4_WINE_HOME
+#   • status       — report what is staged/built
+# Until a Wine 11 base is available, the GPTK 4 runner falls back to GPTK 3 (the
+# launcher already does this), so nothing breaks. This is the groundwork that is
+# "armed" for the day a free Wine 11 base ships.
+
+set -e
+SCRIPT_DIR="${0:A:h}"
+COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
+[[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
+source "${COMMON}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  gptk-gptk4 stage         [--dmg PATH]                 Stage Apple's D3DMetal 4 bridge from the GPTK 4 DMG
+  gptk-gptk4 build-runner  [--base-wine PATH] [--force] Build GPTK_V4_WINE_HOME = base Wine 11 + staged D3DMetal 4
+  gptk-gptk4 status                                     Report staged runtime / built runner
+  gptk-gptk4 -h | --help
+
+Stage:
+  Finds the GPTK 4 DMG (--dmg, $GPTK_V4_DMG, or ~/Downloads + iCloud Downloads),
+  mounts it and its nested "Evaluation environment for Windows games" image, and
+  copies redist/lib (D3DMetal.framework + d3d/dxgi shims) into:
+      $GPTK_V4_RUNTIME            (default: $GPTK_HOME/runtime-v4)
+
+Build-runner:
+  Clones a Wine 11 base and overlays the staged D3DMetal 4 libraries into it,
+  producing:
+      $GPTK_V4_WINE_HOME         (default: $GPTK_HOME/apps/Game Porting Toolkit 4.app/Contents/Resources/wine)
+  The base Wine comes from --base-wine or $GPTK_V4_BASE_WINE. It MUST be Wine 11+
+  (D3DMetal 4 will not initialize on Wine 7.7); the helper warns otherwise.
+
+Environment:
+  GPTK_V4_DMG         Path to Apple's Game Porting Toolkit 4 DMG
+  GPTK_V4_RUNTIME     Where the D3DMetal 4 bridge is staged (default $GPTK_HOME/runtime-v4)
+  GPTK_V4_WINE_HOME   Output GPTK 4 wine home (default GPTK 4 app bundle under $GPTK_HOME)
+  GPTK_V4_BASE_WINE   Wine 11+ base to overlay (no free cask ships this yet)
+USAGE
+}
+
+mode="${1:-}"
+case "${mode}" in
+  -h|--help|"") usage; exit 0 ;;
+  stage|build-runner|status) shift ;;
+  *) gptk_die "unknown command: ${mode} (stage|build-runner|status)" ;;
+esac
+
+gptk_init_defaults
+
+V4_RUNTIME="${GPTK_V4_RUNTIME:-${GPTK_HOME}/runtime-v4}"
+V4_WINE_HOME="${GPTK_V4_WINE_HOME:-${GPTK_HOME}/apps/Game Porting Toolkit 4.app/Contents/Resources/wine}"
+dmg="${GPTK_V4_DMG:-}"
+base_wine="${GPTK_V4_BASE_WINE:-}"
+force=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dmg) [[ $# -ge 2 ]] || gptk_die "--dmg requires a value"; dmg="$2"; shift 2 ;;
+    --dmg=*) dmg="${1#--dmg=}"; shift ;;
+    --base-wine) [[ $# -ge 2 ]] || gptk_die "--base-wine requires a value"; base_wine="$2"; shift 2 ;;
+    --base-wine=*) base_wine="${1#--base-wine=}"; shift ;;
+    --force) force=1; shift ;;
+    -h|--help) usage; exit 0 ;;
+    *) gptk_die "unknown option: $1" ;;
+  esac
+done
+
+typeset -ga MOUNTS=()
+cleanup() { local m; for m in "${MOUNTS[@]}"; do hdiutil detach "${m}" -quiet 2>/dev/null || true; done; }
+trap cleanup EXIT
+
+attach_dmg() {  # echoes mount point
+  local image="$1" before after mnt
+  before="$(/bin/ls /Volumes 2>/dev/null)"
+  printf 'Y\n' | hdiutil attach "${image}" -nobrowse -noautoopen >/dev/null 2>&1 || return 1
+  after="$(/bin/ls /Volumes 2>/dev/null)"
+  mnt="/Volumes/$(comm -13 <(print -r -- "${before}" | sort) <(print -r -- "${after}" | sort) | head -1)"
+  [[ -d "${mnt}" ]] || return 1
+  MOUNTS+=("${mnt}")
+  print -r -- "${mnt}"
+}
+
+find_dmg() {
+  local d
+  for d in "${dmg}" \
+           "${HOME}/Downloads"/Game_Porting_Toolkit_4*.dmg(N) \
+           "${HOME}/Library/Mobile Documents/com~apple~CloudDocs/Downloads"/Game_Porting_Toolkit_4*(.dmg|.dmg\ [0-9])(N); do
+    [[ -n "${d}" && -f "${d}" ]] && { print -r -- "${d}"; return 0; }
+  done
+  return 1
+}
+
+wine_major() {  # echoes wine major version of a wine home, or 0 if unknown
+  local home="$1" bin="" out
+  for bin in "${home}/bin/wine64" "${home}/bin/wine"; do [[ -x "${bin}" ]] && break; done
+  [[ -x "${bin}" ]] || { print 0; return; }
+  out="$("${bin}" --version 2>/dev/null)"
+  if [[ "${out}" == *wine-<->* ]]; then
+    print -r -- "${${${out#*wine-}%%.*}}"
+  else
+    print 0   # CrossOver and others don't report wine-X.Y; treat as unknown
+  fi
+}
+
+case "${mode}" in
+  status)
+    print -r -- "GPTK 4 groundwork status:"
+    if [[ -f "${V4_RUNTIME}/lib/wine/x86_64-windows/d3d12.dll" ]]; then
+      local ver
+      ver="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+             "${V4_RUNTIME}/lib/external/D3DMetal.framework/Resources/Info.plist" 2>/dev/null)"
+      print -r -- "  D3DMetal bridge staged: ${V4_RUNTIME}  (D3DMetal ${ver:-?})"
+    else
+      print -r -- "  D3DMetal bridge: NOT staged (run: gptk-gptk4 stage)"
+    fi
+    if [[ -x "${V4_WINE_HOME}/bin/wine64" || -x "${V4_WINE_HOME}/bin/wine" ]]; then
+      print -r -- "  GPTK 4 wine runner: ${V4_WINE_HOME}  (wine major $(wine_major "${V4_WINE_HOME}"))"
+    else
+      print -r -- "  GPTK 4 wine runner: NOT built (run: gptk-gptk4 build-runner --base-wine <wine11>)"
+    fi
+    print -r -- "  Note: no free Wine 11 + D3DMetal cask ships yet; the GPTK 4 runner falls back to GPTK 3 until one does."
+    ;;
+
+  stage)
+    [[ -n "${dmg}" && -f "${dmg}" ]] || dmg="$(find_dmg)" || gptk_die "GPTK 4 DMG not found. Download it from Apple and pass --dmg PATH (or set GPTK_V4_DMG)."
+    gptk_note "staging D3DMetal 4 bridge from: ${dmg}"
+    outer="$(attach_dmg "${dmg}")" || gptk_die "could not mount ${dmg} (incomplete download? a valid DMG ends with a 'koly' trailer)"
+    nested="$(/bin/ls "${outer}"/*[Ee]valuation*environment*.dmg(N) | head -1)"
+    [[ -n "${nested}" ]] || gptk_die "no nested evaluation-environment image inside ${outer}"
+    evalmnt="$(attach_dmg "${nested}")" || gptk_die "could not mount nested image ${nested}"
+    [[ -d "${evalmnt}/redist/lib" ]] || gptk_die "no redist/lib in ${evalmnt}"
+    mkdir -p "${V4_RUNTIME}/lib"
+    ditto "${evalmnt}/redist/lib" "${V4_RUNTIME}/lib"
+    [[ -f "${V4_RUNTIME}/lib/wine/x86_64-windows/d3d12.dll" ]] || gptk_die "staging failed: d3d12.dll missing in ${V4_RUNTIME}/lib"
+    local ver
+    ver="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+           "${V4_RUNTIME}/lib/external/D3DMetal.framework/Resources/Info.plist" 2>/dev/null)"
+    gptk_note "staged D3DMetal ${ver:-?} -> ${V4_RUNTIME}"
+    print -r -- "Done. Next: gptk-gptk4 build-runner --base-wine <Wine 11 home> (once a Wine 11 base is available)."
+    ;;
+
+  build-runner)
+    [[ -f "${V4_RUNTIME}/lib/wine/x86_64-windows/d3d12.dll" ]] || gptk_die "D3DMetal 4 not staged yet. Run: gptk-gptk4 stage"
+    [[ -n "${base_wine}" ]] || gptk_die "no base Wine. Pass --base-wine PATH or set GPTK_V4_BASE_WINE to a Wine 11+ home.
+No free Wine 11 + D3DMetal cask ships yet, so this stays unset until one does (or point at a Wine 11 build you have)."
+    [[ -x "${base_wine}/bin/wine64" || -x "${base_wine}/bin/wine" ]] || gptk_die "base wine not found at ${base_wine}/bin/wine64"
+    local maj; maj="$(wine_major "${base_wine}")"
+    if [[ "${maj}" == <-> && "${maj}" -lt 11 && "${maj}" -ne 0 ]]; then
+      if [[ "${force}" != "1" ]]; then
+        gptk_die "base wine is wine-${maj}; D3DMetal 4 requires Wine 11+ (it fails to init on 7.7). Use a Wine 11 base, or --force to try anyway."
+      fi
+      gptk_note "WARNING: base wine is wine-${maj} (<11); D3DMetal 4 will likely fail to initialize. Proceeding due to --force."
+    fi
+    [[ -d "${V4_WINE_HOME}" && "${force}" != "1" ]] && gptk_die "${V4_WINE_HOME} already exists; pass --force to rebuild."
+    rm -rf "${V4_WINE_HOME}"
+    mkdir -p "${V4_WINE_HOME:h}"
+    gptk_note "cloning base wine: ${base_wine}"
+    ditto "${base_wine}" "${V4_WINE_HOME}"
+    gptk_note "overlaying staged D3DMetal 4 bridge"
+    ditto "${V4_RUNTIME}/lib" "${V4_WINE_HOME}/lib"
+    [[ -x "${V4_WINE_HOME}/bin/wine64" || -x "${V4_WINE_HOME}/bin/wine" ]] || gptk_die "runner build failed: no wine binary in ${V4_WINE_HOME}"
+    gptk_note "built GPTK 4 runner -> ${V4_WINE_HOME}"
+    print -r -- "Done. Select 'GPTK 4 (preview)' as the wine runner on a profile, or set GPTK_V4_WINE_HOME."
+    ;;
+esac
