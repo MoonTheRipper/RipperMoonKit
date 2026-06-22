@@ -33,7 +33,11 @@ The fix is a stub DLL that:
 
 ### Prerequisites
 
-Install the mingw-w64 cross-compiler:
+None for normal use. A prebuilt `GameInput.dll` (this project's own binary)
+ships with the toolkit, so `gptk-stubs` installs it without a compiler.
+
+Only rebuilding from source — `gptk-stubs --force-build` — needs the mingw-w64
+cross-compiler:
 
 ```zsh
 brew install mingw-w64

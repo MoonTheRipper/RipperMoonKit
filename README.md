@@ -18,7 +18,7 @@ Tested workflows:
 
 - Apple Game Porting Toolkit 3.
 - Windows Steam running through a dedicated `Steam` prefix.
-- Elden Ring ERSC from a copied pre-installed offline/non-Steam Windows `Game` folder.
+- Elden Ring ERSC from a copy of an installed Windows `Game` folder.
 - Elden Ring ModEngine 2 plus Item and Enemy Randomizer profile preparation.
 - Elden Ring randomized output launching through ModEngine 2; launching without ModEngine returns the game to the non-randomized path.
 - Save transfer into the real Wine prefix save directory after confirming the game-created save path.
@@ -30,7 +30,7 @@ Tested workflows:
 - Game compatibility is not guaranteed. Each game can need a different prefix, runner, runtime, launch flag, or workaround.
 - Online features that depend on kernel anti-cheat are expected to fail under Wine/GPTK.
 - The project does not bypass DRM, anti-cheat, game ownership checks, or platform rules.
-- Installers are often less reliable than copied, already-installed Windows game folders.
+- Installers are often less reliable than a copy of an installed Windows game folder.
 - External drives must stay mounted at the same paths, or drive mappings need to be updated in Settings.
 
 ## Proof Of Concept
@@ -49,11 +49,15 @@ The screenshots show the launcher profile and a live Elden Ring GPTK run. See [d
 - `gptk-vcrun`: downloads and installs Microsoft Visual C++ runtimes into Wine prefixes.
 - `gptk-dotnet6`: downloads and installs Microsoft .NET 6 Desktop Runtime into Wine prefixes for tools like Elden Ring Randomizer.
 - `gptk-stubs`: cross-compiles and installs minimal stub DLLs for Wine/GPTK missing APIs (GameInput, etc.) so delay-load crashes are resolved without touching game files.
+- `gptk-dsound-nocap`: installs a DirectSound no-capture forwarder into a prefix (and sets the Wine override) so Steam Voice cannot stall the Elden Ring ERSC Golden Pot lobby. It forwards to the prefix's own dsound and redistributes nothing copyrighted.
+- `gptk-steam-layout`: assigns a Steam Input controller layout (`.vdf`) to a Steam app id by writing the selection into the prefix's controller config sets, so a layout applies even though Steam's in-client configurator renders blank under GPTK. Steam must be stopped; config sets are backed up before editing.
+- SDL game-controller backend enabled per prefix so Xbox/PlayStation pads actually deliver input under GPTK (macOS exclusively claims those controllers, which starves Wine's default raw-HID backend). Toggle with `GPTK_CONTROLLER_SDL`.
 - Dynamic path configuration through `~/.rippermoon-gptk.env`.
 - Configurable Wine drive mappings with any letters except `C:`.
 - Installer bootstrap with timestamped logs.
 - Update backups and rollback for existing local installs.
 - A SwiftUI launcher target with per-app profiles, ERSC defaults, validation, logs, path editing, drive mapping, close-game control, VC++ runtime install actions, and rollback.
+- Add Steam Game: scans the installed Windows Steam library (across mounted drives) and adds a chosen game as a one-click profile that launches through Steam (`gptk-steam -applaunch`), auto-starting Steam so you never open the Steam UI by hand.
 - An Elden Ring Mod Manager panel that installs selected mod ZIPs, prepares ModEngine 2 config/launch files, runs the randomizer GUI, and launches the modded profile without copying another PC's drive letters.
 - Documentation for GPTK 3, Steam, ERSC, copied game folders, saves, and troubleshooting.
 
@@ -212,15 +216,15 @@ See [docs/elden-ring-ersc.md](docs/elden-ring-ersc.md).
 
 Important tested constraint:
 
-- Use a copied, already-installed Windows `Game` folder.
-- Do not use the original installation files as the runtime source.
+- Run from a copy of your installed Windows `Game` folder.
+- Point the toolkit at the installed game folder, not at game installer files.
 - Start Steam first.
 - From the Steam profile, run **Install Spacewar** once so Steam installs AppID 480 / Spacewar. Close Spacewar after setup finishes.
 - Launch ERSC from the same `Steam` prefix.
 - Do not mix esync states. The current ERSC profile starts Steam and ERSC with esync disabled for Golden Pot stability.
-- If Golden Pot lobby opening freezes the frame while audio continues, use the no-capture GPTK runner documented in [docs/steam-voice-capture-fix-2026-05-13.md](docs/steam-voice-capture-fix-2026-05-13.md).
+- If Golden Pot lobby opening freezes the frame while audio continues, apply the DirectSound no-capture fix with `gptk-dsound-nocap apply --prefix Steam` (the launcher applies it automatically before ERSC launches). See [docs/steam-voice-capture-fix-2026-05-13.md](docs/steam-voice-capture-fix-2026-05-13.md).
 
-For Randomizer plus Seamless Coop, use the GUI's Elden Ring **Mod Manager** panel. **Install ModEngine + Randomizer** installs .NET 6 Desktop Runtime into a randomizer tools prefix, clones or updates the `elden-randomizer-coop` setup reference repo under `$GPTK_HOME/tools`, opens the download pages, installs recognized ZIPs from its `inputs/` folder, prepares `ModEngine2/config_eldenring.toml` and `ModEngine2/launchmod_eldenring.bat`, runs `ModEngine2/randomizer/EldenRingRandomizer.exe`, and launches through `modengine2_launcher.exe` after the `.randomizeopt` seed has been imported and randomized. When Wine Staging is installed, the randomizer GUI uses that tool runner while Elden Ring itself remains on the configured GPTK game runner.
+For Randomizer plus Seamless Coop, use the GUI's Elden Ring **Mod Manager** panel. **Install ModEngine + Randomizer** installs .NET 6 Desktop Runtime into a randomizer tools prefix, clones or updates the `elden-randomizer-coop` setup reference repo under `$GPTK_HOME/tools`, opens the download pages, installs recognized ZIPs from its `inputs/` folder, prepares `ModEngine2/config_eldenring.toml` and `ModEngine2/launchmod_eldenring.bat`, runs `ModEngine2/randomizer/EldenRingRandomizer.exe`, and launches through `modengine2_launcher.exe` after the `.randomizeopt` seed has been imported and randomized. The randomizer GUI requires Wine Staging — under the GPTK runner its .NET window crashes with a UIAutomation stack overflow, so the launcher prompts you to install Wine Staging (`brew install --cask wine@staging`, also available as an **Install Wine Staging** button) and runs the randomizer under it in a separate `EldenRingToolsStaging` prefix, while Elden Ring itself stays on the configured GPTK game runner.
 
 The randomizer generates files that ModEngine mounts at launch. If you start Elden Ring without ModEngine, the randomized layout is not loaded. That behavior is expected and is used as a quick sanity check that the randomized profile is isolated from the regular game path.
 

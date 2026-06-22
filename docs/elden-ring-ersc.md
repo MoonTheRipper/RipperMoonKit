@@ -8,7 +8,7 @@ This is a proof-of-concept capture from the RipperMoonKit Elden Ring profile. It
 
 ## Tested Content Layout
 
-This ERSC workflow was tested with a pre-installed offline/non-Steam Windows game folder copied into the target `Games` directory.
+This ERSC workflow was tested with a copy of an installed Windows game folder placed in the target `Games` directory.
 
 Use the installed game folder from a Windows PC:
 
@@ -19,7 +19,7 @@ $GPTK_EXTERNAL_ROOT/Games/EldenRing/Game/
     SeamlessCoop/
 ```
 
-Do not use the original installation files as the runtime source for this flow. In this GPTK build, the installer path is fragile; the reliable path was copying the already-installed `Game` folder and launching from there.
+Run from the installed game folder rather than from game installer files. In this GPTK build, the installer path is fragile; the reliable path was copying the installed `Game` folder and launching from there.
 
 This repository does not include game files, saves, Steam data, Wine prefixes, or runtime blobs.
 

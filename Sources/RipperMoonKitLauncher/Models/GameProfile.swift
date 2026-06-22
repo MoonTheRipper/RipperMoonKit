@@ -68,6 +68,19 @@ struct GameProfile: Codable, Identifiable, Hashable {
 
     var effectiveWineRunner: WineRunner { wineRunner ?? .auto }
 
+    // Steam Input controller layout assignment (Steam profile feature).
+    // Defaulted optionals keep existing persisted profiles decodable.
+    var controllerLayoutEnabled: Bool? = nil
+    var controllerLayoutPath: String? = nil
+    var controllerLayoutAppID: String? = nil
+
+    /// The Steam app id a controller layout targets. Defaults to 480 (Spacewar,
+    /// Valve's free Steamworks sample) when not set.
+    var controllerLayoutAppIDValue: String {
+        let trimmed = (controllerLayoutAppID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "480" : trimmed
+    }
+
     var safeName: String {
         name.replacingOccurrences(of: "[^A-Za-z0-9._-]+", with: "-", options: .regularExpression)
     }
@@ -129,6 +142,12 @@ struct GameProfile: Codable, Identifiable, Hashable {
         isSteamApp
     }
 
+    /// Profiles whose prefix should get the DirectSound no-capture proxy applied
+    /// (ERSC Golden Pot voice-capture freeze; GoWR previously rode the same runner).
+    var needsVoiceCaptureFix: Bool {
+        isEldenRingERSC || isGodOfWarRagnarok
+    }
+
     func repairedForCurrentToolkit(config: ToolkitConfig) -> GameProfile {
         if isSteamApp {
             var repaired = self
@@ -146,9 +165,6 @@ struct GameProfile: Codable, Identifiable, Hashable {
 
         if isGodOfWarRagnarok {
             var repaired = self
-            let patchedRunner = "\(config.gptkHome)/runners/gptk-dsound-nocap-20260513"
-            let patchedRunnerExists = FileManager.default.isExecutableFile(atPath: "\(patchedRunner)/bin/wine64")
-            let runner = repaired.runnerPath.trimmingCharacters(in: .whitespacesAndNewlines)
 
             repaired.prefix = "GOWR"
             repaired.executable = repaired.executable.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "GoWR.exe" : repaired.executable
@@ -162,8 +178,10 @@ struct GameProfile: Codable, Identifiable, Hashable {
             repaired.nativeSteamAPI = false
             repaired.systemImage = repaired.systemImage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "app.fill" : repaired.systemImage
 
-            if patchedRunnerExists, runner.isEmpty || !FileManager.default.isExecutableFile(atPath: "\(runner)/bin/wine64") {
-                repaired.runnerPath = patchedRunner
+            // The no-capture runner was retired; the fix now lives in the prefix.
+            // Clear any stale runner pointer so GoWR uses the stock GPTK runner.
+            if repaired.runnerPath.contains("runners/gptk-dsound-nocap") {
+                repaired.runnerPath = ""
             }
 
             let gameInputOverride = "GameInput=n"
@@ -182,13 +200,6 @@ struct GameProfile: Codable, Identifiable, Hashable {
         guard isEldenRingERSC else { return self }
 
         var repaired = self
-        let patchedRunner = "\(config.gptkHome)/runners/gptk-dsound-nocap-20260513"
-        let patchedRunnerExists = FileManager.default.isExecutableFile(atPath: "\(patchedRunner)/bin/wine64")
-        let stockRunnerPaths = [
-            config.gptkWineHome,
-            "\(config.gptkHome)/apps/Game Porting Toolkit.app/Contents/Resources/wine",
-            "/Applications/Game Porting Toolkit.app/Contents/Resources/wine"
-        ]
 
         repaired.prefix = repaired.prefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Steam" : repaired.prefix
         repaired.executable = "ersc_launcher.exe"
@@ -210,11 +221,11 @@ struct GameProfile: Codable, Identifiable, Hashable {
             repaired.requiredFiles.append(required)
         }
 
-        let runner = repaired.runnerPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        let runnerMissing = runner.isEmpty || !FileManager.default.isExecutableFile(atPath: "\(runner)/bin/wine64")
-        let runnerIsStock = stockRunnerPaths.contains(runner)
-        if patchedRunnerExists, runnerMissing || runnerIsStock {
-            repaired.runnerPath = patchedRunner
+        // The no-capture runner was retired; the fix now lives in the prefix
+        // (gptk-dsound-nocap). Clear any stale runner pointer so ERSC uses the
+        // stock GPTK runner.
+        if repaired.runnerPath.contains("runners/gptk-dsound-nocap") {
+            repaired.runnerPath = ""
         }
 
         return repaired
@@ -229,7 +240,7 @@ struct GameProfile: Codable, Identifiable, Hashable {
             executable: "ersc_launcher.exe",
             steamAppID: nil,
             iconPath: defaults.string(forKey: "iconPath"),
-            runnerPath: defaults.string(forKey: "runnerPath") ?? "\(config.gptkHome)/runners/gptk-dsound-nocap-20260513",
+            runnerPath: defaults.string(forKey: "runnerPath") ?? "",
             winver: defaults.string(forKey: "winver") ?? "win10",
             requiresSteam: true,
             noDXR: defaults.object(forKey: "noDXR") as? Bool ?? true,

@@ -16,6 +16,7 @@ update_zshrc=1
 create_update_backup=1
 backup_only=0
 list_backups=0
+check_only=0
 rollback_target=""
 gptk_wait=1
 gptk_wait_seconds="${RIPPERMOON_GPTK_WAIT_SECONDS:-900}"
@@ -40,6 +41,7 @@ Options:
   --no-backup              Do not create an update backup before installing
   --backup-only            Create a rollback backup and exit without installing
   --list-backups           List available rollback backups and exit
+  --check                  Report dependency/prerequisite status and exit
   --rollback NAME|PATH     Restore toolkit scripts/config from a rollback backup
   --no-gptk-wait           Do not wait for GPTK media when GPTK is missing
   --gptk-wait-seconds N    Seconds to wait for mounted/downloaded GPTK media
@@ -121,6 +123,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --list-backups)
       list_backups=1
+      shift
+      ;;
+    --check)
+      check_only=1
       shift
       ;;
     --rollback)
@@ -297,6 +303,8 @@ write_backup_readme() {
     print -r -- "- ${install_bin}/gptk-vcrun"
     print -r -- "- ${install_bin}/gptk-dotnet6"
     print -r -- "- ${install_bin}/gptk-stubs"
+    print -r -- "- ${install_bin}/gptk-dsound-nocap"
+    print -r -- "- ${install_bin}/gptk-steam-layout"
     print -r -- "- ${install_libexec}/gptk-common.zsh"
     print -r -- "- ${install_scripts}/install-elden-mod-pack.zsh"
     print -r -- "- ${install_scripts}/elden-mod-state.zsh"
@@ -332,6 +340,8 @@ create_backup() {
   backup_restore_path "${install_bin}/gptk-vcrun" "home/bin/gptk-vcrun" "VC++ runtime helper"
   backup_restore_path "${install_bin}/gptk-dotnet6" "home/bin/gptk-dotnet6" ".NET 6 Desktop Runtime helper"
   backup_restore_path "${install_bin}/gptk-stubs" "home/bin/gptk-stubs" "API stubs helper"
+  backup_restore_path "${install_bin}/gptk-dsound-nocap" "home/bin/gptk-dsound-nocap" "DirectSound no-capture helper"
+  backup_restore_path "${install_bin}/gptk-steam-layout" "home/bin/gptk-steam-layout" "Steam controller layout helper"
   backup_restore_path "${install_libexec}/gptk-common.zsh" "gptk/libexec/gptk-common.zsh" "shared helper library"
   backup_restore_path "${install_scripts}/install-elden-mod-pack.zsh" "gptk/scripts/install-elden-mod-pack.zsh" "Elden Ring mod profile helper"
   backup_restore_path "${install_scripts}/elden-mod-state.zsh" "gptk/scripts/elden-mod-state.zsh" "Elden Ring mod backup/import helper"
@@ -425,6 +435,8 @@ rollback_backup() {
         "${HOME:A}/bin/gptk-vcrun"|\
         "${HOME:A}/bin/gptk-dotnet6"|\
         "${HOME:A}/bin/gptk-stubs"|\
+        "${HOME:A}/bin/gptk-dsound-nocap"|\
+        "${HOME:A}/bin/gptk-steam-layout"|\
         "${HOME:A}/.zshrc"|\
         "${GPTK_HOME:A}/libexec/gptk-common.zsh"|\
         "${GPTK_HOME:A}/scripts/install-elden-mod-pack.zsh"|\
@@ -466,6 +478,33 @@ ensure_rosetta() {
   run_logged "🧬" /usr/sbin/softwareupdate --install-rosetta --agree-to-license
 }
 
+ensure_command_line_tools() {
+  # Homebrew (and git/compilers) need the Xcode Command Line Tools. The
+  # NONINTERACTIVE Homebrew installer assumes they already exist and fails on a
+  # bare Mac, so install them first and wait for the GUI installer to finish.
+  if xcode-select -p >/dev/null 2>&1; then
+    log "✅" "Xcode Command Line Tools present: $(xcode-select -p 2>/dev/null)"
+    return 0
+  fi
+
+  log "🛠️" "Installing Xcode Command Line Tools. A macOS dialog may appear — click Install and accept."
+  xcode-select --install >/dev/null 2>&1 || true
+
+  local waited=0
+  local interval=10
+  local max="${RIPPERMOON_CLT_WAIT_SECONDS:-1800}"
+  while ! xcode-select -p >/dev/null 2>&1; do
+    if (( waited >= max )); then
+      log "⚠️" "Command Line Tools not detected after ${max}s."
+      log "⚠️" "Finish the 'Install Command Line Developer Tools' dialog, then rerun setup."
+      return 1
+    fi
+    sleep "${interval}"
+    waited=$(( waited + interval ))
+  done
+  log "✅" "Xcode Command Line Tools installed."
+}
+
 ensure_homebrew() {
   refresh_brew_path
   if command_exists brew; then
@@ -496,6 +535,7 @@ ensure_homebrew() {
 ensure_brew_formulae() {
   local formula
   local formulae
+  local failed=()
   formulae=(${=RIPPERMOON_BREW_FORMULAE})
 
   [[ "${#formulae[@]}" -gt 0 ]] || {
@@ -503,15 +543,28 @@ ensure_brew_formulae() {
     return 0
   }
 
+  if ! command_exists brew; then
+    log "⚠️" "Homebrew is not available; skipping formulae: ${formulae[*]}"
+    return 1
+  fi
+
   log "📦" "Installing Homebrew dependencies: ${formulae[*]}"
   for formula in "${formulae[@]}"; do
     if brew list --formula "${formula}" >/dev/null 2>&1; then
       log "✅" "Already installed: ${formula}"
-    else
-      run_logged "📦" brew install "${formula}"
+    elif brew install "${formula}" >> "${log_file}" 2>&1; then
       log "✅" "Installed: ${formula}"
+    else
+      # One flaky formula must not abort the GPTK runtime copy that follows.
+      log "⚠️" "Could not install ${formula} (continuing)."
+      failed+=("${formula}")
     fi
   done
+
+  if (( ${#failed[@]} > 0 )); then
+    log "⚠️" "Some Homebrew formulae did not install: ${failed[*]}"
+    return 1
+  fi
 }
 
 ensure_gptk_app_cask() {
@@ -575,9 +628,27 @@ install_toolkit_files() {
   install -m 755 "${repo_dir}/bin/gptk-vcrun" "${install_bin}/gptk-vcrun"
   install -m 755 "${repo_dir}/bin/gptk-dotnet6" "${install_bin}/gptk-dotnet6"
   install -m 755 "${repo_dir}/bin/gptk-stubs" "${install_bin}/gptk-stubs"
+  install -m 755 "${repo_dir}/bin/gptk-dsound-nocap" "${install_bin}/gptk-dsound-nocap"
+  install -m 755 "${repo_dir}/bin/gptk-steam-layout" "${install_bin}/gptk-steam-layout"
   install -m 644 "${repo_dir}/libexec/gptk-common.zsh" "${install_libexec}/gptk-common.zsh"
   install -m 755 "${repo_dir}/scripts/install-elden-mod-pack.zsh" "${install_scripts}/install-elden-mod-pack.zsh"
   install -m 755 "${repo_dir}/scripts/elden-mod-state.zsh" "${install_scripts}/elden-mod-state.zsh"
+
+  # Prebuilt DirectSound no-capture proxies (this project's own binaries; they
+  # forward to the prefix's own dsound, so nothing copyrighted is redistributed).
+  if [[ -d "${repo_dir}/stubs/dsound-nocap/prebuilt" ]]; then
+    mkdir -p "${GPTK_HOME}/dsound-nocap"
+    install -m 644 "${repo_dir}/stubs/dsound-nocap/prebuilt/"*.dll "${GPTK_HOME}/dsound-nocap/" 2>/dev/null || true
+    log "🔇" "Installed no-capture dsound proxies to ${GPTK_HOME}/dsound-nocap"
+  fi
+
+  # Prebuilt GameInput.dll stub (this project's own binary) so gptk-stubs needs
+  # no mingw-w64 toolchain on the user's machine.
+  if [[ -f "${repo_dir}/stubs/prebuilt/GameInput.dll" ]]; then
+    mkdir -p "${GPTK_HOME}/stubs"
+    install -m 644 "${repo_dir}/stubs/prebuilt/GameInput.dll" "${GPTK_HOME}/stubs/GameInput.dll"
+    log "🎮" "Installed prebuilt GameInput.dll stub to ${GPTK_HOME}/stubs"
+  fi
 
   if [[ ! -e "${config}" ]]; then
     install -m 644 "${repo_dir}/env.example" "${config}"
@@ -902,8 +973,12 @@ install_mounted_gptk() {
     fi
     mkdir -p "${GPTK_APP_PATH:h}"
     log "📦" "Copying GPTK app from ${app_source}."
-    ditto "${app_source}" "${GPTK_APP_PATH}" >> "${log_file}" 2>&1
-    log "✅" "Installed GPTK app: ${GPTK_APP_PATH}"
+    if ditto "${app_source}" "${GPTK_APP_PATH}" >> "${log_file}" 2>&1; then
+      log "✅" "Installed GPTK app: ${GPTK_APP_PATH}"
+    else
+      log "❌" "Failed to copy GPTK app from ${app_source}."
+      return 1
+    fi
   fi
 
   if [[ "${need_runtime}" != "1" ]]; then
@@ -917,8 +992,12 @@ install_mounted_gptk() {
     fi
     log "📦" "Copying GPTK evaluation runtime from ${runtime_source}."
     mkdir -p "${GPTK_RUNTIME}"
-    ditto "${runtime_source}/lib" "${GPTK_RUNTIME}/lib" >> "${log_file}" 2>&1
-    log "✅" "Installed GPTK runtime: ${GPTK_RUNTIME}"
+    if ditto "${runtime_source}/lib" "${GPTK_RUNTIME}/lib" >> "${log_file}" 2>&1; then
+      log "✅" "Installed GPTK runtime: ${GPTK_RUNTIME}"
+    else
+      log "❌" "Failed to copy GPTK runtime from ${runtime_source}."
+      return 1
+    fi
   fi
 
   export GPTK_WINE_HOME="${GPTK_APP_PATH}/Contents/Resources/wine"
@@ -1058,8 +1137,73 @@ install_windows_steam() {
   fi
 }
 
+typeset -ga step_order=()
+typeset -gA step_status=()
+
+# Run one dependency step in isolation: a failure is recorded and logged but
+# never aborts the remaining steps (so a flaky formula can't block the GPTK
+# runtime copy). errexit is relaxed inside the called function by the `if`.
+run_step() {
+  local label="$1"
+  shift
+  step_order+=("${label}")
+  if "$@"; then
+    step_status[${label}]="ok"
+  else
+    step_status[${label}]="warn"
+    log "⚠️" "Step did not finish cleanly: ${label} (continuing)."
+  fi
+}
+
+check_item() {
+  local label="$1"
+  local cmd="$2"
+  if eval "${cmd}" >/dev/null 2>&1; then
+    print -r -- "  ✅ ${label}" | tee -a "${log_file}"
+  else
+    print -r -- "  ❌ ${label}" | tee -a "${log_file}"
+  fi
+}
+
+doctor_check() {
+  local formula
+  print -r -- "Prerequisite check (config: ${config}):" | tee -a "${log_file}"
+  check_item "Xcode Command Line Tools" 'xcode-select -p'
+  check_item "Homebrew (brew)" 'command -v brew'
+  for formula in ${=RIPPERMOON_BREW_FORMULAE}; do
+    check_item "formula: ${formula}" "brew list --formula ${formula}"
+  done
+  check_item "GPTK app runner (wine64)" "test -x \"${GPTK_APP_PATH}/Contents/Resources/wine/bin/wine64\""
+  check_item "GPTK D3DMetal runtime (d3d12.dll)" "test -f \"${GPTK_RUNTIME}/lib/wine/x86_64-windows/d3d12.dll\""
+  check_item "Toolkit launcher (gptk-launch)" "test -x \"${install_bin}/gptk-launch\""
+  check_item "GameInput stub available" "test -s \"${GPTK_HOME}/stubs/GameInput.dll\" || test -s \"${repo_dir}/stubs/prebuilt/GameInput.dll\""
+  check_item "no-capture dsound proxy available" "test -s \"${GPTK_HOME}/dsound-nocap/dsound-nocap-x86_64.dll\" || test -s \"${repo_dir}/stubs/dsound-nocap/prebuilt/dsound-nocap-x86_64.dll\""
+  check_item "Windows Steam" "test -f \"${GPTK_PREFIX_ROOT}/Steam/drive_c/Program Files (x86)/Steam/steam.exe\""
+  check_item "mingw-w64 (optional; only to rebuild stubs)" 'command -v x86_64-w64-mingw32-gcc'
+  check_item "Wine Staging (optional; Elden Ring randomizer GUI)" 'test -x "/Applications/Wine Staging.app/Contents/Resources/wine/bin/wine64" || test -x "/Applications/Wine Staging.app/Contents/Resources/wine/bin/wine"'
+}
+
+print_dependency_summary() {
+  local label
+  log "📋" "Dependency summary:"
+  for label in "${step_order[@]}"; do
+    if [[ "${step_status[${label}]}" == "ok" ]]; then
+      log "✅" "${label}"
+    else
+      log "⚠️" "${label} — see details above"
+    fi
+  done
+  print -r -- "" | tee -a "${log_file}"
+  doctor_check
+}
+
 if [[ "${list_backups}" == "1" ]]; then
   list_update_backups
+  exit 0
+fi
+
+if [[ "${check_only}" == "1" ]]; then
+  doctor_check
   exit 0
 fi
 
@@ -1084,13 +1228,15 @@ ensure_gptk_config
 update_shell_config
 
 if [[ "${install_deps}" == "1" ]]; then
-  ensure_rosetta
-  ensure_homebrew
-  ensure_brew_formulae
-  install_mounted_gptk
-  download_steam_setup
-  verify_gptk_wine
-  install_windows_steam
+  run_step "Rosetta" ensure_rosetta
+  run_step "Xcode Command Line Tools" ensure_command_line_tools
+  run_step "Homebrew" ensure_homebrew
+  run_step "Homebrew formulae" ensure_brew_formulae
+  run_step "GPTK app + runtime" install_mounted_gptk
+  run_step "Steam installer download" download_steam_setup
+  run_step "Wine runtime check" verify_gptk_wine
+  run_step "Windows Steam" install_windows_steam
+  print_dependency_summary
 else
   log "ℹ️" "Dependency installation skipped."
 fi

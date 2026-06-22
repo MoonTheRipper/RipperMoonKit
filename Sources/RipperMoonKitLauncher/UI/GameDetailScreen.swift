@@ -205,6 +205,16 @@ struct GameDetailScreen: View {
                     .frame(width: 220)
                     Spacer()
                 }
+                if !profile.isSteamApp {
+                    FieldRow(label: "Steam App ID") {
+                        OnyxField(text: Binding(
+                            get: { profile.steamAppID ?? "" },
+                            set: { profile.steamAppID = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+                        ), placeholder: "e.g. 1426210", mono: true)
+                        Spacer()
+                    }
+                    .help("Set this to make the profile launch through Steam (gptk-steam -applaunch). The Launch button then starts Steam for you — no need to open Steam first. Use Add Steam Game to fill this from your installed library.")
+                }
             }
         }
 
@@ -260,7 +270,7 @@ struct GameDetailScreen: View {
             )
             pathHintRow(
                 icon: "internaldrive.fill",
-                title: "A standalone game or repack",
+                title: "A standalone game",
                 text: "No Steam needed. Set the Folder and Executable below to the game's .exe, pick the Windows version, then press Launch."
             )
             Button { model.openHelpDocs(page: "gui.html") } label: {
@@ -342,6 +352,90 @@ struct GameDetailScreen: View {
                         OnyxField(text: $profile.extraArguments, mono: true)
                     }
                     .help("Arguments appended after the executable. Useful for flags like driver checks, renderer options, or game-specific launch switches.")
+                }
+            }
+        }
+
+        if profile.isSteamApp {
+            CollapsibleCard(
+                title: "Controller Layout",
+                icon: "gamecontroller.fill",
+                storageKey: "profile.section.controller-layout.collapsed",
+                defaultCollapsed: true,
+                help: "Assigns a Steam Input controller layout (.vdf) to a Steam app id without Steam's in-client configurator, which renders blank under GPTK because its CEF view cannot create a GPU surface. Steam must be stopped when applying."
+            ) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Toggle("Use a controller layout for a Steam app", isOn: optionalBinding(\.controllerLayoutEnabled))
+                        .toggleStyle(.checkbox)
+                        .help("Copies a chosen Steam Input config into the Steam prefix and selects it for the app id below, so Steam loads it instead of an empty layout.")
+                    if profile.controllerLayoutEnabled == true {
+                        FieldRow(label: "App ID") {
+                            OnyxField(text: Binding(
+                                get: { profile.controllerLayoutAppID ?? "" },
+                                set: { profile.controllerLayoutAppID = $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+                            ), placeholder: "480", mono: true)
+                        }
+                        .help("The Steam app id to assign the layout to. 480 is Spacewar, Valve's free Steamworks sample — handy for testing your own builds.")
+                        PathEditor(title: "Layout (.vdf)", path: Binding(
+                            get: { profile.controllerLayoutPath ?? "" },
+                            set: { profile.controllerLayoutPath = $0.isEmpty ? nil : $0 }
+                        )) {
+                            model.chooseControllerLayout(for: &profile)
+                        }
+                        .help("A Steam Input config exported from Steam (a controller_mappings .vdf file).")
+                        HStack(spacing: 9) {
+                            Image(systemName: model.controllerLayoutApplied(for: profile) ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                                .foregroundStyle(model.controllerLayoutApplied(for: profile) ? Onyx.good : Onyx.warn)
+                            Text(model.controllerLayoutApplied(for: profile)
+                                 ? "Layout assigned to app \(profile.controllerLayoutAppIDValue) — start Steam to use it"
+                                 : "Not assigned yet for app \(profile.controllerLayoutAppIDValue)")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Onyx.text)
+                        }
+                        Text("Close Steam before applying. Steam reads controller selections at startup, so a running client overwrites the edit on exit.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Onyx.textDim)
+                            .fixedSize(horizontal: false, vertical: true)
+                        FlowLayout(spacing: 8) {
+                            RMKButton(kind: .primary, icon: "gamecontroller.fill", title: "Apply Layout",
+                                      disabled: (profile.controllerLayoutPath ?? "").isEmpty) {
+                                model.applyControllerLayout(profile)
+                            }
+                            .help("Installs the layout into the Steam prefix and selects it for the app id, for the connected pad type plus matching controllers.")
+                            RMKButton(kind: .ghost, icon: "arrow.uturn.backward", title: "Remove") {
+                                model.removeControllerLayout(profile)
+                            }
+                            .help("Removes the layout selection and template for this app id.")
+                        }
+                    }
+                }
+            }
+        }
+
+        if profile.needsVoiceCaptureFix {
+            Card(title: "Voice Capture Fix", icon: "mic.slash.fill") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Disables Wine DirectSound microphone capture in this prefix so Steam Voice cannot stall the Golden Pot lobby. Playback is unaffected; mic capture is off (use Discord/FaceTime for chat). Applied automatically before launch.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(Onyx.textDim)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 9) {
+                        Image(systemName: model.voiceCaptureFixApplied(for: profile) ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(model.voiceCaptureFixApplied(for: profile) ? Onyx.good : Onyx.warn)
+                        Text(model.voiceCaptureFixApplied(for: profile) ? "Applied to prefix \(profile.prefix)" : "Not applied yet (will apply on next launch)")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Onyx.text)
+                    }
+                    FlowLayout(spacing: 8) {
+                        RMKButton(kind: .primary, icon: "mic.slash.fill", title: "Apply Fix") {
+                            model.applyVoiceCaptureFix(profile)
+                        }
+                        .help("Installs the no-capture dsound proxy into this prefix and sets the Wine override. Restart Steam afterward if it is already running.")
+                        RMKButton(kind: .ghost, icon: "arrow.uturn.backward", title: "Revert") {
+                            model.revertVoiceCaptureFix(profile)
+                        }
+                        .help("Restores the prefix's original dsound.dll and removes the override.")
+                    }
                 }
             }
         }

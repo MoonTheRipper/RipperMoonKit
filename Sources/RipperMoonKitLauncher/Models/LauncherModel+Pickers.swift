@@ -45,4 +45,24 @@ extension LauncherModel {
             persistProfiles()
         }
     }
+
+    func chooseControllerLayout(for profile: inout GameProfile) {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Controller Layout"
+        panel.prompt = "Use Layout"
+        panel.message = "Pick a Steam Input controller config (.vdf) exported from Steam."
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        // .vdf has no registered UTType, so allow any file rather than filter it out.
+        if let layoutPath = profile.controllerLayoutPath, !layoutPath.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: layoutPath).deletingLastPathComponent()
+        } else {
+            panel.directoryURL = URL(fileURLWithPath: profile.gameFolder)
+        }
+        if panel.runModal() == .OK, let url = panel.url {
+            profile.controllerLayoutPath = url.path
+            persistProfiles()
+        }
+    }
 }

@@ -87,3 +87,48 @@ gptk-steam --log -applaunch 480
 ```
 
 If the app has first-run redistributables, let Steam finish them before launching a game that depends on that Steamworks state.
+
+## Controller Layouts
+
+Steam's in-client controller configurator (the layout/template editor) renders blank under GPTK. The editor is a CEF (Chromium) web view, and GPTK's Wine cannot give CEF's GPU process a working shared-image context (`SharedImageStub: unable to create context`), so that view detaches and shows nothing. Controller detection, sign-in, and the Steam Input runtime all work — only the visual editor fails to paint.
+
+To assign a layout without that editor, RipperMoonKit copies a Steam Input config (`.vdf`) into the prefix's `controller_base/templates` and writes the selection into the controller config sets, which Steam reads at startup. Obtain a `controller_mappings` `.vdf`, then:
+
+From the GUI:
+
+1. Open the **Steam** profile and stop Steam if it is running.
+2. Expand **Controller Layout** and turn it on.
+3. Set the **App ID** (480 is Spacewar, Valve's free Steamworks sample) and pick the layout **.vdf**.
+4. Click **Apply Layout**, then start Steam and launch the app with the controller connected.
+
+From Terminal:
+
+```zsh
+gptk-steam --kill
+gptk-steam-layout apply --app-id 480 --layout /path/to/layout.vdf
+gptk-steam-layout status --app-id 480
+```
+
+The selection is written for the layout's controller type plus matching physical pads. Steam loads it as the "Local Selection Path" for that app id. Edited config sets are backed up under the account's `config/.rmk-backup-<timestamp>` folder first. Use `gptk-steam-layout remove --app-id 480` to clear it.
+
+Steam must be stopped when applying or removing: Steam reads these config sets at startup and rewrites them on exit, so an edit made while it is running is lost.
+
+## Adding an installed Steam game as a profile
+
+A game you downloaded inside Steam (for example It Takes Two) needs Steam's own launch environment, so it cannot run from the plain copied-folder path. Instead it runs as a Steam-managed profile that launches through `gptk-steam -applaunch <app-id>` — which starts Steam in the background, so you never open the Steam UI by hand.
+
+From the GUI:
+
+1. Install the game in Steam (open the Steam profile, sign in, install to the internal `S:` library to avoid external-drive download failures).
+2. In the library, click **Add Steam Game**. It scans the installed Steam library across mounted drives (games on an unplugged external drive are skipped) and lists what it finds.
+3. Pick the game and click **Add**. It appears as a tile; its **Launch** button starts Steam and the game in one click.
+
+You can also set a profile's **Steam App ID** by hand in App Settings to make any profile launch this way. The download path itself prefers the internal `S:` library; a Steam library on an external drive that unmounts mid-download is the usual cause of "Unpack failed" content errors.
+
+## Controllers don't respond in games
+
+If a controller shows up in Steam and in the game's settings but does nothing when you press buttons, the cause is macOS, not Wine. macOS's GameController framework takes **exclusive ownership** of Xbox and PlayStation pads (visible as `UsbExclusiveOwner` in `ioreg`), which starves Wine's default raw-HID backend — the pad enumerates (so it appears everywhere) but no button or stick input reaches the game. This affects USB and Bluetooth equally and is independent of Steam Input.
+
+RipperMoonKit fixes this by enabling Wine's **SDL controller backend** per prefix (`winebus` `Enable SDL`), which reads the pad through that same macOS framework cooperatively, so input flows to games. It is applied automatically the first time a prefix is launched (and on prefix init), and loads when the prefix's Steam/Wine next starts. Set `GPTK_CONTROLLER_SDL=0` in `~/.rippermoon-gptk.env` to opt out.
+
+To apply it immediately to a prefix that is already running, close Steam/the game so the Wine driver reloads, then launch again. A controller that still works through Steam Input but not natively is a separate, game-specific issue.

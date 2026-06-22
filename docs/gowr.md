@@ -71,6 +71,6 @@ After the fix these entries appear in the log but do not affect gameplay:
 
 ## Known Issues
 
-- PS SDK MSI files (`PsPcSdkRuntimeInstaller.msi`, `PsPcSdkRuntimeManager.msi`) are not present in FitGirl repacks. Despite the filenames appearing in strings inside the executable, `PsPcSdk.dll` is **not** in the static or delay-load import table. It is an error message string only and is not needed for launch.
+- PS SDK MSI files (`PsPcSdkRuntimeInstaller.msi`, `PsPcSdkRuntimeManager.msi`) may be absent from a copied game folder. Despite the filenames appearing in strings inside the executable, `PsPcSdk.dll` is **not** in the static or delay-load import table. It is an error message string only and is not needed for launch.
 - 2.6 GB of crash dumps may accumulate in `.crashdata/` from pre-fix runs — safe to delete.
 - Do not place a third-party `dxgi.dll` in the game root while using GPTK; it hijacks D3DMetal.

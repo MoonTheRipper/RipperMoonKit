@@ -13,16 +13,24 @@ $GPTK_HOME/logs/rippermoon-install-YYYYmmdd-HHMMSS.log
 The default install does this:
 
 1. Creates the local toolkit folders.
-2. Installs `gptk-launch`, `gptk-steam`, and `gptk-game`.
-3. Creates `~/.rippermoon-gptk.env` from `env.example` if it does not exist.
-4. Adds `~/bin` and the config source line to `~/.zshrc`.
-5. Installs Rosetta on Apple Silicon if needed.
-6. Installs Homebrew if it is missing.
-7. Installs Homebrew formulae used by the toolkit and common Wine/GPTK troubleshooting.
-8. Installs the prebuilt `Game Porting Toolkit.app` runner with Homebrew if no local/system copy exists.
-9. Installs/copies the Apple GPTK 3 evaluation runtime from the user's mounted Apple GPTK media, or prompts/waits for the user to download and mount it.
-10. Downloads `SteamSetup.exe` to the configured installer path.
-11. Checks whether Apple Game Porting Toolkit or another `wine64` is available.
+2. Installs `gptk-launch`, `gptk-steam`, `gptk-game`, `gptk-stubs`, and `gptk-dsound-nocap`.
+3. Installs the prebuilt helper binaries (`GameInput.dll` stub and the no-capture `dsound` proxies) so no compiler is needed at runtime.
+4. Creates `~/.rippermoon-gptk.env` from `env.example` if it does not exist.
+5. Adds `~/bin` and the config source line to `~/.zshrc`.
+6. Installs Rosetta on Apple Silicon if needed.
+7. Installs the Xcode Command Line Tools if they are missing (required before Homebrew).
+8. Installs Homebrew if it is missing.
+9. Installs Homebrew formulae used by the toolkit and common Wine/GPTK troubleshooting.
+10. Installs the prebuilt `Game Porting Toolkit.app` runner with Homebrew if no local/system copy exists.
+11. Installs/copies the Apple GPTK 3 evaluation runtime from the user's mounted Apple GPTK media, or prompts/waits for the user to download and mount it.
+12. Downloads `SteamSetup.exe` to the configured installer path.
+13. Checks whether Apple Game Porting Toolkit or another `wine64` is available.
+
+The dependency steps are resilient: one failed step (for example a single
+Homebrew formula) is logged as a warning and does not abort the rest, so the
+critical Apple GPTK runtime copy still runs. The installer prints a
+prerequisite summary at the end, and `./install.zsh --check` reports the same
+status at any time without changing anything.
 
 Profile-specific helpers can install additional Windows runtimes inside Wine prefixes:
 
@@ -124,7 +132,18 @@ RIPPERMOON_DOTNET6_DIR="$GPTK_HOME/downloads/dotnet6" gptk-dotnet6 --download-on
 
 .NET 6 is end-of-life, but the randomizer is built for it. The runtime is installed only into the selected Wine prefix.
 
-For the randomizer GUI, RipperMoonKit prefers Wine Staging 11.8 when available. This avoids a GPTK/Wine 7.7 WinForms UIAutomation stack overflow seen before the randomizer window appears. Game launches still use GPTK/D3DMetal unless a profile explicitly selects a different runner.
+### Wine Staging (required for the randomizer GUI)
+
+The randomizer GUI runs under **Wine Staging**, not the Game Porting Toolkit runner. Under GPTK's Wine 7.7 its .NET WinForms window crashes with a UIAutomation stack overflow before it appears, so the launcher refuses to run it there and prompts you to install Wine Staging instead. Game launches still use GPTK/D3DMetal — only the randomizer tool window uses Wine Staging, in its own `EldenRingToolsStaging` prefix.
+
+RipperMoonKit does not bundle Wine Staging (it is a separate, third-party runtime). Install it once with Homebrew:
+
+```zsh
+brew install --cask wine@staging
+xattr -dr com.apple.quarantine "/Applications/Wine Staging.app"
+```
+
+The app's Mod Files panel has an **Install Wine Staging** button that runs this in a Terminal window (it may ask for your Mac password, for Wine Staging's GStreamer runtime). After it installs, click **Run Randomizer** again. `install.zsh --check` reports whether Wine Staging is present.
 
 ## Installing Windows Steam
 

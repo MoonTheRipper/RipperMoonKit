@@ -44,7 +44,42 @@ extension LauncherModel {
         )
     }
 
+    func applyVoiceCaptureFix(_ profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(
+            title: "Apply voice-capture fix",
+            command: "\(sourceConfig); \(config.gptkDsoundNoCapPath.shellQuoted) apply --prefix \(profile.prefix.shellQuoted)"
+        )
+    }
+
+    func revertVoiceCaptureFix(_ profile: GameProfile) {
+        let profile = repairedProfile(profile)
+        runShell(
+            title: "Revert voice-capture fix",
+            command: "\(sourceConfig); \(config.gptkDsoundNoCapPath.shellQuoted) revert --prefix \(profile.prefix.shellQuoted)"
+        )
+    }
+
     func runRandomizer(for profile: GameProfile) {
+        // Re-read config so a freshly installed Wine Staging is picked up.
+        config = ToolkitConfig.load()
+        guard config.hasWineStaging else {
+            lastResult = "Wine Staging required for the Randomizer GUI"
+            commandOutput = """
+            The Elden Ring Randomizer GUI needs Wine Staging.
+
+            Under the Game Porting Toolkit runner (Wine 7.7) the Randomizer's .NET
+            window crashes with a UIAutomation stack overflow before it appears, so
+            RipperMoonKit will not launch it there.
+
+            Click "Install Wine Staging", or install it yourself and click Run
+            Randomizer again:
+
+              brew install --cask wine@staging
+              xattr -dr com.apple.quarantine "/Applications/Wine Staging.app"
+            """
+            return
+        }
         let profile = repairedProfile(profile)
         runShell(
             title: "Run Randomizer",
@@ -53,17 +88,76 @@ extension LauncherModel {
         )
     }
 
+    /// Installs Wine Staging in a Terminal window so its GStreamer dependency can
+    /// prompt for the Mac password. After it finishes, Run Randomizer re-reads
+    /// config and picks up the new runner.
+    func installWineStaging() {
+        let work = """
+        export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+        echo "Installing Wine Staging for the Elden Ring Randomizer GUI…"
+        echo "macOS may ask for your Mac password (Wine Staging needs the GStreamer runtime)."
+        echo
+        if brew install --cask wine@staging; then
+          xattr -dr com.apple.quarantine "/Applications/Wine Staging.app" 2>/dev/null || true
+          echo
+          echo "✅ Wine Staging installed. Return to RipperMoonKit and click Run Randomizer."
+        else
+          echo
+          echo "⚠️ Wine Staging install did not finish — see the output above."
+        fi
+        echo
+        echo "You can close this window."
+        """
+        runTerminalScript(named: "install-wine-staging", title: "Install Wine Staging", work: work)
+    }
+
+    /// Opens a one-off script in Terminal (so admin/password prompts work),
+    /// without the first-run setup sentinel/refresh machinery.
+    func runTerminalScript(named name: String, title: String, work: String) {
+        let dir = URL(fileURLWithPath: NSHomeDirectory())
+            .appendingPathComponent("Library/Application Support/RipperMoonKit", isDirectory: true)
+        let scriptURL = dir.appendingPathComponent("\(name).command")
+        let body = """
+        #!/bin/zsh
+        clear
+        \(work)
+        """
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try body.write(to: scriptURL, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: scriptURL.path)
+        } catch {
+            lastResult = "\(title) failed"
+            commandOutput = "Could not prepare the script:\n\(error.localizedDescription)\n"
+            return
+        }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = ["-a", "Terminal", scriptURL.path]
+        do {
+            try process.run()
+        } catch {
+            lastResult = "\(title) failed"
+            commandOutput = "Could not open Terminal:\n\(error.localizedDescription)\n"
+            return
+        }
+        lastResult = "\(title) running in Terminal"
+        commandOutput = "\(title) is running in a Terminal window. Follow the prompts there, then return and click Run Randomizer.\n"
+    }
+
     func previewSteamManagedLaunchCommand(for profile: GameProfile, detached: Bool = false) -> String {
         let logPath = "\(config.logsPath)/\(profile.safeName).log"
         let appLaunch = (profile.steamAppID ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let appArgs = appLaunch.isEmpty ? "" : " -applaunch \(appLaunch.shellQuoted)"
         let envPart = steamEnvAssignment(for: profile)
         let launch = "nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log\(appArgs) >> \(logPath.shellQuoted) 2>&1 &"
+        let dsoundFix = dsoundNoCapturePreflightCommand(for: profile)
+        let pre = dsoundFix.isEmpty ? "" : "\(dsoundFix); "
 
         if detached {
-            return "\(sourceConfig); \(launch)"
+            return "\(sourceConfig); \(pre)\(launch)"
         }
-        return "\(sourceConfig); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log\(appArgs)"
+        return "\(sourceConfig); \(pre)env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log\(appArgs)"
     }
 
     func launchCommand(for profile: GameProfile, detached: Bool = false) -> String {
@@ -100,14 +194,15 @@ extension LauncherModel {
         let extraPart = extra.isEmpty ? "" : " \(extra)"
         let overrides = dllOverrides(for: profile)
         let launch = "cd \(profile.gameFolder.shellQuoted) && nohup env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart) >> \(logPath.shellQuoted) 2>&1 &"
+        let dsoundFix = dsoundNoCapturePreflightCommand(for: profile)
         let preflight = steamDependencyPreflightCommand(for: profile)
-        let detachedLaunch = [preflight, launch].filter { !$0.isEmpty }.joined(separator: "; ")
+        let detachedLaunch = [dsoundFix, preflight, launch].filter { !$0.isEmpty }.joined(separator: "; ")
 
         if detached {
             return "\(sourceConfig); \(detachedLaunch)"
         }
         let foregroundLaunch = "cd \(profile.gameFolder.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))\(extraPart)"
-        return "\(sourceConfig); \([preflight, foregroundLaunch].filter { !$0.isEmpty }.joined(separator: "; "))"
+        return "\(sourceConfig); \([dsoundFix, preflight, foregroundLaunch].filter { !$0.isEmpty }.joined(separator: "; "))"
     }
 
     func previewModEngineLaunchCommand(for profile: GameProfile, detached: Bool = false) -> String {
@@ -130,14 +225,15 @@ extension LauncherModel {
 
         let overrides = dllOverrides(for: profile)
         let launch = "cd \(modEngineDir.shellQuoted) && nohup env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " ")) >> \(logPath.shellQuoted) 2>&1 &"
+        let dsoundFix = dsoundNoCapturePreflightCommand(for: profile)
         let preflight = steamDependencyPreflightCommand(for: profile)
-        let detachedLaunch = [preflight, launch].filter { !$0.isEmpty }.joined(separator: "; ")
+        let detachedLaunch = [dsoundFix, preflight, launch].filter { !$0.isEmpty }.joined(separator: "; ")
 
         if detached {
             return "\(sourceConfig); \(detachedLaunch)"
         }
         let foregroundLaunch = "cd \(modEngineDir.shellQuoted) && env \(runnerEnvAssignment(for: profile)) WINEDLLOVERRIDES=\(overrides.shellQuoted) \(config.gptkLaunchPath.shellQuoted) \(args.map(\.shellQuoted).joined(separator: " "))"
-        return "\(sourceConfig); \([preflight, foregroundLaunch].filter { !$0.isEmpty }.joined(separator: "; "))"
+        return "\(sourceConfig); \([dsoundFix, preflight, foregroundLaunch].filter { !$0.isEmpty }.joined(separator: "; "))"
     }
 
     func previewRandomizerCommand(for profile: GameProfile, detached: Bool = false) -> String {
@@ -192,6 +288,26 @@ extension LauncherModel {
     func runnerEnvAssignment(for profile: GameProfile) -> String {
         let wineHome = resolvedWineHome(for: profile)
         return wineHome.isEmpty ? "" : "GPTK_WINE_HOME=\(wineHome.shellQuoted)"
+    }
+
+    /// True once the no-capture proxy has been installed into the prefix
+    /// (the real dsound is preserved as dsound_real.dll in system32).
+    func voiceCaptureFixApplied(for profile: GameProfile) -> Bool {
+        FileManager.default.fileExists(
+            atPath: "\(prefixPath(for: profile))/drive_c/windows/system32/dsound_real.dll"
+        )
+    }
+
+    func shouldApplyVoiceCaptureFix(for profile: GameProfile) -> Bool {
+        profile.needsVoiceCaptureFix || voiceCaptureFixApplied(for: profile)
+    }
+
+    /// Idempotent preflight that installs the DirectSound no-capture proxy into
+    /// the profile's prefix before Steam/the game starts. Must run before Steam
+    /// launches, since the fix takes effect at dsound load time.
+    func dsoundNoCapturePreflightCommand(for profile: GameProfile) -> String {
+        guard shouldApplyVoiceCaptureFix(for: profile) else { return "" }
+        return "\(config.gptkDsoundNoCapPath.shellQuoted) apply --prefix \(profile.prefix.shellQuoted) >/dev/null 2>&1 || true"
     }
 
     func toolPrefixName(for profile: GameProfile) -> String {

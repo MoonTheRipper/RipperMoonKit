@@ -1,0 +1,258 @@
+#!/bin/zsh
+
+set -e
+SCRIPT_DIR="${0:A:h}"
+COMMON="${GPTK_COMMON:-${HOME}/GPTK/libexec/gptk-common.zsh}"
+[[ -r "${COMMON}" ]] || COMMON="${SCRIPT_DIR:h}/libexec/gptk-common.zsh"
+source "${COMMON}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  gptk-dsound-nocap apply   [--prefix NAME|--all]
+  gptk-dsound-nocap status  [--prefix NAME|--all]
+  gptk-dsound-nocap revert  [--prefix NAME|--all]
+  gptk-dsound-nocap build   [--out DIR]
+
+Disables Wine DirectSound microphone capture in a prefix so Steam Voice cannot
+stall in the capture path (the ERSC "Golden Pot" freeze). Playback is untouched.
+
+It installs a tiny forwarder dsound.dll (this project's own code) into the
+prefix's system32 (x64) and syswow64 (x86), preserving the prefix's existing
+dsound as dsound_real.dll, and sets the Wine DllOverride dsound=native so the
+forwarder is the one Wine loads. Every export forwards to dsound_real except the
+capture-create entry points, which return DSERR_NODRIVER.
+
+This redistributes nothing copyrighted: the proxy is our code, and dsound_real
+is the prefix's own dsound, renamed in place — never copied out of the machine.
+
+Commands:
+  apply    Install the no-capture proxy and set the override (idempotent)
+  status   Report whether the proxy and override are in place
+  revert   Restore the original dsound.dll and remove the override
+  build    Rebuild the prebuilt proxies from source (needs mingw-w64)
+
+Options:
+  -p, --prefix NAME|PATH   Target one prefix (default: GPTK_STEAM_PREFIX or Steam)
+      --all                Target every initialized prefix under GPTK_PREFIX_ROOT
+      --out DIR            (build) Output directory for the rebuilt proxies
+  -h, --help               Show this help
+
+Environment:
+  RIPPERMOON_DSOUND_NOCAP_DIR  Directory holding the prebuilt proxy DLLs
+USAGE
+}
+
+mode="${1:-}"
+case "${mode}" in
+  -h|--help|"") usage; exit 0 ;;
+  apply|status|revert|build) shift ;;
+  *) gptk_die "unknown command: ${mode} (apply|status|revert|build)" ;;
+esac
+
+prefix="${GPTK_STEAM_PREFIX:-Steam}"
+do_all=0
+out_dir=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--prefix) [[ $# -ge 2 ]] || gptk_die "--prefix requires a value"; prefix="$2"; shift 2 ;;
+    --prefix=*) prefix="${1#--prefix=}"; shift ;;
+    --all) do_all=1; shift ;;
+    --out) [[ $# -ge 2 ]] || gptk_die "--out requires a value"; out_dir="$2"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) gptk_die "unknown option: $1" ;;
+  esac
+done
+
+stamp="$(date +%Y%m%d-%H%M%S)"
+
+launcher="${HOME}/bin/gptk-launch"
+[[ -x "${launcher}" ]] || launcher="${SCRIPT_DIR}/gptk-launch"
+
+# --- prebuilt proxy location (this project's own binaries) ---
+proxy_dir="${RIPPERMOON_DSOUND_NOCAP_DIR:-}"
+if [[ -z "${proxy_dir}" || ! -f "${proxy_dir}/dsound-nocap-x86_64.dll" ]]; then
+  proxy_dir="${GPTK_HOME}/dsound-nocap"
+fi
+[[ -f "${proxy_dir}/dsound-nocap-x86_64.dll" ]] || proxy_dir="${SCRIPT_DIR:h}/stubs/dsound-nocap/prebuilt"
+proxy_x64="${proxy_dir}/dsound-nocap-x86_64.dll"
+proxy_x86="${proxy_dir}/dsound-nocap-i386.dll"
+
+require_proxies() {
+  [[ -f "${proxy_x64}" && -f "${proxy_x86}" ]] || \
+    gptk_die "prebuilt proxies not found in ${proxy_dir}; run: gptk-dsound-nocap build"
+}
+
+pe_machine() {
+  local f="$1" lfanew machine
+  [[ -f "${f}" ]] || return 1
+  lfanew="$(od -An -tu4 -j60 -N4 "${f}" 2>/dev/null | tr -d ' ')"
+  [[ "${lfanew}" == <-> ]] || return 1
+  machine="$(od -An -tu2 -j$(( lfanew + 4 )) -N2 "${f}" 2>/dev/null | tr -d ' ')"
+  case "${machine}" in
+    34404) print -r -- x64 ;;  # 0x8664
+    332)   print -r -- x86 ;;  # 0x014c
+    *) return 1 ;;
+  esac
+}
+
+is_proxy_sized() {
+  # Our proxy is a few KB; the real dsound is hundreds of KB.
+  local f="$1" size
+  [[ -f "${f}" ]] || return 1
+  size="$(stat -f%z "${f}" 2>/dev/null || print 0)"
+  [[ "${size}" == <-> && "${size}" -lt 65536 ]]
+}
+
+prefix_path_of() { gptk_resolve_prefix "$1"; }
+
+override_is_set() {
+  local prefix_path; prefix_path="$(prefix_path_of "$1")"
+  grep -aq '"dsound"="native"' "${prefix_path}/user.reg" 2>/dev/null
+}
+
+override_set() {
+  "${launcher}" --prefix "$1" --no-log -- \
+    reg add "HKCU\\Software\\Wine\\DllOverrides" /v dsound /d native /f >/dev/null 2>&1
+}
+
+override_clear() {
+  "${launcher}" --prefix "$1" --no-log -- \
+    reg delete "HKCU\\Software\\Wine\\DllOverrides" /v dsound /f >/dev/null 2>&1 || true
+}
+
+# Install (or refresh) the proxy in one Windows system directory.
+patch_sysdir() {
+  local sysdir="$1"
+  [[ -d "${sysdir}" ]] || return 1
+
+  local dll="${sysdir}/dsound.dll"
+  local real="${sysdir}/dsound_real.dll"
+  local probe="${real}"
+  [[ -f "${probe}" ]] || probe="${dll}"
+
+  local arch proxy
+  arch="$(pe_machine "${probe}" || true)"
+  case "${arch}" in
+    x64) proxy="${proxy_x64}" ;;
+    x86) proxy="${proxy_x86}" ;;
+    *) gptk_note "skip ${sysdir:t}: cannot determine dsound architecture"; return 1 ;;
+  esac
+
+  if [[ ! -f "${real}" ]]; then
+    [[ -f "${dll}" ]] || { gptk_note "skip ${sysdir:t}: no dsound.dll present"; return 1; }
+    cp -p "${dll}" "${dll}.stock-${stamp}.bak"
+    mv "${dll}" "${real}"
+    gptk_note "${sysdir:t}: preserved real dsound.dll -> dsound_real.dll"
+  fi
+
+  cp "${proxy}" "${dll}"
+  gptk_note "${sysdir:t}: installed no-capture proxy (${arch})"
+  return 0
+}
+
+apply_to_prefix() {
+  local prefix="$1" prefix_path
+  prefix_path="$(prefix_path_of "${prefix}")"
+  [[ -d "${prefix_path}/drive_c/windows" ]] || gptk_die "prefix not initialized: ${prefix_path}"
+  require_proxies
+
+  local touched=0
+  patch_sysdir "${prefix_path}/drive_c/windows/system32" && touched=1
+  patch_sysdir "${prefix_path}/drive_c/windows/syswow64" && touched=1
+  [[ "${touched}" == "1" ]] || gptk_die "no system32/syswow64 dsound.dll found in ${prefix_path}"
+
+  if override_is_set "${prefix}"; then
+    gptk_note "registry DllOverride already set: dsound=native"
+  else
+    gptk_note "setting registry DllOverride dsound=native"
+    override_set "${prefix}"
+  fi
+  gptk_note "✅ no-capture fix applied to prefix: ${prefix}"
+}
+
+status_of_prefix() {
+  local prefix="$1" prefix_path sub d
+  prefix_path="$(prefix_path_of "${prefix}")"
+  print -r -- "prefix ${prefix} (${prefix_path}):"
+  for sub in system32 syswow64; do
+    d="${prefix_path}/drive_c/windows/${sub}"
+    [[ -d "${d}" ]] || continue
+    if [[ -f "${d}/dsound_real.dll" ]] && is_proxy_sized "${d}/dsound.dll"; then
+      print -r -- "  ${sub}: patched (proxy + dsound_real.dll)"
+    else
+      print -r -- "  ${sub}: not patched"
+    fi
+  done
+  if override_is_set "${prefix}"; then
+    print -r -- "  registry: dsound=native"
+  else
+    print -r -- "  registry: not set"
+  fi
+}
+
+revert_from_prefix() {
+  local prefix="$1" prefix_path sub d dll real
+  prefix_path="$(prefix_path_of "${prefix}")"
+  for sub in system32 syswow64; do
+    d="${prefix_path}/drive_c/windows/${sub}"
+    dll="${d}/dsound.dll"
+    real="${d}/dsound_real.dll"
+    [[ -f "${real}" ]] || continue
+    rm -f "${dll}"
+    mv "${real}" "${dll}"
+    gptk_note "${sub}: restored real dsound.dll"
+  done
+  override_clear "${prefix}"
+  gptk_note "✅ reverted prefix: ${prefix}"
+}
+
+build_proxies() {
+  local out="${out_dir:-${SCRIPT_DIR:h}/stubs/dsound-nocap/prebuilt}"
+  local src="${SCRIPT_DIR:h}/stubs/dsound-nocap"
+  command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1 || gptk_die "x86_64-w64-mingw32-gcc not found; run: brew install mingw-w64"
+  command -v i686-w64-mingw32-gcc   >/dev/null 2>&1 || gptk_die "i686-w64-mingw32-gcc not found; run: brew install mingw-w64"
+  [[ -f "${src}/dsound_proxy.c" && -f "${src}/dsound.def" ]] || gptk_die "proxy sources not found in ${src}"
+  mkdir -p "${out}"
+  gptk_note "building x86_64 proxy"
+  x86_64-w64-mingw32-gcc -O2 -nostdlib -shared -o "${out}/dsound-nocap-x86_64.dll" \
+    "${src}/dsound_proxy.c" "${src}/dsound.def" -lkernel32
+  gptk_note "building i386 proxy"
+  i686-w64-mingw32-gcc -O2 -nostdlib -shared -o "${out}/dsound-nocap-i386.dll" \
+    "${src}/dsound_proxy.c" "${src}/dsound.def" -lkernel32
+  gptk_note "✅ built proxies into ${out}"
+}
+
+collect_prefixes() {
+  local dir name
+  for dir in "${GPTK_PREFIX_ROOT}"/*(N/); do
+    name="${dir:t}"
+    case "${name}" in
+      *.backup|*.backup-*|*.broken|*.broken-*|*.disabled|*.disabled-*|*.old|*.old-*) continue ;;
+    esac
+    [[ -d "${dir}/drive_c/windows" ]] && print -r -- "${name}"
+  done
+}
+
+run_over_prefixes() {
+  local fn="$1"
+  if [[ "${do_all}" == "1" ]]; then
+    local names=("${(@f)$(collect_prefixes)}")
+    [[ "${#names[@]}" -gt 0 ]] || gptk_die "no initialized prefixes found under ${GPTK_PREFIX_ROOT}"
+    local n
+    for n in "${names[@]}"; do
+      [[ -n "${n}" ]] || continue
+      "${fn}" "${n}"
+    done
+  else
+    "${fn}" "${prefix}"
+  fi
+}
+
+case "${mode}" in
+  apply)  run_over_prefixes apply_to_prefix ;;
+  status) run_over_prefixes status_of_prefix ;;
+  revert) run_over_prefixes revert_from_prefix ;;
+  build)  build_proxies ;;
+esac

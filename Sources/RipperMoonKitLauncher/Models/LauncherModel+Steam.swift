@@ -68,21 +68,25 @@ extension LauncherModel {
 
     func previewStartSteamCommand(for profile: GameProfile, detached: Bool = false) -> String {
         let writeState = steamStateWriteCommand(for: profile)
+        let dsoundFix = dsoundNoCapturePreflightCommand(for: profile)
+        let pre = dsoundFix.isEmpty ? "" : "\(dsoundFix); "
         if detached {
-            return "\(sourceConfig); \(writeState); \(steamStartDetachedCommand(for: profile))"
+            return "\(sourceConfig); \(pre)\(writeState); \(steamStartDetachedCommand(for: profile))"
         }
         let envPart = steamEnvAssignment(for: profile)
-        return "\(sourceConfig); \(writeState); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log"
+        return "\(sourceConfig); \(pre)\(writeState); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log"
     }
 
     func previewInstallSpacewarCommand(for profile: GameProfile, detached: Bool = false) -> String {
         let writeState = steamStateWriteCommand(for: profile)
         let envPart = steamEnvAssignment(for: profile)
         let logPath = "\(config.logsPath)/steam-spacewar-480.log"
+        let dsoundFix = dsoundNoCapturePreflightCommand(for: profile)
+        let pre = dsoundFix.isEmpty ? "" : "\(dsoundFix); "
         if detached {
-            return "\(sourceConfig); \(writeState); nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log --install-spacewar >> \(logPath.shellQuoted) 2>&1 &"
+            return "\(sourceConfig); \(pre)\(writeState); nohup env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log --install-spacewar >> \(logPath.shellQuoted) 2>&1 &"
         }
-        return "\(sourceConfig); \(writeState); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log --install-spacewar"
+        return "\(sourceConfig); \(pre)\(writeState); env \(envPart) \(config.gptkSteamPath.shellQuoted) --no-log --install-spacewar"
     }
 
     func previewInstallSteamCommand() -> String {

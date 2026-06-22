@@ -151,10 +151,15 @@ gptk_configure_environment "${prefix_path}"
 [[ -n "${log_file}" ]] || log_file="$(gptk_log_file "${prefix_name}")"
 gptk_note "open-file limit ${GPTK_EFFECTIVE_NOFILE_LIMIT:-$(ulimit -n 2>/dev/null || print unknown)}"
 
+# Ensure the SDL game-controller backend on existing prefixes (runs once).
+gptk_apply_input_backend "${prefix_path}"
+
 if [[ "${do_init}" == "1" ]]; then
   gptk_note "initializing prefix ${prefix_path}"
   gptk_run_logged "${log_enabled}" "${log_file}" gptk_run_tool wineboot -u
   gptk_link_configured_drives "${prefix_path}"
+  # New prefixes have a windows dir only after wineboot, so apply it here too.
+  gptk_apply_input_backend "${prefix_path}"
 fi
 
 if [[ -n "${set_winver}" ]]; then

@@ -39,7 +39,7 @@ runtime DLLs
 
 ## Elden Ring ERSC Tested Layout
 
-The ERSC flow in this toolkit was tested with an already-installed offline/non-Steam Windows game folder copied into:
+The ERSC flow in this toolkit was tested with a copy of an installed Windows game folder placed in:
 
 ```text
 $GPTK_EXTERNAL_ROOT/Games/EldenRing/Game/

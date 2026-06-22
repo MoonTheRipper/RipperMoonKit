@@ -1,0 +1,26 @@
+;
+; Export table for the dsound no-capture proxy.
+;
+; Ordinals match the stock GPTK Wine dsound.dll so anything importing by
+; ordinal still resolves. Capture creation is blocked on BOTH the flat API and
+; the COM class-factory path, so these four are implemented in dsound_proxy.c:
+;   DirectSoundCaptureCreate, DirectSoundCaptureCreate8  (flat)
+;   DllGetClassObject  (returns a failing factory for the capture CLSIDs,
+;                       forwards every other CLSID to dsound_real)
+;   DllCanUnloadNow    (S_FALSE, keep the proxy resident)
+; Everything else forwards to dsound_real.dll (playback stays real).
+;
+LIBRARY dsound
+EXPORTS
+  DirectSoundCreate=dsound_real.DirectSoundCreate @1
+  DirectSoundEnumerateA=dsound_real.DirectSoundEnumerateA @2
+  DirectSoundEnumerateW=dsound_real.DirectSoundEnumerateW @3
+  DllCanUnloadNow @4
+  DllGetClassObject @5
+  DirectSoundCaptureCreate @6
+  DirectSoundCaptureEnumerateA=dsound_real.DirectSoundCaptureEnumerateA @7
+  DirectSoundCaptureEnumerateW=dsound_real.DirectSoundCaptureEnumerateW @8
+  GetDeviceID=dsound_real.GetDeviceID @9
+  DirectSoundFullDuplexCreate=dsound_real.DirectSoundFullDuplexCreate @10
+  DirectSoundCreate8=dsound_real.DirectSoundCreate8 @11
+  DirectSoundCaptureCreate8 @12
