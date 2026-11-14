@@ -136,14 +136,18 @@ RIPPERMOON_DOTNET6_DIR="$GPTK_HOME/downloads/dotnet6" gptk-dotnet6 --download-on
 
 The randomizer GUI runs under **Wine Staging**, not the Game Porting Toolkit runner. Under GPTK's Wine 7.7 its .NET WinForms window crashes with a UIAutomation stack overflow before it appears, so the launcher refuses to run it there and prompts you to install Wine Staging instead. Game launches still use GPTK/D3DMetal — only the randomizer tool window uses Wine Staging, in its own `EldenRingToolsStaging` prefix.
 
-RipperMoonKit does not bundle Wine Staging (it is a separate, third-party runtime). Install it once with Homebrew:
+RipperMoonKit does not bundle Wine Staging (it is a separate, third-party runtime). Homebrew's `wine@staging` cask was disabled on 2026-09-01 (it fails the macOS Gatekeeper check), so install the official Gcenx build directly:
 
 ```zsh
-brew install --cask wine@staging
+curl -fL -o /tmp/wine-staging.tar.xz \
+  "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.21/wine-staging-11.21-osx64.tar.xz"
+tar -xJf /tmp/wine-staging.tar.xz -C /Applications
 xattr -dr com.apple.quarantine "/Applications/Wine Staging.app"
 ```
 
-The app's Mod Files panel has an **Install Wine Staging** button that runs this in a Terminal window (it may ask for your Mac password, for Wine Staging's GStreamer runtime). After it installs, click **Run Randomizer** again. `install.zsh --check` reports whether Wine Staging is present.
+Check the [Gcenx macOS_Wine_builds releases page](https://github.com/Gcenx/macOS_Wine_builds/releases) for newer versions. Wine's media features also expect the GStreamer runtime (`brew install --cask gstreamer-runtime`).
+
+The app's Mod Files panel has an **Install Wine Staging** button that runs this in a Terminal window (it may ask for your Mac password, for the GStreamer runtime). After it installs, click **Run Randomizer** again. `install.zsh --check` reports whether Wine Staging is present.
 
 ## Installing Windows Steam
 

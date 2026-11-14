@@ -155,6 +155,10 @@ if [[ "${install}" == "1" ]]; then
     done
   fi
   [[ -f "${steam_exe}" ]] || gptk_die "Steam installer finished, but steam.exe was not created at ${steam_exe}"
+  cef_helpers=("${prefix_path}/drive_c/Program Files (x86)/Steam/bin/cef"/*/steamwebhelper.exe(N))
+  if (( ${#cef_helpers} == 0 )); then
+    gptk_note "⚠️ Steam installed without its browser (CEF) payload; the SteamSetup bootstrapper sometimes skips the full client download. The first Steam launch must finish a self-update before the UI appears — if it hangs, rerun with --reset-webhelper-cache."
+  fi
 fi
 
 [[ -f "${steam_exe}" ]] || gptk_die "Steam is not installed in ${prefix_path}; run: gptk-steam --install ${STEAM_SETUP_PATH:-${HOME}/Library/Application Support/RipperMoonKit/Downloads/SteamSetup.exe}"

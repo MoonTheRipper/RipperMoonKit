@@ -87,7 +87,7 @@ struct ModsTab: View {
                         RMKButton(kind: .primary, icon: "arrow.down.circle.fill", title: "Install Wine Staging") {
                             model.installWineStaging()
                         }
-                        .help("Installs Wine Staging via Homebrew in a Terminal window. It may ask for your Mac password (GStreamer runtime).")
+                        .help("Downloads the Gcenx Wine Staging build into /Applications in a Terminal window (Homebrew's wine@staging cask was disabled in September 2026). It may ask for your Mac password (GStreamer runtime).")
                     }
                 }
                 .padding(10)

@@ -73,9 +73,11 @@ extension LauncherModel {
             RipperMoonKit will not launch it there.
 
             Click "Install Wine Staging", or install it yourself and click Run
-            Randomizer again:
+            Randomizer again (Homebrew's wine@staging cask was disabled on
+            2026-09-01, so use the Gcenx build directly):
 
-              brew install --cask wine@staging
+              curl -fL -o /tmp/wine-staging.tar.xz "https://github.com/Gcenx/macOS_Wine_builds/releases/download/11.21/wine-staging-11.21-osx64.tar.xz"
+              tar -xJf /tmp/wine-staging.tar.xz -C /Applications
               xattr -dr com.apple.quarantine "/Applications/Wine Staging.app"
             """
             return
@@ -88,22 +90,41 @@ extension LauncherModel {
         )
     }
 
-    /// Installs Wine Staging in a Terminal window so its GStreamer dependency can
-    /// prompt for the Mac password. After it finishes, Run Randomizer re-reads
-    /// config and picks up the new runner.
+    /// Installs Wine Staging in a Terminal window. Homebrew's wine@staging cask
+    /// was disabled on 2026-09-01 (it fails the macOS Gatekeeper check), so this
+    /// downloads the official Gcenx macOS build and unpacks it into /Applications.
+    /// After it finishes, Run Randomizer re-reads config and picks up the new runner.
     func installWineStaging() {
         let work = """
         export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-        echo "Installing Wine Staging for the Elden Ring Randomizer GUI…"
-        echo "macOS may ask for your Mac password (Wine Staging needs the GStreamer runtime)."
+        version="${RIPPERMOON_WINE_STAGING_VERSION:-11.21}"
+        url="https://github.com/Gcenx/macOS_Wine_builds/releases/download/${version}/wine-staging-${version}-osx64.tar.xz"
+        echo "Installing Wine Staging ${version} for the Elden Ring Randomizer GUI…"
+        echo "(Homebrew's wine@staging cask was disabled on 2026-09-01; this uses the Gcenx build.)"
         echo
-        if brew install --cask wine@staging; then
-          xattr -dr com.apple.quarantine "/Applications/Wine Staging.app" 2>/dev/null || true
+        tmp="$(mktemp -d)"
+        ok=0
+        if curl -fL -o "${tmp}/wine-staging.tar.xz" "${url}"; then
+          if [ -d "/Applications/Wine Staging.app" ]; then
+            mv "/Applications/Wine Staging.app" "/Applications/Wine Staging.app.backup-$(date +%Y%m%d-%H%M%S)"
+          fi
+          if tar -xJf "${tmp}/wine-staging.tar.xz" -C /Applications; then
+            xattr -dr com.apple.quarantine "/Applications/Wine Staging.app" 2>/dev/null || true
+            ok=1
+          fi
+        fi
+        rm -rf "${tmp}"
+        if command -v brew >/dev/null 2>&1 && ! brew list --cask gstreamer-runtime >/dev/null 2>&1; then
+          echo "Installing the GStreamer runtime (macOS may ask for your Mac password)…"
+          brew install --cask gstreamer-runtime || echo "⚠️ GStreamer runtime install failed; Wine media features may be limited."
+        fi
+        if [ "${ok}" = "1" ]; then
           echo
           echo "✅ Wine Staging installed. Return to RipperMoonKit and click Run Randomizer."
         else
           echo
           echo "⚠️ Wine Staging install did not finish — see the output above."
+          echo "   Manual download: ${url}"
         fi
         echo
         echo "You can close this window."
