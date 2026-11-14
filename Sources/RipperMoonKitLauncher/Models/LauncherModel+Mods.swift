@@ -11,7 +11,7 @@ extension LauncherModel {
         let toolEnv = toolRunnerEnvAssignment()
         runShell(
             title: "Install ModEngine + Randomizer",
-            command: "\(sourceConfig); env \(toolEnv) \(config.gptkDotNet6Path.shellQuoted) --prefix \(toolsPrefix.shellQuoted); if [[ -x \(sourceScript.shellQuoted) ]]; then script=\(sourceScript.shellQuoted); else script=\(installedScript.shellQuoted); fi; zsh \"$script\" --game-dir \(profile.gameFolder.shellQuoted) --open-download-pages",
+            command: "\(sourceConfig); env \(toolEnv) \(config.gptkDotNet6Path.shellQuoted) --prefix \(toolsPrefix.shellQuoted); env \(toolEnv) \(config.gptkDotNet6Path.shellQuoted) --channel 8.0 --prefix \(toolsPrefix.shellQuoted); if [[ -x \(sourceScript.shellQuoted) ]]; then script=\(sourceScript.shellQuoted); else script=\(installedScript.shellQuoted); fi; zsh \"$script\" --game-dir \(profile.gameFolder.shellQuoted) --open-download-pages",
             completion: { [weak self] in self?.reload() }
         )
     }
@@ -45,7 +45,7 @@ extension LauncherModel {
         let toolEnv = toolRunnerEnvAssignment()
         runShell(
             title: "Import Friend Kit",
-            command: "\(sourceConfig); env \(toolEnv) \(config.gptkDotNet6Path.shellQuoted) --prefix \(toolsPrefix.shellQuoted); if [[ -x \(sourceScript.shellQuoted) ]]; then script=\(sourceScript.shellQuoted); else script=\(installedScript.shellQuoted); fi; zsh \"$script\" import-friend --game-dir \(profile.gameFolder.shellQuoted) --friend-kit \(url.path.shellQuoted) --force",
+            command: "\(sourceConfig); env \(toolEnv) \(config.gptkDotNet6Path.shellQuoted) --prefix \(toolsPrefix.shellQuoted); env \(toolEnv) \(config.gptkDotNet6Path.shellQuoted) --channel 8.0 --prefix \(toolsPrefix.shellQuoted); if [[ -x \(sourceScript.shellQuoted) ]]; then script=\(sourceScript.shellQuoted); else script=\(installedScript.shellQuoted); fi; zsh \"$script\" import-friend --game-dir \(profile.gameFolder.shellQuoted) --friend-kit \(url.path.shellQuoted) --force",
             completion: { [weak self] in self?.reload() }
         )
     }

@@ -107,30 +107,35 @@ Skip the download:
 ./install.zsh --skip-steam-download
 ```
 
-## .NET 6 Desktop Runtime
+## .NET Desktop Runtime (6 and 8)
 
-Elden Ring Item and Enemy Randomizer is a Windows .NET desktop app. It needs the **.NET 6 Desktop Runtime** installed inside the same Wine prefix that launches the randomizer. RipperMoonKit treats that as a tools prefix, separate from the live game/Steam prefix.
+Elden Ring Item and Enemy Randomizer is a Windows .NET desktop app. It needs the .NET Desktop Runtime installed inside the same Wine prefix that launches the randomizer: **.NET 6** for older randomizer builds, **.NET 8** for builds since roughly September 2026 (these fail with "You must install or update .NET to run this application" when only .NET 6 is present). RipperMoonKit treats that as a tools prefix, separate from the live game/Steam prefix, and its mod-install flow puts both runtimes there.
 
 RipperMoonKit provides:
 
 ```zsh
-gptk-dotnet6 --prefix EldenRingToolsStaging
+gptk-dotnet6 --prefix EldenRingToolsStaging                 # .NET 6
+gptk-dotnet6 --channel 8.0 --prefix EldenRingToolsStaging   # .NET 8
 ```
 
-The helper downloads and caches the Windows x64 desktop runtime from Microsoft's .NET 6 channel URL:
+If the requested runtime is already present in the prefix the install is skipped (pass `--reinstall` to run the installer anyway). The helper downloads and caches the Windows x64 desktop runtime from Microsoft's channel URLs:
 
 ```text
 https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe
+https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe
 ```
 
 Override the URL or cache folder:
 
 ```zsh
 RIPPERMOON_DOTNET6_DESKTOP_URL="https://example.invalid/windowsdesktop-runtime.exe" gptk-dotnet6 --prefix Steam
+RIPPERMOON_DOTNET8_DESKTOP_URL="https://example.invalid/windowsdesktop-runtime.exe" gptk-dotnet6 --channel 8.0 --prefix Steam
 RIPPERMOON_DOTNET6_DIR="$GPTK_HOME/downloads/dotnet6" gptk-dotnet6 --download-only
 ```
 
-.NET 6 is end-of-life, but the randomizer is built for it. The runtime is installed only into the selected Wine prefix.
+Both channels are end-of-life or close to it, but the randomizer is built against them. The runtime is installed only into the selected Wine prefix.
+
+One caveat for installs into a **game or Steam prefix**: the runtime installers run under the tool runner (Wine Staging when present — GPTK's wine64 cannot start 32-bit PE installers on macOS 27), and a Wine prefix can only be served by one Wine build at a time. If Steam or a game is currently running in that prefix under GPTK, the install now stops with a clear "prefix is busy under a different Wine build" message instead of Wine's cryptic `wineserver version mismatch` error. Close Steam/the game and retry.
 
 ### Wine Staging (required for the randomizer GUI)
 

@@ -170,11 +170,38 @@ gptk_resolve_prefix() {
   fi
 }
 
+# A wineserver only accepts clients from the Wine build that started it;
+# a client from any other build aborts with the cryptic
+# "wine client error: version mismatch". Before running anything in a prefix,
+# check whether a live wineserver from a different build already owns it
+# (for example GPTK's, while Steam is running) and fail with a clear message.
+gptk_assert_prefix_server_matches() {
+  local prefix_path="$1"
+  command -v lsof >/dev/null 2>&1 || return 0
+  local ids server_dir pid cwd server_bin
+  ids=("${(@s: :)$(stat -f '%d %i' "${prefix_path}" 2>/dev/null)}")
+  (( ${#ids} == 2 )) || return 0
+  server_dir="$(printf '/tmp/.wine-%d/server-%x-%x' "${UID}" "${ids[1]}" "${ids[2]}")"
+  [[ -e "${server_dir}/socket" ]] || return 0
+  for pid in ${(f)"$(pgrep -f 'bin/wineserver' 2>/dev/null)"}; do
+    cwd="$(lsof -a -p "${pid}" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n 1)"
+    # lsof prints the symlink-resolved path (/private/tmp/... for /tmp/...).
+    [[ "${cwd}" == "${server_dir}" || "${cwd}" == "${server_dir:A}" ]] || continue
+    server_bin="$(ps -o comm= -p "${pid}" 2>/dev/null)"
+    if [[ -n "${server_bin}" && "${server_bin}" != "${GPTK_WINE_HOME}"/bin/* ]]; then
+      gptk_die "prefix ${prefix_path:t} is busy under a different Wine build (${server_bin}). Close Steam or the game running in this prefix, then retry; mixing Wine builds in a running prefix fails with a wineserver version mismatch."
+    fi
+    return 0
+  done
+  return 0
+}
+
 gptk_configure_environment() {
   local prefix_path="$1"
   GPTK_WINE_HOME="$(gptk_find_wine_home)" || gptk_die "no compatible wine64 found"
   export GPTK_WINE_HOME
   gptk_raise_file_limit
+  gptk_assert_prefix_server_matches "${prefix_path}"
 
   export WINEPREFIX="${prefix_path}"
   export WINEARCH="${WINEARCH:-win64}"

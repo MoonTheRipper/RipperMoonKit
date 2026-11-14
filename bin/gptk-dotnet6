@@ -12,25 +12,33 @@ Usage:
   gptk-dotnet6 [options]
 
 Options:
-  -p, --prefix NAME|PATH     Install .NET 6 Desktop Runtime into one Wine prefix
+  -p, --prefix NAME|PATH     Install the .NET Desktop Runtime into one Wine prefix
+      --channel X.Y          .NET channel to install (default 6.0; the Elden Ring
+                             Randomizer builds since September 2026 need 8.0)
       --all                  Install into every existing prefix under GPTK_PREFIX_ROOT
       --download-only        Download the installer and exit
       --force-download       Re-download the installer even if cached
+      --reinstall            Run the installer even if the runtime is already in the prefix
   -h, --help                 Show this help
 
 Default:
   If neither --prefix nor --all is provided, gptk-dotnet6 installs into GPTK_PREFIX or Default.
+  When the requested runtime is already present in the prefix, the install is skipped.
 
 Environment:
   RIPPERMOON_DOTNET6_DESKTOP_URL  Override the Microsoft .NET 6 Desktop Runtime x64 URL
-  RIPPERMOON_DOTNET6_DIR          Override the local installer cache folder
+  RIPPERMOON_DOTNET8_DESKTOP_URL  Override the Microsoft .NET 8 Desktop Runtime x64 URL
+  RIPPERMOON_DOTNET6_DIR          Override the local installer cache folder (.NET 6)
+  RIPPERMOON_DOTNET8_DIR          Override the local installer cache folder (.NET 8)
 USAGE
 }
 
 prefix="${GPTK_PREFIX:-Default}"
+channel="6.0"
 install_all=0
 download_only=0
 force_download=0
+reinstall=0
 explicit_prefix=0
 
 while [[ $# -gt 0 ]]; do
@@ -46,8 +54,21 @@ while [[ $# -gt 0 ]]; do
       explicit_prefix=1
       shift
       ;;
+    --channel)
+      [[ $# -ge 2 ]] || gptk_die "--channel requires a value such as 6.0 or 8.0"
+      channel="$2"
+      shift 2
+      ;;
+    --channel=*)
+      channel="${1#--channel=}"
+      shift
+      ;;
     --all)
       install_all=1
+      shift
+      ;;
+    --reinstall)
+      reinstall=1
       shift
       ;;
     --download-only)
@@ -72,10 +93,24 @@ if [[ "${install_all}" == "1" && "${explicit_prefix}" == "1" ]]; then
   gptk_die "use either --all or --prefix, not both"
 fi
 
-dotnet_dir="${RIPPERMOON_DOTNET6_DIR:-${GPTK_HOME}/downloads/dotnet6}"
-dotnet_url="${RIPPERMOON_DOTNET6_DESKTOP_URL:-https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe}"
-dotnet_installer="${dotnet_dir}/windowsdesktop-runtime-6.0-win-x64.exe"
-log_file="${GPTK_LOG_DIR}/dotnet6-desktop-$(date +%Y%m%d-%H%M%S).log"
+[[ "${channel}" == <->.<-> ]] || gptk_die "--channel must look like 6.0 or 8.0, got: ${channel}"
+channel_major="${channel%%.*}"
+case "${channel_major}" in
+  6)
+    dotnet_dir="${RIPPERMOON_DOTNET6_DIR:-${GPTK_HOME}/downloads/dotnet6}"
+    dotnet_url="${RIPPERMOON_DOTNET6_DESKTOP_URL:-https://aka.ms/dotnet/${channel}/windowsdesktop-runtime-win-x64.exe}"
+    ;;
+  8)
+    dotnet_dir="${RIPPERMOON_DOTNET8_DIR:-${GPTK_HOME}/downloads/dotnet8}"
+    dotnet_url="${RIPPERMOON_DOTNET8_DESKTOP_URL:-https://aka.ms/dotnet/${channel}/windowsdesktop-runtime-win-x64.exe}"
+    ;;
+  *)
+    dotnet_dir="${GPTK_HOME}/downloads/dotnet${channel_major}"
+    dotnet_url="https://aka.ms/dotnet/${channel}/windowsdesktop-runtime-win-x64.exe"
+    ;;
+esac
+dotnet_installer="${dotnet_dir}/windowsdesktop-runtime-${channel}-win-x64.exe"
+log_file="${GPTK_LOG_DIR}/dotnet${channel_major}-desktop-$(date +%Y%m%d-%H%M%S).log"
 
 download_installer() {
   local tmp="${dotnet_installer}.download"
@@ -118,6 +153,15 @@ install_into_prefix() {
   [[ -s "${dotnet_installer}" ]] || gptk_die "missing ${dotnet_installer}; run gptk-dotnet6 --download-only first"
 
   prefix_path="$(gptk_resolve_prefix "${prefix_value}")"
+
+  if [[ "${reinstall}" != "1" ]]; then
+    local installed=("${prefix_path}/drive_c/Program Files/dotnet/shared/Microsoft.WindowsDesktop.App/${channel_major}."*(N/))
+    if (( ${#installed} > 0 )); then
+      gptk_note ".NET ${channel} Desktop Runtime already present in ${prefix_path} (${installed[1]:t}); skipping (use --reinstall to force)"
+      return 0
+    fi
+  fi
+
   gptk_prepare_prefix_dirs "${prefix_path}"
   gptk_configure_environment "${prefix_path}"
   gptk_link_configured_drives "${prefix_path}"
@@ -134,7 +178,7 @@ install_into_prefix() {
     fi
   fi
 
-  gptk_note "installing .NET 6 Desktop Runtime into ${WINEPREFIX}"
+  gptk_note "installing .NET ${channel} Desktop Runtime into ${WINEPREFIX}"
   set +e
   gptk_run_native "$(gptk_tool_path wine64)" "${dotnet_installer}" /install /quiet /norestart >> "${log_file}" 2>&1
   exit_status=$?
@@ -142,22 +186,22 @@ install_into_prefix() {
 
   case "${exit_status}" in
     0)
-      gptk_note ".NET 6 Desktop Runtime install completed"
+      gptk_note ".NET ${channel} Desktop Runtime install completed"
       ;;
     194|3010)
-      gptk_note ".NET 6 Desktop Runtime install completed; reboot requested by installer"
+      gptk_note ".NET ${channel} Desktop Runtime install completed; reboot requested by installer"
       ;;
     102|1638)
-      gptk_note ".NET 6 Desktop Runtime already installed or newer version present"
+      gptk_note ".NET ${channel} Desktop Runtime already installed or newer version present"
       ;;
     *)
-      gptk_note ".NET 6 Desktop Runtime installer exited with status ${exit_status}; see ${log_file}"
+      gptk_note ".NET ${channel} Desktop Runtime installer exited with status ${exit_status}; see ${log_file}"
       return "${exit_status}"
       ;;
   esac
 }
 
-gptk_note ".NET 6 Desktop Runtime log: ${log_file}"
+gptk_note ".NET ${channel} Desktop Runtime log: ${log_file}"
 download_installer
 
 [[ "${download_only}" == "1" ]] && exit 0
@@ -174,4 +218,4 @@ else
   install_into_prefix "${prefix}"
 fi
 
-gptk_note ".NET 6 Desktop Runtime install finished"
+gptk_note ".NET ${channel} Desktop Runtime install finished"
